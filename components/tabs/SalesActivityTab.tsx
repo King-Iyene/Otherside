@@ -15,6 +15,7 @@ import ComboChart from "../ComboChart";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import MoneyCell from "../MoneyCell";
+import Link from "next/link";
 
 function totalsOf(rows: SalesActivityRow[]) {
   return {
@@ -281,6 +282,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       <div className="panel" style={{ marginBottom: 20 }}>
         <div className="panel-header">
           <div className="panel-title">Leaderboard — Cash on Call (period-scoped)</div>
+          <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a name for full scorecard</span>
         </div>
         {leaderboard.length === 0 ? (
           <div className="empty-state">No sales activity in range.</div>
@@ -305,7 +307,18 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
                   <td>
                     <span className="rank-pill">{idx + 1}</span>
                   </td>
-                  <td>{row.manager}</td>
+                  <td>
+                    {row.manager === "(unassigned)" ? (
+                      row.manager
+                    ) : (
+                      <Link
+                        href={`/closer/${encodeURIComponent(row.manager)}`}
+                        style={{ color: "var(--text)", textDecoration: "none", fontWeight: 500 }}
+                      >
+                        {row.manager} →
+                      </Link>
+                    )}
+                  </td>
                   <td className="mono">{formatMoney(row.cashOnCall)}</td>
                   <td className="mono">{formatMoney(row.salesRevenue)}</td>
                   <td className="mono">{formatNumber(row.newCalls)}</td>
