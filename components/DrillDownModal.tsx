@@ -87,7 +87,9 @@ export default function DrillDownModal({ open, onClose, title, subtitle, childre
             ×
           </button>
         </div>
-        <div style={{ padding: 20, overflow: "auto", flex: 1 }}>{children}</div>
+        <div style={{ padding: 20, overflow: "auto", flex: 1, minWidth: 0 }}>
+          <div style={{ overflowX: "auto", width: "100%" }}>{children}</div>
+        </div>
       </div>
       <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
     </div>

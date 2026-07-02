@@ -1,4 +1,4 @@
-import type { CashRow, ChallengeRow } from "./types";
+import type { ApplicationRow, CashRow, ChallengeRow } from "./types";
 
 function normalizeEmail(email: string | null | undefined): string {
   return (email || "").trim().toLowerCase();
@@ -14,19 +14,92 @@ function emailFromChallenge(row: ChallengeRow): string {
   return "";
 }
 
-export interface ChallengeToRebornAnalysis {
-  challengeEmails: number;
-  challengeUniqueEmails: number;
-  challengeBoughtReborn: number;
-  conversionRate: number | null;
-  matches: { email: string; challengeProduct: string | null; rebornProduct: string | null; rebornCashCollected: number | null }[];
+function productFromChallenge(row: ChallengeRow): string | null {
+  for (const key of Object.keys(row)) {
+    if (key.toLowerCase() === "product") {
+      const v = row[key];
+      if (typeof v === "string" && v.trim()) return v;
+    }
+  }
+  return null;
+}
+
+function couponFromChallenge(row: ChallengeRow): string | null {
+  for (const key of Object.keys(row)) {
+    if (key.toLowerCase() === "coupon") {
+      const v = row[key];
+      if (typeof v === "string" && v.trim()) return v;
+    }
+  }
+  return null;
+}
+
+function amountFromChallenge(row: ChallengeRow): number | null {
+  for (const key of Object.keys(row)) {
+    if (key.toLowerCase() === "amount") {
+      const v = row[key];
+      if (typeof v === "number") return v;
+    }
+  }
+  return null;
 }
 
 /**
- * How many people who registered for a Challenge went on to buy Reborn?
- * Joins Challenge Sheet + Reborn Cash Tracker by normalized email.
+ * Cash Tracker rows indexed by email for fast lookup.
  */
-export function analyzeChallengeToReborn(challengeRows: ChallengeRow[], cashRows: CashRow[]): ChallengeToRebornAnalysis {
+export function indexCashByEmail(cashRows: CashRow[], includeTest = false) {
+  const map = new Map<string, CashRow>();
+  for (const r of cashRows) {
+    if (!includeTest && r.isTest) continue;
+    const email = normalizeEmail(r.email);
+    if (!email) continue;
+    if (!map.has(email)) map.set(email, r);
+  }
+  return map;
+}
+
+/**
+ * Application rows indexed by email.
+ */
+export function indexAppsByEmail(applications: ApplicationRow[], includeTest = false) {
+  const map = new Map<string, ApplicationRow>();
+  for (const r of applications) {
+    if (!includeTest && r.isTest) continue;
+    const email = normalizeEmail(r.email);
+    if (!email) continue;
+    if (!map.has(email)) map.set(email, r);
+  }
+  return map;
+}
+
+// ─── Challenge → Reborn ─────────────────────────────────────────────
+
+export interface ChallengeMatch {
+  email: string;
+  challengeProduct: string | null;
+  challengeCoupon: string | null;
+  challengeAmount: number | null;
+  rebornProduct: string | null;
+  rebornCohort: string | null;
+  rebornRevenue: number | null;
+  rebornCashCollected: number | null;
+}
+
+export interface ChallengeToRebornAnalysis {
+  challengeUniqueEmails: number;
+  challengeBoughtReborn: number;
+  conversionRate: number | null;
+  revenueFromConverters: number;
+  matches: ChallengeMatch[];
+  /** Split by coupon usage. */
+  freeToBought: { total: number; converted: number };
+  paidToBought: { total: number; converted: number };
+}
+
+export function analyzeChallengeToReborn(
+  challengeRows: ChallengeRow[],
+  cashRows: CashRow[]
+): ChallengeToRebornAnalysis {
   const challengeEmails = new Map<string, ChallengeRow>();
   for (const r of challengeRows) {
     if (r.isTest) continue;
@@ -35,31 +108,34 @@ export function analyzeChallengeToReborn(challengeRows: ChallengeRow[], cashRows
     if (!challengeEmails.has(email)) challengeEmails.set(email, r);
   }
 
-  const cashByEmail = new Map<string, CashRow>();
-  for (const r of cashRows) {
-    if (r.isTest) continue;
-    const email = normalizeEmail(r.email);
-    if (!email) continue;
-    if (!cashByEmail.has(email)) cashByEmail.set(email, r);
-  }
+  const cashByEmail = indexCashByEmail(cashRows);
 
-  const matches: ChallengeToRebornAnalysis["matches"] = [];
+  const matches: ChallengeMatch[] = [];
+  let freeTotal = 0;
+  let freeBought = 0;
+  let paidTotal = 0;
+  let paidBought = 0;
+
   for (const [email, cRow] of challengeEmails) {
     const rebornRow = cashByEmail.get(email);
+    const amount = amountFromChallenge(cRow);
+    const coupon = couponFromChallenge(cRow);
+    const isFree = (amount ?? 0) === 0 || !!coupon;
+
+    if (isFree) freeTotal += 1;
+    else paidTotal += 1;
+
     if (rebornRow) {
-      // Find product column in challenge row
-      let challengeProduct: string | null = null;
-      for (const key of Object.keys(cRow)) {
-        if (key.toLowerCase() === "product") {
-          const v = cRow[key];
-          if (typeof v === "string") challengeProduct = v;
-          break;
-        }
-      }
+      if (isFree) freeBought += 1;
+      else paidBought += 1;
       matches.push({
         email,
-        challengeProduct,
+        challengeProduct: productFromChallenge(cRow),
+        challengeCoupon: coupon,
+        challengeAmount: amount,
         rebornProduct: rebornRow.product,
+        rebornCohort: rebornRow.cohort,
+        rebornRevenue: rebornRow.revenue,
         rebornCashCollected: rebornRow.cashCollected,
       });
     }
@@ -67,11 +143,155 @@ export function analyzeChallengeToReborn(challengeRows: ChallengeRow[], cashRows
 
   const totalChallenge = challengeEmails.size;
   const bought = matches.length;
+  const revenueFromConverters = matches.reduce((s, m) => s + (m.rebornCashCollected ?? 0), 0);
+
   return {
-    challengeEmails: challengeRows.length,
     challengeUniqueEmails: totalChallenge,
     challengeBoughtReborn: bought,
     conversionRate: totalChallenge > 0 ? bought / totalChallenge : null,
+    revenueFromConverters,
     matches: matches.sort((a, b) => (b.rebornCashCollected ?? 0) - (a.rebornCashCollected ?? 0)),
+    freeToBought: { total: freeTotal, converted: freeBought },
+    paidToBought: { total: paidTotal, converted: paidBought },
+  };
+}
+
+// ─── Application → Purchase ─────────────────────────────────────────
+
+export interface AppPurchaseAnalysis {
+  bucketBreakdown: {
+    bracket: string;
+    applications: number;
+    purchased: number;
+    conversionRate: number | null;
+    revenue: number;
+  }[];
+  statusBreakdown: {
+    status: string;
+    applications: number;
+    purchased: number;
+    conversionRate: number | null;
+    revenue: number;
+  }[];
+  /** All applicant emails that also appear in Cash Tracker with the joined data. */
+  matches: {
+    email: string;
+    applicationStatus: string | null;
+    annualEarnings: string | null;
+    rebornProduct: string | null;
+    rebornCohort: string | null;
+    rebornCashCollected: number | null;
+    rebornRevenue: number | null;
+  }[];
+}
+
+export function analyzeAppToPurchase(applications: ApplicationRow[], cashRows: CashRow[]): AppPurchaseAnalysis {
+  const cashByEmail = indexCashByEmail(cashRows);
+
+  const bracketMap = new Map<string, { applications: number; purchased: number; revenue: number }>();
+  const statusMap = new Map<string, { applications: number; purchased: number; revenue: number }>();
+  const matches: AppPurchaseAnalysis["matches"] = [];
+
+  for (const app of applications) {
+    if (app.isTest) continue;
+    const bracket = app.annualEarnings || "(unspecified)";
+    const status = app.applicationStatus || "(no status)";
+
+    const bEntry = bracketMap.get(bracket) || { applications: 0, purchased: 0, revenue: 0 };
+    bEntry.applications += 1;
+    const sEntry = statusMap.get(status) || { applications: 0, purchased: 0, revenue: 0 };
+    sEntry.applications += 1;
+
+    const email = normalizeEmail(app.email);
+    const rebornRow = email ? cashByEmail.get(email) : undefined;
+    if (rebornRow) {
+      const cash = rebornRow.cashCollected ?? 0;
+      bEntry.purchased += 1;
+      bEntry.revenue += cash;
+      sEntry.purchased += 1;
+      sEntry.revenue += cash;
+      matches.push({
+        email,
+        applicationStatus: app.applicationStatus,
+        annualEarnings: app.annualEarnings,
+        rebornProduct: rebornRow.product,
+        rebornCohort: rebornRow.cohort,
+        rebornCashCollected: rebornRow.cashCollected,
+        rebornRevenue: rebornRow.revenue,
+      });
+    }
+
+    bracketMap.set(bracket, bEntry);
+    statusMap.set(status, sEntry);
+  }
+
+  const bucketBreakdown = Array.from(bracketMap.entries())
+    .map(([bracket, v]) => ({
+      bracket,
+      applications: v.applications,
+      purchased: v.purchased,
+      conversionRate: v.applications > 0 ? v.purchased / v.applications : null,
+      revenue: v.revenue,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  const statusBreakdown = Array.from(statusMap.entries())
+    .map(([status, v]) => ({
+      status,
+      applications: v.applications,
+      purchased: v.purchased,
+      conversionRate: v.applications > 0 ? v.purchased / v.applications : null,
+      revenue: v.revenue,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  return {
+    bucketBreakdown,
+    statusBreakdown,
+    matches: matches.sort((a, b) => (b.rebornCashCollected ?? 0) - (a.rebornCashCollected ?? 0)),
+  };
+}
+
+// ─── Coupon-user conversion ─────────────────────────────────────────
+
+export interface CouponPurchaseAnalysis {
+  perCoupon: {
+    code: string;
+    challengeUses: number;
+    boughtReborn: number;
+    conversionRate: number | null;
+    revenue: number;
+  }[];
+}
+
+export function analyzeCouponPurchase(challengeRows: ChallengeRow[], cashRows: CashRow[]): CouponPurchaseAnalysis {
+  const cashByEmail = indexCashByEmail(cashRows);
+  const perCoupon = new Map<string, { challengeUses: number; boughtReborn: number; revenue: number }>();
+
+  for (const r of challengeRows) {
+    if (r.isTest) continue;
+    const coupon = couponFromChallenge(r) || "(no coupon)";
+    const email = emailFromChallenge(r);
+    if (!email) continue;
+    const entry = perCoupon.get(coupon) || { challengeUses: 0, boughtReborn: 0, revenue: 0 };
+    entry.challengeUses += 1;
+    const rebornRow = cashByEmail.get(email);
+    if (rebornRow) {
+      entry.boughtReborn += 1;
+      entry.revenue += rebornRow.cashCollected ?? 0;
+    }
+    perCoupon.set(coupon, entry);
+  }
+
+  return {
+    perCoupon: Array.from(perCoupon.entries())
+      .map(([code, v]) => ({
+        code,
+        challengeUses: v.challengeUses,
+        boughtReborn: v.boughtReborn,
+        conversionRate: v.challengeUses > 0 ? v.boughtReborn / v.challengeUses : null,
+        revenue: v.revenue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue),
   };
 }
