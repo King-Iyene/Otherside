@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ApplicationRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch } from "@/lib/filtering";
+import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
@@ -24,19 +25,57 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
   const statuses = useMemo(() => uniqueSorted(rows.map((r) => r.applicationStatus)), [rows]);
   const earningsOptions = useMemo(() => uniqueSorted(rows.map((r) => r.annualEarnings)), [rows]);
 
+  const dimensionMatch = (r: ApplicationRow) => {
+    if (status && r.applicationStatus !== status) return false;
+    if (earnings && r.annualEarnings !== earnings) return false;
+    if (!matchesSearch([r.firstName, r.lastName, r.email, r.phone], search)) return false;
+    return true;
+  };
+
+  const { from, to } = resolveRange(preset, customFrom, customTo);
+
   const filtered = useMemo(() => {
-    const { from, to } = resolveRange(preset, customFrom, customTo);
-    return rows.filter((r) => {
-      if (!includeTest && r.isTest) return false;
-      if (!inRange(r.dateCreated, from, to)) return false;
-      if (status && r.applicationStatus !== status) return false;
-      if (earnings && r.annualEarnings !== earnings) return false;
-      if (!matchesSearch([r.firstName, r.lastName, r.email, r.phone], search)) return false;
-      return true;
-    });
-  }, [rows, preset, customFrom, customTo, status, earnings, search, includeTest]);
+    return rows.filter((r) => (includeTest || !r.isTest) && inRange(r.dateCreated, from, to) && dimensionMatch(r));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, from, to, status, earnings, search, includeTest]);
+
+  const prevRange = previousPeriod(from, to);
+  const prevFiltered = useMemo(() => {
+    if (!prevRange) return null;
+    return rows.filter(
+      (r) => (includeTest || !r.isTest) && inRange(r.dateCreated, prevRange.from, prevRange.to) && dimensionMatch(r)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, prevRange, status, earnings, search, includeTest]);
 
   const purchasedCount = filtered.filter((r) => r.purchased).length;
+  const conversionRate = filtered.length ? purchasedCount / filtered.length : null;
+
+  const prevPurchased = prevFiltered ? prevFiltered.filter((r) => r.purchased).length : null;
+  const prevConversionRate = prevFiltered && prevFiltered.length ? (prevPurchased as number) / prevFiltered.length : null;
+
+  const earningsComparison = useMemo(() => {
+    return earningsOptions
+      .map((e) => {
+        const curRows = filtered.filter((r) => r.annualEarnings === e);
+        const prevRows = prevFiltered ? prevFiltered.filter((r) => r.annualEarnings === e) : [];
+        const curPurchased = curRows.filter((r) => r.purchased).length;
+        const prevPurchasedCount = prevRows.filter((r) => r.purchased).length;
+        return {
+          bucket: e,
+          applications: curRows.length,
+          purchased: curPurchased,
+          conversion: curRows.length ? curPurchased / curRows.length : null,
+          delta: prevFiltered ? computeDelta(curRows.length, prevRows.length) : null,
+          conversionDelta:
+            prevFiltered && prevRows.length && curRows.length
+              ? computeDelta(curPurchased / curRows.length, prevPurchasedCount / prevRows.length)
+              : null,
+        };
+      })
+      .filter((e) => e.applications > 0)
+      .sort((a, b) => b.applications - a.applications);
+  }, [earningsOptions, filtered, prevFiltered]);
 
   const columns: Column<ApplicationRow>[] = [
     { key: "firstName", label: "First Name", render: (r) => r.firstName, sortValue: (r) => r.firstName },
@@ -81,9 +120,24 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
 
       <KpiGrid
         items={[
-          { label: "Applications", value: formatNumber(filtered.length) },
-          { label: "Purchased", value: formatNumber(purchasedCount) },
-          { label: "Conversion Rate", value: formatPercent(filtered.length ? purchasedCount / filtered.length : null) },
+          {
+            label: "Applications",
+            value: formatNumber(filtered.length),
+            delta: prevFiltered && computeDelta(filtered.length, prevFiltered.length),
+          },
+          {
+            label: "Purchased",
+            value: formatNumber(purchasedCount),
+            delta: prevPurchased !== null ? computeDelta(purchasedCount, prevPurchased) : null,
+          },
+          {
+            label: "Conversion Rate",
+            value: formatPercent(conversionRate),
+            delta:
+              conversionRate !== null && prevConversionRate !== null
+                ? computeDelta(conversionRate, prevConversionRate)
+                : null,
+          },
         ]}
       />
 
@@ -98,6 +152,48 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
           items={earningsOptions.map((e) => ({ key: e, value: filtered.filter((r) => r.annualEarnings === e).length }))}
         />
       </div>
+
+      {earningsComparison.length > 0 && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">
+            <div className="panel-title">Earnings Bracket Performance {prevFiltered ? "(vs. previous equivalent period)" : ""}</div>
+          </div>
+          <table className="leaderboard">
+            <thead>
+              <tr>
+                <th>Bracket</th>
+                <th>Applications</th>
+                <th>Purchased</th>
+                <th>Conversion</th>
+                {prevFiltered && <th>Volume vs Prev</th>}
+                {prevFiltered && <th>Conversion vs Prev</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {earningsComparison.map((e) => (
+                <tr key={e.bucket}>
+                  <td>{e.bucket}</td>
+                  <td className="mono">{formatNumber(e.applications)}</td>
+                  <td className="mono">{formatNumber(e.purchased)}</td>
+                  <td className="mono">{formatPercent(e.conversion)}</td>
+                  {prevFiltered && (
+                    <td className="mono">
+                      {e.delta?.pct === null || e.delta === null ? "n/a" : `${e.delta.pct >= 0 ? "▲" : "▼"} ${formatPercent(Math.abs(e.delta.pct))}`}
+                    </td>
+                  )}
+                  {prevFiltered && (
+                    <td className="mono">
+                      {e.conversionDelta?.pct === null || e.conversionDelta === null
+                        ? "n/a"
+                        : `${e.conversionDelta.pct >= 0 ? "▲" : "▼"} ${formatPercent(Math.abs(e.conversionDelta.pct))}`}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
     </div>

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import type { CashRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch, sum } from "@/lib/filtering";
-import { formatMoney, formatNumber } from "@/lib/money";
+import { previousPeriod, computeDelta } from "@/lib/comparison";
+import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
@@ -28,23 +29,69 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
   const paymentMethods = useMemo(() => uniqueSorted(rows.map((r) => r.paymentMethod)), [rows]);
 
+  const dimensionMatch = (r: CashRow) => {
+    if (product && r.product !== product) return false;
+    if (cohort && r.cohort !== cohort) return false;
+    if (enrManager && r.enrManager !== enrManager) return false;
+    if (paymentMethod && r.paymentMethod !== paymentMethod) return false;
+    if (!matchesSearch([r.name, r.email, r.note], search)) return false;
+    return true;
+  };
+
+  const { from, to } = resolveRange(preset, customFrom, customTo);
+
   const filtered = useMemo(() => {
-    const { from, to } = resolveRange(preset, customFrom, customTo);
     return rows.filter((r) => {
       if (!includeTest && r.isTest) return false;
       if (!inRange(r.enrollmentDate, from, to)) return false;
-      if (product && r.product !== product) return false;
-      if (cohort && r.cohort !== cohort) return false;
-      if (enrManager && r.enrManager !== enrManager) return false;
-      if (paymentMethod && r.paymentMethod !== paymentMethod) return false;
-      if (!matchesSearch([r.name, r.email, r.note], search)) return false;
-      return true;
+      return dimensionMatch(r);
     });
-  }, [rows, preset, customFrom, customTo, product, cohort, enrManager, paymentMethod, search, includeTest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, from, to, product, cohort, enrManager, paymentMethod, search, includeTest]);
+
+  const prevRange = previousPeriod(from, to);
+  const prevFiltered = useMemo(() => {
+    if (!prevRange) return null;
+    return rows.filter((r) => {
+      if (!includeTest && r.isTest) return false;
+      if (!inRange(r.enrollmentDate, prevRange.from, prevRange.to)) return false;
+      return dimensionMatch(r);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, prevRange, product, cohort, enrManager, paymentMethod, search, includeTest]);
 
   const totalRevenue = sum(filtered.map((r) => r.revenue));
   const totalCash = sum(filtered.map((r) => r.cashCollected));
   const totalBalance = sum(filtered.map((r) => r.balance));
+
+  const prevTotals = prevFiltered
+    ? {
+        revenue: sum(prevFiltered.map((r) => r.revenue)),
+        cash: sum(prevFiltered.map((r) => r.cashCollected)),
+        balance: sum(prevFiltered.map((r) => r.balance)),
+        count: prevFiltered.length,
+      }
+    : null;
+
+  const cohortComparison = useMemo(() => {
+    return cohorts
+      .map((c) => {
+        const curRows = filtered.filter((r) => r.cohort === c);
+        const prevRows = prevFiltered ? prevFiltered.filter((r) => r.cohort === c) : [];
+        const curCash = sum(curRows.map((r) => r.cashCollected));
+        const prevCash = sum(prevRows.map((r) => r.cashCollected));
+        return {
+          cohort: c,
+          enrollments: curRows.length,
+          revenue: sum(curRows.map((r) => r.revenue)),
+          cashCollected: curCash,
+          avgDeal: curRows.length ? sum(curRows.map((r) => r.cashCollected)) / curRows.length : null,
+          delta: prevFiltered ? computeDelta(curCash, prevCash) : null,
+        };
+      })
+      .filter((c) => c.enrollments > 0)
+      .sort((a, b) => b.cashCollected - a.cashCollected);
+  }, [cohorts, filtered, prevFiltered]);
 
   const columns: Column<CashRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
@@ -111,10 +158,19 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
 
       <KpiGrid
         items={[
-          { label: "Revenue", value: formatMoney(totalRevenue) },
-          { label: "Cash Collected", value: formatMoney(totalCash) },
-          { label: "Outstanding Balance", value: formatMoney(totalBalance) },
-          { label: "Enrollments", value: formatNumber(filtered.length) },
+          { label: "Revenue", value: formatMoney(totalRevenue), delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue) },
+          { label: "Cash Collected", value: formatMoney(totalCash), delta: prevTotals && computeDelta(totalCash, prevTotals.cash) },
+          {
+            label: "Outstanding Balance",
+            value: formatMoney(totalBalance),
+            delta: prevTotals && computeDelta(totalBalance, prevTotals.balance),
+            higherIsBetter: false,
+          },
+          {
+            label: "Enrollments",
+            value: formatNumber(filtered.length),
+            delta: prevTotals && computeDelta(filtered.length, prevTotals.count),
+          },
         ]}
       />
 
@@ -131,6 +187,44 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           valueFormatter={(v) => formatMoney(v)}
         />
       </div>
+
+      {cohortComparison.length > 0 && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">
+            <div className="panel-title">Cohort Performance {prevFiltered ? "(vs. previous equivalent period)" : ""}</div>
+          </div>
+          <table className="leaderboard">
+            <thead>
+              <tr>
+                <th>Cohort</th>
+                <th>Enrollments</th>
+                <th>Revenue</th>
+                <th>Cash Collected</th>
+                <th>Avg Deal Size</th>
+                {prevFiltered && <th>Cash vs Prev</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {cohortComparison.map((c) => (
+                <tr key={c.cohort}>
+                  <td>{c.cohort}</td>
+                  <td className="mono">{formatNumber(c.enrollments)}</td>
+                  <td className="mono">{formatMoney(c.revenue)}</td>
+                  <td className="mono">{formatMoney(c.cashCollected)}</td>
+                  <td className="mono">{formatMoney(c.avgDeal)}</td>
+                  {prevFiltered && (
+                    <td className="mono">
+                      {c.delta?.pct === null || c.delta === null
+                        ? "n/a"
+                        : `${c.delta.pct >= 0 ? "▲" : "▼"} ${formatPercent(Math.abs(c.delta.pct))}`}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
     </div>

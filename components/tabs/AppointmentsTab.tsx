@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { AppointmentRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch } from "@/lib/filtering";
+import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
@@ -30,23 +31,45 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
   const cohorts = useMemo(() => uniqueSorted(rows.map((r) => r.cohort)), [rows]);
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
 
+  const dimensionMatch = (r: AppointmentRow) => {
+    if (status && r.status !== status) return false;
+    if (type && r.appointmentType !== type) return false;
+    if (cohort && r.cohort !== cohort) return false;
+    if (enrManager && r.enrManager !== enrManager) return false;
+    if (!matchesSearch([r.name, r.email, r.phone, r.notes], search)) return false;
+    return true;
+  };
+
+  const { from, to } = resolveRange(preset, customFrom, customTo);
+
   const filtered = useMemo(() => {
-    const { from, to } = resolveRange(preset, customFrom, customTo);
-    return rows.filter((r) => {
-      if (!includeTest && r.isTest) return false;
-      if (!inRange(r.appointmentTime, from, to)) return false;
-      if (status && r.status !== status) return false;
-      if (type && r.appointmentType !== type) return false;
-      if (cohort && r.cohort !== cohort) return false;
-      if (enrManager && r.enrManager !== enrManager) return false;
-      if (!matchesSearch([r.name, r.email, r.phone, r.notes], search)) return false;
-      return true;
-    });
-  }, [rows, preset, customFrom, customTo, status, type, cohort, enrManager, search, includeTest]);
+    return rows.filter((r) => (includeTest || !r.isTest) && inRange(r.appointmentTime, from, to) && dimensionMatch(r));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, from, to, status, type, cohort, enrManager, search, includeTest]);
+
+  const prevRange = previousPeriod(from, to);
+  const prevFiltered = useMemo(() => {
+    if (!prevRange) return null;
+    return rows.filter(
+      (r) => (includeTest || !r.isTest) && inRange(r.appointmentTime, prevRange.from, prevRange.to) && dimensionMatch(r)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, prevRange, status, type, cohort, enrManager, search, includeTest]);
 
   const showedCount = filtered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length;
   const noShowCount = filtered.filter((r) => r.status === "No show").length;
   const cancelledCount = filtered.filter((r) => r.status === "Cancelled").length;
+  const showRate = filtered.length ? showedCount / filtered.length : null;
+
+  const prevKpis = prevFiltered
+    ? {
+        total: prevFiltered.length,
+        showed: prevFiltered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length,
+        noShow: prevFiltered.filter((r) => r.status === "No show").length,
+        cancelled: prevFiltered.filter((r) => r.status === "Cancelled").length,
+      }
+    : null;
+  const prevShowRate = prevKpis && prevKpis.total ? prevKpis.showed / prevKpis.total : null;
 
   const columns: Column<AppointmentRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
@@ -90,11 +113,32 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
 
       <KpiGrid
         items={[
-          { label: "Total Appointments", value: formatNumber(filtered.length) },
-          { label: "Showed", value: formatNumber(showedCount) },
-          { label: "Show Rate", value: formatPercent(filtered.length ? showedCount / filtered.length : null) },
-          { label: "No Shows", value: formatNumber(noShowCount) },
-          { label: "Cancelled", value: formatNumber(cancelledCount) },
+          {
+            label: "Total Appointments",
+            value: formatNumber(filtered.length),
+            delta: prevKpis && computeDelta(filtered.length, prevKpis.total),
+          },
+          { label: "Showed", value: formatNumber(showedCount), delta: prevKpis && computeDelta(showedCount, prevKpis.showed) },
+          {
+            label: "Show Rate",
+            value: formatPercent(showRate),
+            delta:
+              prevShowRate !== null && showRate !== null
+                ? computeDelta(showRate, prevShowRate)
+                : null,
+          },
+          {
+            label: "No Shows",
+            value: formatNumber(noShowCount),
+            delta: prevKpis && computeDelta(noShowCount, prevKpis.noShow),
+            higherIsBetter: false,
+          },
+          {
+            label: "Cancelled",
+            value: formatNumber(cancelledCount),
+            delta: prevKpis && computeDelta(cancelledCount, prevKpis.cancelled),
+            higherIsBetter: false,
+          },
         ]}
       />
 
