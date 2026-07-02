@@ -118,6 +118,7 @@ export default function Home() {
                 appointments={data.appointments.rows}
                 applications={data.applications.rows}
                 salesActivity={data.salesActivity.rows}
+                challenge={data.challenge.rows}
               />
             )}
             {activeTab === "cash" && <CashTab rows={data.cash.rows} />}

@@ -34,6 +34,18 @@ function DeltaBadge({ delta, higherIsBetter = true }: { delta: Delta; higherIsBe
   );
 }
 
+/** Extracts a short source label for display under the KPI card. */
+function shortSource(info: DataSourceInfo): string {
+  const s = info.source;
+  if (s.includes("Cash Tracker")) return "Cash Tracker";
+  if (s.includes("Appointments")) return "Appointments";
+  if (s.includes("Application")) return "Applications";
+  if (s.includes("Sales Activity")) return "Sales Activity";
+  if (s.includes("Challenge") || s.includes("Google Sheet")) return "Challenge Sheet";
+  if (s.includes("Derived")) return "Derived";
+  return s.split(" (")[0];
+}
+
 export default function KpiGrid({ items }: { items: KpiItem[] }) {
   return (
     <div className="kpi-grid">
@@ -76,6 +88,24 @@ export default function KpiGrid({ items }: { items: KpiItem[] }) {
             {item.hint && (
               <div className={`kpi-delta ${item.hintColor || "muted"}`} style={{ display: "block", marginTop: 2 }}>
                 {item.hint}
+              </div>
+            )}
+            {item.source && (
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-mono)",
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: "1px dashed var(--line)",
+                  letterSpacing: 0.05,
+                  textTransform: "uppercase",
+                }}
+              >
+                Source: {shortSource(item.source)}
+                {item.source.field && item.source.field !== "Derived" && ` · ${item.source.field}`}
+                {clickable && " · click to drill down"}
               </div>
             )}
           </div>
