@@ -6,6 +6,7 @@ import { sum } from "@/lib/filtering";
 import PulseBar from "@/components/PulseBar";
 import Tabs, { type TabKey } from "@/components/Tabs";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
+import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import CashTab from "@/components/tabs/CashTab";
 import AppointmentsTab from "@/components/tabs/AppointmentsTab";
@@ -78,6 +79,10 @@ export default function Home() {
         .filter((x) => x.error)
     : [];
 
+  const hasNotionError = data
+    ? !!(data.cash.error || data.appointments.error || data.applications.error || data.salesActivity.error)
+    : false;
+
   return (
     <div className="app-shell">
       <PulseBar
@@ -92,6 +97,8 @@ export default function Home() {
         <Tabs active={activeTab} onChange={setActiveTab} />
 
         {loadError && <div className="error-banner">Failed to load dashboard: {loadError}</div>}
+
+        {hasNotionError && <NotionDiagnosticsPanel />}
 
         {sourceErrors.map(({ key, error }) => (
           <div className="error-banner" key={key}>
