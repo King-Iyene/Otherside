@@ -8,8 +8,8 @@ function getStatusProp(properties: Record<string, any>, name: string): string | 
   return getSelect(properties, name);
 }
 
-export async function fetchAppointments(): Promise<SourceResult<AppointmentRow>> {
-  const pages = await queryDatabase(DATABASE_ID);
+export async function fetchAppointments(token: string): Promise<SourceResult<AppointmentRow>> {
+  const pages = await queryDatabase(DATABASE_ID, token);
 
   const rows: AppointmentRow[] = pages.map((page) => {
     const props = page.properties;

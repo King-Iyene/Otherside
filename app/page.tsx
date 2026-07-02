@@ -98,7 +98,9 @@ export default function Home() {
 
         {loadError && <div className="error-banner">Failed to load dashboard: {loadError}</div>}
 
-        {hasNotionError && <NotionDiagnosticsPanel />}
+        {data && <NotionDiagnosticsPanel alwaysShow />}
+        {/* eslint-disable-next-line @typescript-eslint/no-unused-expressions */}
+        {hasNotionError && null}
 
         {sourceErrors.map(({ key, error }) => (
           <div className="error-banner" key={key}>
