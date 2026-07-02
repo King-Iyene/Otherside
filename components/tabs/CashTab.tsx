@@ -12,6 +12,23 @@ import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
+import DrillDownModal from "../DrillDownModal";
+
+/** Days between two dates, inclusive of start. */
+function daysBetween(a: string | null, b: Date): number | null {
+  if (!a) return null;
+  const d = new Date(a);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.floor((b.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Aging bucket for outstanding balance rows. */
+function agingBucket(days: number | null): "current" | "0-30" | "30-60" | "60+" {
+  if (days === null || days < 0) return "current";
+  if (days <= 30) return "0-30";
+  if (days <= 60) return "30-60";
+  return "60+";
+}
 
 export default function CashTab({ rows }: { rows: CashRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
@@ -23,6 +40,8 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
+
+  const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: CashRow[] } | null>(null);
 
   const products = useMemo(() => uniqueSorted(rows.map((r) => r.product)), [rows]);
   const cohorts = useMemo(() => uniqueSorted(rows.map((r) => r.cohort)), [rows]);
@@ -73,26 +92,65 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       }
     : null;
 
-  const cohortComparison = useMemo(() => {
+  const now = new Date();
+
+  const collectionRate = totalRevenue > 0 ? totalCash / totalRevenue : null;
+
+  // Aging analysis — for rows with outstanding balance > 0
+  const outstandingRows = useMemo(() => filtered.filter((r) => (r.balance ?? 0) > 0), [filtered]);
+  const aging = useMemo(() => {
+    const buckets: Record<string, { count: number; balance: number; rows: CashRow[] }> = {
+      current: { count: 0, balance: 0, rows: [] },
+      "0-30": { count: 0, balance: 0, rows: [] },
+      "30-60": { count: 0, balance: 0, rows: [] },
+      "60+": { count: 0, balance: 0, rows: [] },
+    };
+    for (const r of outstandingRows) {
+      const days = daysBetween(r.enrollmentDate, now);
+      const b = agingBucket(days);
+      buckets[b].count += 1;
+      buckets[b].balance += r.balance ?? 0;
+      buckets[b].rows.push(r);
+    }
+    return buckets;
+  }, [outstandingRows, now]);
+
+  // Cohort economics
+  const cohortEconomics = useMemo(() => {
     return cohorts
       .map((c) => {
         const curRows = filtered.filter((r) => r.cohort === c);
         const prevRows = prevFiltered ? prevFiltered.filter((r) => r.cohort === c) : [];
-        const curCash = sum(curRows.map((r) => r.cashCollected));
+        const revenue = sum(curRows.map((r) => r.revenue));
+        const cash = sum(curRows.map((r) => r.cashCollected));
+        const balance = sum(curRows.map((r) => r.balance));
+        const paidOff = curRows.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0).length;
+        const onPlan = curRows.filter((r) => (r.balance ?? 0) > 0).length;
         const prevCash = sum(prevRows.map((r) => r.cashCollected));
         return {
           cohort: c,
           enrollments: curRows.length,
-          revenue: sum(curRows.map((r) => r.revenue)),
-          cashCollected: curCash,
+          revenue,
+          cashCollected: cash,
+          balance,
           avgDeal: curRows.length ? sum(curRows.map((r) => r.cashCollected)) / curRows.length : null,
-          delta: prevFiltered ? computeDelta(curCash, prevCash) : null,
+          collectionRate: revenue > 0 ? cash / revenue : null,
+          paidOff,
+          onPlan,
+          rows: curRows,
+          delta: prevFiltered ? computeDelta(cash, prevCash) : null,
         };
       })
       .filter((c) => c.enrollments > 0)
       .sort((a, b) => b.cashCollected - a.cashCollected);
   }, [cohorts, filtered, prevFiltered]);
 
+  // Payment status distribution (derived from balance)
+  const paidInFullCount = filtered.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0).length;
+  const onPlanCount = filtered.filter((r) => (r.balance ?? 0) > 0).length;
+  const unpaidCount = filtered.filter((r) => (r.balance ?? 0) > 0 && (r.cashCollected ?? 0) === 0).length;
+
+  // Drill-down columns
   const columns: Column<CashRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
     { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
@@ -122,8 +180,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       render: (r) => <MoneyCell value={r.balance} field="Balance" health={r.health} />,
       sortValue: (r) => r.balance,
     },
-    { key: "couponCode", label: "Coupon", render: (r) => r.couponCode || "—", sortValue: (r) => r.couponCode },
-    { key: "paymentMethod", label: "Payment Method", render: (r) => r.paymentMethod || "—", sortValue: (r) => r.paymentMethod },
+    { key: "paymentMethod", label: "Payment Method", render: (r) => r.paymentMethod || "—" },
     {
       key: "nextPaymentDate",
       label: "Next Payment",
@@ -131,8 +188,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       sortValue: (r) => r.nextPaymentDate,
     },
     { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
-    { key: "note", label: "Note", render: (r) => r.note || "—" },
   ];
+
+  const openDrilldown = (title: string, subtitle: string | undefined, subset: CashRow[]) =>
+    setDrilldown({ title, subtitle, rows: subset });
 
   return (
     <div>
@@ -158,18 +217,71 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
 
       <KpiGrid
         items={[
-          { label: "Revenue", value: formatMoney(totalRevenue), delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue) },
-          { label: "Cash Collected", value: formatMoney(totalCash), delta: prevTotals && computeDelta(totalCash, prevTotals.cash) },
+          {
+            label: "Revenue",
+            value: formatMoney(totalRevenue),
+            delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Enrollment Date in period" },
+            onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", filtered),
+          },
+          {
+            label: "Cash Collected",
+            value: formatMoney(totalCash),
+            delta: prevTotals && computeDelta(totalCash, prevTotals.cash),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: "SUM(Cash Collected)" },
+            onClick: () => openDrilldown("Cash Collected — Enrollments", undefined, filtered),
+          },
+          {
+            label: "Collection Rate",
+            value: formatPercent(collectionRate),
+            source: { source: "Derived", field: "Cash Collected ÷ Revenue", formula: "Total collected out of total booked" },
+            hint: collectionRate === null ? undefined : collectionRate >= 0.9 ? "excellent" : collectionRate >= 0.7 ? "healthy" : "needs attention",
+            hintColor: collectionRate === null ? "muted" : collectionRate >= 0.9 ? "green" : collectionRate >= 0.7 ? "muted" : "red",
+          },
           {
             label: "Outstanding Balance",
             value: formatMoney(totalBalance),
             delta: prevTotals && computeDelta(totalBalance, prevTotals.balance),
             higherIsBetter: false,
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Balance", formula: "SUM(Balance formula)" },
+            onClick: () => openDrilldown("Outstanding Balances", `${outstandingRows.length} enrollments with balance > 0`, outstandingRows),
           },
           {
             label: "Enrollments",
             value: formatNumber(filtered.length),
             delta: prevTotals && computeDelta(filtered.length, prevTotals.count),
+            onClick: () => openDrilldown("All Enrollments", undefined, filtered),
+          },
+          {
+            label: "Paid In Full",
+            value: formatNumber(paidInFullCount),
+            source: { source: "Derived", field: "Balance = 0 AND Cash Collected > 0" },
+            hint: `${filtered.length ? ((paidInFullCount / filtered.length) * 100).toFixed(0) : 0}% of enrollments`,
+            onClick: () =>
+              openDrilldown(
+                "Paid-in-Full Enrollments",
+                undefined,
+                filtered.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0)
+              ),
+          },
+          {
+            label: "On Payment Plan",
+            value: formatNumber(onPlanCount),
+            source: { source: "Derived", field: "Balance > 0" },
+            hint: `${filtered.length ? ((onPlanCount / filtered.length) * 100).toFixed(0) : 0}% of enrollments`,
+            onClick: () => openDrilldown("On Payment Plan", undefined, filtered.filter((r) => (r.balance ?? 0) > 0)),
+          },
+          {
+            label: "Unpaid",
+            value: formatNumber(unpaidCount),
+            source: { source: "Derived", field: "Balance > 0 AND Cash Collected = 0" },
+            higherIsBetter: false,
+            onClick: () =>
+              openDrilldown(
+                "Unpaid Enrollments",
+                "No cash collected yet",
+                filtered.filter((r) => (r.balance ?? 0) > 0 && (r.cashCollected ?? 0) === 0)
+              ),
           },
         ]}
       />
@@ -188,10 +300,51 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         />
       </div>
 
-      {cohortComparison.length > 0 && (
+      {/* Outstanding balance aging */}
+      {outstandingRows.length > 0 && (
         <div className="panel" style={{ marginBottom: 20 }}>
           <div className="panel-header">
-            <div className="panel-title">Cohort Performance {prevFiltered ? "(vs. previous equivalent period)" : ""}</div>
+            <div className="panel-title">Outstanding Balance Aging</div>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Days since enrollment</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+            {(["current", "0-30", "30-60", "60+"] as const).map((bucket) => {
+              const b = aging[bucket];
+              const color = bucket === "60+" ? "var(--red)" : bucket === "30-60" ? "var(--accent)" : bucket === "0-30" ? "var(--blue)" : "var(--muted)";
+              return (
+                <button
+                  key={bucket}
+                  onClick={() => openDrilldown(`Aging: ${bucket}`, `${b.count} enrollments, ${formatMoney(b.balance)} outstanding`, b.rows)}
+                  style={{
+                    background: "var(--surface-2)",
+                    border: `1px solid ${color}`,
+                    borderRadius: 10,
+                    padding: 14,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    color: "var(--text)",
+                  }}
+                >
+                  <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.06 }}>
+                    {bucket === "current" ? "≤ 0 days" : `${bucket} days`}
+                  </div>
+                  <div className="mono" style={{ fontSize: 20, fontWeight: 600, color, marginTop: 4 }}>
+                    {formatMoney(b.balance)}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>{b.count} enrollments</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Cohort economics */}
+      {cohortEconomics.length > 0 && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">
+            <div className="panel-title">Cohort Economics {prevFiltered ? "(vs previous equivalent period)" : ""}</div>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a cohort to see its enrollments</span>
           </div>
           <table className="leaderboard">
             <thead>
@@ -200,18 +353,36 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
                 <th>Enrollments</th>
                 <th>Revenue</th>
                 <th>Cash Collected</th>
-                <th>Avg Deal Size</th>
+                <th>Outstanding</th>
+                <th>Collection %</th>
+                <th>Avg Deal</th>
+                <th>PIF / Plan</th>
                 {prevFiltered && <th>Cash vs Prev</th>}
               </tr>
             </thead>
             <tbody>
-              {cohortComparison.map((c) => (
-                <tr key={c.cohort}>
-                  <td>{c.cohort}</td>
+              {cohortEconomics.map((c) => (
+                <tr
+                  key={c.cohort}
+                  onClick={() =>
+                    openDrilldown(`Cohort: ${c.cohort}`, `${c.enrollments} enrollments · ${formatMoney(c.cashCollected)} collected`, c.rows)
+                  }
+                  style={{ cursor: "pointer" }}
+                >
+                  <td style={{ color: "var(--text)", fontWeight: 500 }}>{c.cohort} →</td>
                   <td className="mono">{formatNumber(c.enrollments)}</td>
                   <td className="mono">{formatMoney(c.revenue)}</td>
                   <td className="mono">{formatMoney(c.cashCollected)}</td>
+                  <td className="mono" style={{ color: c.balance > 0 ? "var(--red)" : "var(--muted)" }}>
+                    {formatMoney(c.balance)}
+                  </td>
+                  <td className="mono" style={{ color: c.collectionRate !== null && c.collectionRate >= 0.9 ? "var(--green)" : "var(--text)" }}>
+                    {formatPercent(c.collectionRate)}
+                  </td>
                   <td className="mono">{formatMoney(c.avgDeal)}</td>
+                  <td className="mono" style={{ fontSize: 11 }}>
+                    {c.paidOff} / {c.onPlan}
+                  </td>
                   {prevFiltered && (
                     <td className="mono">
                       {c.delta?.pct === null || c.delta === null
@@ -226,7 +397,36 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         </div>
       )}
 
-      <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      {/* "View all records" footer strip instead of always-visible row table */}
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> enrollments match current filters
+        </div>
+        <button className="link-btn" onClick={() => openDrilldown("All Filtered Enrollments", undefined, filtered)}>
+          View records →
+        </button>
+      </div>
+
+      <DrillDownModal
+        open={!!drilldown}
+        onClose={() => setDrilldown(null)}
+        title={drilldown?.title || ""}
+        subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} enrollments` : ""}
+      >
+        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      </DrillDownModal>
     </div>
   );
 }

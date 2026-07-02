@@ -2,15 +2,18 @@
 
 import { useMemo, useState } from "react";
 import type { AppointmentRow, ApplicationRow, CashRow, SalesActivityRow } from "@/lib/types";
-import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
+import { resolveRange, inRange, type RangePreset, bucketKey, parseDateOnly } from "@/lib/dates";
 import { sum } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
+import { getBenchmarks } from "@/lib/benchmarks";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
 import FunnelChart from "../FunnelChart";
+import BulletChart from "../BulletChart";
+import Sparkline from "../Sparkline";
 
 interface Props {
   cash: CashRow[];
@@ -58,13 +61,97 @@ function computeStats(
   };
 }
 
+/** Buckets a metric by day over the given rows using a date accessor + value accessor. */
+function dailySeries<T>(rows: T[], date: (r: T) => string | null, value: (r: T) => number): number[] {
+  const buckets = new Map<string, number>();
+  for (const r of rows) {
+    const dStr = date(r);
+    if (!dStr) continue;
+    const d = parseDateOnly(dStr);
+    if (!d) continue;
+    const key = bucketKey(d, "day");
+    buckets.set(key, (buckets.get(key) || 0) + value(r));
+  }
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([, v]) => v);
+}
+
+interface DiagnosticSignal {
+  severity: "positive" | "warning" | "critical";
+  headline: string;
+  detail: string;
+}
+
+function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: ReturnType<typeof computeStats> | null): DiagnosticSignal[] {
+  const signals: DiagnosticSignal[] = [];
+  if (!prev) return signals;
+
+  // Cash collected drop
+  if (prev.cashCollected > 0) {
+    const delta = (stats.cashCollected - prev.cashCollected) / prev.cashCollected;
+    if (delta <= -0.2) {
+      signals.push({
+        severity: "critical",
+        headline: `Cash collected down ${(Math.abs(delta) * 100).toFixed(1)}% vs previous period`,
+        detail: prev.showRate !== null && stats.showRate !== null && stats.showRate < prev.showRate * 0.9
+          ? `Likely driver: show rate dropped from ${(prev.showRate * 100).toFixed(1)}% to ${(stats.showRate * 100).toFixed(1)}%.`
+          : "Check enrollments, average deal size, and appointment volume for the driver.",
+      });
+    } else if (delta >= 0.2) {
+      signals.push({
+        severity: "positive",
+        headline: `Cash collected up ${(delta * 100).toFixed(1)}% vs previous period`,
+        detail: "Momentum is strong. Reinforce whatever changed — new offer, better lead source, or improved close rate.",
+      });
+    }
+  }
+
+  // Show rate change
+  if (prev.showRate !== null && stats.showRate !== null) {
+    const showDelta = stats.showRate - prev.showRate;
+    if (showDelta <= -0.1) {
+      signals.push({
+        severity: "warning",
+        headline: `Show rate dropped ${(Math.abs(showDelta) * 100).toFixed(1)}pts (${(prev.showRate * 100).toFixed(1)}% → ${(stats.showRate * 100).toFixed(1)}%)`,
+        detail: "Check confirmation flow, deposit-at-booking rate, or lead-source quality.",
+      });
+    }
+  }
+
+  // Application conversion drop
+  if (prev.conversionRate !== null && stats.conversionRate !== null) {
+    const convDelta = stats.conversionRate - prev.conversionRate;
+    if (convDelta <= -0.05) {
+      signals.push({
+        severity: "warning",
+        headline: `App-to-purchase conversion dropped ${(Math.abs(convDelta) * 100).toFixed(1)}pts`,
+        detail: "Either lead quality shifted or sales flow lost efficiency. Cross-reference with Sales Activity closer stats.",
+      });
+    }
+  }
+
+  // Sales pipeline drop
+  if (prev.applications > 0 && stats.applications < prev.applications * 0.8) {
+    signals.push({
+      severity: "warning",
+      headline: `Application volume down ${((1 - stats.applications / prev.applications) * 100).toFixed(0)}% — top-of-funnel weakness`,
+      detail: "Check ad spend, organic traffic, and challenge / lead-magnet performance in the Challenge tab.",
+    });
+  }
+
+  return signals;
+}
+
 export default function OverviewTab({ cash, appointments, applications, salesActivity }: Props) {
-  const [preset, setPreset] = useState<RangePreset>("30d");
+  const [preset, setPreset] = useState<RangePreset>("mtd");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
 
+  const bench = useMemo(() => getBenchmarks(), []);
   const { from, to } = resolveRange(preset, customFrom, customTo);
+
   const stats = useMemo(
     () => computeStats(cash, appointments, applications, salesActivity, from, to, includeTest),
     [cash, appointments, applications, salesActivity, from, to, includeTest]
@@ -77,6 +164,22 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
   }, [cash, appointments, applications, salesActivity, prevRange, includeTest]);
 
   const statuses = Array.from(new Set(stats.apptRows.map((r) => r.status).filter(Boolean))) as string[];
+
+  // Sparklines
+  const sparkCash = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.cashCollected ?? 0);
+  const sparkRevenue = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.revenue ?? 0);
+  const sparkAppts = dailySeries(stats.apptRows, (r) => r.appointmentTime, () => 1);
+  const sparkApps = dailySeries(stats.appRows, (r) => r.dateCreated, () => 1);
+
+  // Pace calc — how far through the "target period" (month, for the MTD preset)
+  const daysElapsed = from && to ? Math.max(1, Math.ceil((Math.min(Date.now(), to.getTime()) - from.getTime()) / (24 * 60 * 60 * 1000))) : 30;
+  const daysInMonth = 30;
+  const paceRatio = Math.min(1, daysElapsed / daysInMonth);
+  const cashPace = bench.monthlyCashCollected * paceRatio;
+  const revenuePace = bench.monthlyRevenueBooked * paceRatio;
+  const enrollmentPace = bench.monthlyEnrollments * paceRatio;
+
+  const diagnostics = useMemo(() => generateDiagnostics(stats, prevStats), [stats, prevStats]);
 
   return (
     <div>
@@ -94,35 +197,140 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         onIncludeTestChange={setIncludeTest}
       />
 
+      {/* HERO ROW — 4 big cards with pace bars and sparklines */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 14,
+          marginBottom: 18,
+        }}
+      >
+        <HeroCard
+          label="Cash Collected"
+          value={formatMoney(stats.cashCollected)}
+          target={bench.monthlyCashCollected}
+          current={stats.cashCollected}
+          pace={cashPace}
+          formatter={(v) => formatMoney(v)}
+          sparkline={sparkCash}
+          color="var(--green)"
+          delta={prevStats && computeDelta(stats.cashCollected, prevStats.cashCollected)}
+        />
+        <HeroCard
+          label="Revenue Booked"
+          value={formatMoney(stats.revenue)}
+          target={bench.monthlyRevenueBooked}
+          current={stats.revenue}
+          pace={revenuePace}
+          formatter={(v) => formatMoney(v)}
+          sparkline={sparkRevenue}
+          color="var(--blue)"
+          delta={prevStats && computeDelta(stats.revenue, prevStats.revenue)}
+        />
+        <HeroCard
+          label="Enrollments"
+          value={formatNumber(stats.cashRows.length)}
+          target={bench.monthlyEnrollments}
+          current={stats.cashRows.length}
+          pace={enrollmentPace}
+          formatter={(v) => formatNumber(v)}
+          sparkline={sparkCash.map((_, i) => 1)}
+          color="var(--accent)"
+          delta={prevStats && computeDelta(stats.cashRows.length, prevStats.cashRows.length)}
+        />
+        <HeroCard
+          label="Outstanding"
+          value={formatMoney(stats.balance)}
+          target={0}
+          current={stats.balance}
+          pace={null}
+          formatter={(v) => formatMoney(v)}
+          sparkline={[]}
+          color="var(--red)"
+          delta={prevStats && computeDelta(stats.balance, prevStats.balance)}
+          higherIsBetter={false}
+          hidePaceBar
+        />
+      </div>
+
+      {/* DIAGNOSTIC BAND */}
+      {diagnostics.length > 0 && (
+        <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+          {diagnostics.map((sig, i) => {
+            const color = sig.severity === "critical" ? "var(--red)" : sig.severity === "warning" ? "var(--accent)" : "var(--green)";
+            const bg =
+              sig.severity === "critical"
+                ? "rgba(240,112,112,0.08)"
+                : sig.severity === "warning"
+                ? "rgba(242,182,60,0.06)"
+                : "rgba(69,208,147,0.06)";
+            const icon = sig.severity === "critical" ? "🔴" : sig.severity === "warning" ? "⚠" : "✓";
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  padding: "10px 14px",
+                  borderLeft: `3px solid ${color}`,
+                  background: bg,
+                  borderRadius: 6,
+                  alignItems: "flex-start",
+                }}
+              >
+                <div style={{ color, fontSize: 13, lineHeight: 1.2 }}>{icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{sig.headline}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 2 }}>{sig.detail}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Secondary KPIs — smaller cards */}
       <KpiGrid
         items={[
-          { label: "Cash Collected", value: formatMoney(stats.cashCollected), delta: prevStats && computeDelta(stats.cashCollected, prevStats.cashCollected) },
-          { label: "Revenue Booked", value: formatMoney(stats.revenue), delta: prevStats && computeDelta(stats.revenue, prevStats.revenue) },
           {
-            label: "Outstanding",
-            value: formatMoney(stats.balance),
-            delta: prevStats && computeDelta(stats.balance, prevStats.balance),
-            higherIsBetter: false,
+            label: "Appointments",
+            value: formatNumber(stats.appointments),
+            sparkline: sparkAppts,
+            sparklineColor: "var(--blue)",
+            delta: prevStats && computeDelta(stats.appointments, prevStats.appointments),
+            source: { source: "Appointments Tracker (Notion)", field: "COUNT" },
           },
-          { label: "Appointments", value: formatNumber(stats.appointments), delta: prevStats && computeDelta(stats.appointments, prevStats.appointments) },
           {
             label: "Show Rate",
             value: formatPercent(stats.showRate),
             delta: stats.showRate != null && prevStats?.showRate != null ? computeDelta(stats.showRate, prevStats.showRate) : null,
+            source: { source: "Derived", field: "Showed ÷ Appointments" },
+            hint: `benchmark ${(bench.showPct * 100).toFixed(0)}%`,
+            hintColor: stats.showRate === null ? "muted" : stats.showRate >= bench.showPct ? "green" : stats.showRate < bench.showPct * 0.8 ? "red" : "muted",
           },
-          { label: "Applications", value: formatNumber(stats.applications), delta: prevStats && computeDelta(stats.applications, prevStats.applications) },
           {
-            label: "App Conversion",
+            label: "Applications",
+            value: formatNumber(stats.applications),
+            sparkline: sparkApps,
+            sparklineColor: "var(--accent)",
+            delta: prevStats && computeDelta(stats.applications, prevStats.applications),
+            source: { source: "REBORN Application Tracker (Notion)", field: "COUNT" },
+          },
+          {
+            label: "App → Purchase",
             value: formatPercent(stats.conversionRate),
             delta:
               stats.conversionRate != null && prevStats?.conversionRate != null
                 ? computeDelta(stats.conversionRate, prevStats.conversionRate)
                 : null,
+            source: { source: "Derived", field: "Purchased ÷ Applications" },
           },
           {
-            label: "Cash on Call (Sales Activity)",
+            label: "Cash on Call",
             value: formatMoney(stats.cashOnCall),
             delta: prevStats && computeDelta(stats.cashOnCall, prevStats.cashOnCall),
+            source: { source: "Sales Activity Tracker (Notion)", field: "SUM Cash Collected on Call" },
           },
         ]}
       />
@@ -156,6 +364,59 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           the pipeline rather than a strict per-lead conversion trace.
         </p>
       </div>
+    </div>
+  );
+}
+
+interface HeroCardProps {
+  label: string;
+  value: string;
+  target: number;
+  current: number;
+  pace: number | null;
+  formatter: (v: number) => string;
+  sparkline: number[];
+  color: string;
+  delta: { pct: number | null; current: number; previous: number } | null;
+  higherIsBetter?: boolean;
+  hidePaceBar?: boolean;
+}
+
+function HeroCard({ label, value, target, current, pace, formatter, sparkline, color, delta, higherIsBetter = true, hidePaceBar }: HeroCardProps) {
+  const deltaText = delta?.pct === null || delta === null ? null : delta;
+  const deltaGood = deltaText?.pct === null || deltaText === null || Math.abs(deltaText.pct) < 0.001 ? null : deltaText.pct > 0 === higherIsBetter;
+  const deltaColor = deltaGood === null ? "var(--muted)" : deltaGood ? "var(--green)" : "var(--red)";
+
+  return (
+    <div
+      style={{
+        background: "var(--gradient-surface)",
+        border: "1px solid var(--line)",
+        borderRadius: 14,
+        padding: 18,
+        boxShadow: "var(--shadow-card)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color, opacity: 0.7 }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+        <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.1 }}>{label}</div>
+        {sparkline.length > 1 && <Sparkline values={sparkline} color={color} width={70} height={22} />}
+      </div>
+      <div className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text)" }}>
+        {value}
+      </div>
+      {deltaText && deltaText.pct !== null && (
+        <div className="mono" style={{ fontSize: 11, marginTop: 4, color: deltaColor }}>
+          {deltaText.pct >= 0 ? "▲" : "▼"} {Math.abs(deltaText.pct * 100).toFixed(1)}% vs prev
+        </div>
+      )}
+      {!hidePaceBar && target > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <BulletChart current={current} target={target} pace={pace} formatter={formatter} height={14} />
+        </div>
+      )}
     </div>
   );
 }
