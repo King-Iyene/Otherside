@@ -66,8 +66,16 @@ export default function TimeSeriesChart({ title, points, color = "#f2b63c", valu
             <XAxis dataKey="bucket" tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} />
             <YAxis tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} width={60} />
             <Tooltip
-              contentStyle={{ background: "#131a22", border: "1px solid #253242", borderRadius: 8, fontSize: 12 }}
-              labelStyle={{ color: "#e9edf2" }}
+              contentStyle={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "var(--text)",
+                boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)",
+              }}
+              labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+              itemStyle={{ color: "var(--text)" }}
               formatter={(v: number) => (valueFormatter ? valueFormatter(v) : v)}
             />
             <Area type="monotone" dataKey="value" stroke={color} fill="url(#tsFill)" strokeWidth={2} />

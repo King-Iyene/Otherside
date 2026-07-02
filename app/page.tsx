@@ -8,6 +8,7 @@ import Tabs, { type TabKey } from "@/components/Tabs";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
 import OverviewTab from "@/components/tabs/OverviewTab";
+import InsightsTab from "@/components/tabs/InsightsTab";
 import CashTab from "@/components/tabs/CashTab";
 import AppointmentsTab from "@/components/tabs/AppointmentsTab";
 import ApplicationsTab from "@/components/tabs/ApplicationsTab";
@@ -118,6 +119,16 @@ export default function Home() {
                 appointments={data.appointments.rows}
                 applications={data.applications.rows}
                 salesActivity={data.salesActivity.rows}
+                challenge={data.challenge.rows}
+              />
+            )}
+            {activeTab === "insights" && (
+              <InsightsTab
+                cash={data.cash.rows}
+                appointments={data.appointments.rows}
+                applications={data.applications.rows}
+                salesActivity={data.salesActivity.rows}
+                challenge={data.challenge.rows}
               />
             )}
             {activeTab === "cash" && <CashTab rows={data.cash.rows} />}

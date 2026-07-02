@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { SalesActivityRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch, sum } from "@/lib/filtering";
@@ -10,12 +11,11 @@ import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
-import BreakdownChart from "../BreakdownChart";
 import ComboChart from "../ComboChart";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import MoneyCell from "../MoneyCell";
-import Link from "next/link";
+import DrillDownModal from "../DrillDownModal";
 
 function totalsOf(rows: SalesActivityRow[]) {
   return {
@@ -29,13 +29,14 @@ function totalsOf(rows: SalesActivityRow[]) {
 }
 
 export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] }) {
-  const [preset, setPreset] = useState<RangePreset>("all");
+  const [preset, setPreset] = useState<RangePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [launch, setLaunch] = useState("");
   const [enrManager, setEnrManager] = useState("");
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
+  const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: SalesActivityRow[] } | null>(null);
 
   const launches = useMemo(() => uniqueSorted(rows.map((r) => r.launch)), [rows]);
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
@@ -66,10 +67,19 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
   const prevTotals = prevFiltered ? totalsOf(prevFiltered) : null;
   const prevRates = prevTotals ? computeRates(prevTotals) : null;
 
-  const leaderboard = useMemo(() => {
+  // Per-closer breakdown with FULL funnel (Booked→Showed→Offered→Sold, count AND %)
+  const perCloser = useMemo(() => {
     const byManager = new Map<
       string,
-      { newCalls: number; showed: number; offersMade: number; salesMade: number; cashOnCall: number; salesRevenue: number }
+      {
+        newCalls: number;
+        showed: number;
+        offersMade: number;
+        salesMade: number;
+        cashOnCall: number;
+        salesRevenue: number;
+        rows: SalesActivityRow[];
+      }
     >();
     for (const r of filtered) {
       const key = r.enrManager || "(unassigned)";
@@ -80,6 +90,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         salesMade: 0,
         cashOnCall: 0,
         salesRevenue: 0,
+        rows: [],
       };
       existing.newCalls += r.newCalls ?? 0;
       existing.showed += r.showed ?? 0;
@@ -87,35 +98,17 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       existing.salesMade += r.salesMade ?? 0;
       existing.cashOnCall += r.cashCollectedOnCall ?? 0;
       existing.salesRevenue += r.salesRevenue ?? 0;
+      existing.rows.push(r);
       byManager.set(key, existing);
     }
     return Array.from(byManager.entries())
-      .map(([manager, t]) => ({ manager, ...t, rates: computeRates(t) }))
+      .map(([manager, t]) => ({
+        manager,
+        ...t,
+        rates: computeRates(t),
+      }))
       .sort((a, b) => b.cashOnCall - a.cashOnCall);
   }, [filtered]);
-
-  const launchComparison = useMemo(() => {
-    return launches
-      .map((l) => {
-        const curRows = filtered.filter((r) => r.launch === l);
-        const prevRows = prevFiltered ? prevFiltered.filter((r) => r.launch === l) : [];
-        const curTotals = totalsOf(curRows);
-        const prevLaunchTotals = totalsOf(prevRows);
-        const curRates = computeRates(curTotals);
-        return {
-          launch: l,
-          ...curTotals,
-          rates: curRates,
-          cashDelta: prevFiltered ? computeDelta(curTotals.cashOnCall, prevLaunchTotals.cashOnCall) : null,
-          closeDelta:
-            prevFiltered && curRates.closePctShows !== null
-              ? computeDelta(curRates.closePctShows, computeRates(prevLaunchTotals).closePctShows ?? 0)
-              : null,
-        };
-      })
-      .filter((l) => l.newCalls + l.showed + l.salesMade > 0)
-      .sort((a, b) => b.cashOnCall - a.cashOnCall);
-  }, [launches, filtered, prevFiltered]);
 
   const columns: Column<SalesActivityRow>[] = [
     { key: "entry", label: "Entry", render: (r) => r.entry, sortValue: (r) => r.entry },
@@ -162,32 +155,47 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
 
       <KpiGrid
         items={[
-          { label: "New Calls", value: formatNumber(totals.newCalls), delta: prevTotals && computeDelta(totals.newCalls, prevTotals.newCalls) },
-          { label: "Showed", value: formatNumber(totals.showed), delta: prevTotals && computeDelta(totals.showed, prevTotals.showed) },
+          {
+            label: "New Calls",
+            value: formatNumber(totals.newCalls),
+            delta: prevTotals && computeDelta(totals.newCalls, prevTotals.newCalls),
+            source: { source: "Sales Activity Tracker (Notion)", field: "New Calls in Calendar", formula: "SUM" },
+          },
+          {
+            label: "Showed",
+            value: formatNumber(totals.showed),
+            delta: prevTotals && computeDelta(totals.showed, prevTotals.showed),
+            source: { source: "Sales Activity Tracker (Notion)", field: "Showed to Call", formula: "SUM" },
+          },
           {
             label: "Sales Made",
             value: formatNumber(totals.salesMade),
             delta: prevTotals && computeDelta(totals.salesMade, prevTotals.salesMade),
+            source: { source: "Sales Activity Tracker (Notion)", field: "Sales Made", formula: "SUM" },
           },
           {
             label: "Cash on Call",
             value: formatMoney(totals.cashOnCall),
             delta: prevTotals && computeDelta(totals.cashOnCall, prevTotals.cashOnCall),
+            source: { source: "Sales Activity Tracker (Notion)", field: "Cash Collected on Call ($)", formula: "SUM" },
           },
           {
             label: "Sales Revenue",
             value: formatMoney(totals.salesRevenue),
             delta: prevTotals && computeDelta(totals.salesRevenue, prevTotals.salesRevenue),
+            source: { source: "Sales Activity Tracker (Notion)", field: "Sales in Revenue ($)", formula: "SUM" },
           },
           {
             label: "Show %",
             value: formatPercent(rates.showPct),
             delta: prevRates?.showPct != null && rates.showPct != null ? computeDelta(rates.showPct, prevRates.showPct) : null,
+            source: { source: "Derived", field: "Showed ÷ New Calls" },
           },
           {
             label: "Offer %",
             value: formatPercent(rates.offerPct),
             delta: prevRates?.offerPct != null && rates.offerPct != null ? computeDelta(rates.offerPct, prevRates.offerPct) : null,
+            source: { source: "Derived", field: "Offers Made ÷ Showed" },
           },
           {
             label: "Close % (Shows)",
@@ -196,114 +204,55 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
               prevRates?.closePctShows != null && rates.closePctShows != null
                 ? computeDelta(rates.closePctShows, prevRates.closePctShows)
                 : null,
-          },
-          {
-            label: "Close % (Offers)",
-            value: formatPercent(rates.closePctOffers),
-            delta:
-              prevRates?.closePctOffers != null && rates.closePctOffers != null
-                ? computeDelta(rates.closePctOffers, prevRates.closePctOffers)
-                : null,
+            source: { source: "Derived", field: "Sales Made ÷ Showed" },
           },
         ]}
       />
 
+      {/* Team funnel chart */}
       <div className="chart-grid">
         <TimeSeriesChart
-          title="Cash Collected on Call Over Time"
+          title="Cash on Call — Over Time"
           points={filtered.map((r) => ({ date: r.date, value: r.cashCollectedOnCall ?? 0 }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
-        <BreakdownChart
-          title="Cash on Call by Launch"
-          items={launches.map((l) => ({ key: l, value: sum(filtered.filter((r) => r.launch === l).map((r) => r.cashCollectedOnCall)) }))}
-          valueFormatter={(v) => formatMoney(v)}
-        />
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
         <ComboChart
-          title="Offers Made vs Sales Closed (with Close Rate)"
+          title="Offers vs Sales — Team"
           points={filtered.map((r) => ({ date: r.date, offers: r.offersMade ?? 0, sales: r.salesMade ?? 0 }))}
         />
       </div>
 
-      {launchComparison.length > 0 && (
+      {/* Per-Closer Funnel — Oliver's spec */}
+      {perCloser.length > 0 && (
         <div className="panel" style={{ marginBottom: 20 }}>
           <div className="panel-header">
-            <div className="panel-title">Launch Performance {prevFiltered ? "(vs. previous equivalent period)" : ""}</div>
+            <div className="panel-title">Per-Closer Funnel</div>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Sorted by Cash on Call · Click a name for full scorecard</span>
           </div>
           <table className="leaderboard">
             <thead>
               <tr>
-                <th>Launch</th>
-                <th>New Calls</th>
-                <th>Showed</th>
-                <th>Offers</th>
-                <th>Sales</th>
-                <th>Cash on Call</th>
-                <th>Close % (Shows)</th>
-                {prevFiltered && <th>Cash vs Prev</th>}
-                {prevFiltered && <th>Close % vs Prev</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {launchComparison.map((l) => (
-                <tr key={l.launch}>
-                  <td>{l.launch}</td>
-                  <td className="mono">{formatNumber(l.newCalls)}</td>
-                  <td className="mono">{formatNumber(l.showed)}</td>
-                  <td className="mono">{formatNumber(l.offersMade)}</td>
-                  <td className="mono">{formatNumber(l.salesMade)}</td>
-                  <td className="mono">{formatMoney(l.cashOnCall)}</td>
-                  <td className="mono">{formatPercent(l.rates.closePctShows)}</td>
-                  {prevFiltered && (
-                    <td className="mono">
-                      {l.cashDelta?.pct === null || l.cashDelta === null
-                        ? "n/a"
-                        : `${l.cashDelta.pct >= 0 ? "▲" : "▼"} ${formatPercent(Math.abs(l.cashDelta.pct))}`}
-                    </td>
-                  )}
-                  {prevFiltered && (
-                    <td className="mono">
-                      {l.closeDelta?.pct === null || l.closeDelta === null
-                        ? "n/a"
-                        : `${l.closeDelta.pct >= 0 ? "▲" : "▼"} ${formatPercent(Math.abs(l.closeDelta.pct))}`}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="panel" style={{ marginBottom: 20 }}>
-        <div className="panel-header">
-          <div className="panel-title">Leaderboard — Cash on Call (period-scoped)</div>
-          <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a name for full scorecard</span>
-        </div>
-        {leaderboard.length === 0 ? (
-          <div className="empty-state">No sales activity in range.</div>
-        ) : (
-          <table className="leaderboard">
-            <thead>
-              <tr>
                 <th>#</th>
-                <th>Manager</th>
+                <th>Closer</th>
+                <th>Booked</th>
+                <th>Showed</th>
+                <th style={{ color: "var(--muted)" }}>Show %</th>
+                <th>Offers</th>
+                <th style={{ color: "var(--muted)" }}>Offer %</th>
+                <th>Sales</th>
+                <th style={{ color: "var(--muted)" }}>Close %</th>
                 <th>Cash on Call</th>
                 <th>Sales Revenue</th>
-                <th>New Calls</th>
-                <th>Showed</th>
-                <th>Sales</th>
-                <th>Show %</th>
-                <th>Close % (Shows)</th>
               </tr>
             </thead>
             <tbody>
-              {leaderboard.map((row, idx) => (
-                <tr key={row.manager}>
+              {perCloser.map((row, idx) => (
+                <tr
+                  key={row.manager}
+                  onClick={() => setDrilldown({ title: `${row.manager} — Daily Entries`, rows: row.rows })}
+                  style={{ cursor: "pointer" }}
+                >
                   <td>
                     <span className="rank-pill">{idx + 1}</span>
                   </td>
@@ -313,27 +262,59 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
                     ) : (
                       <Link
                         href={`/closer/${encodeURIComponent(row.manager)}`}
+                        onClick={(e) => e.stopPropagation()}
                         style={{ color: "var(--text)", textDecoration: "none", fontWeight: 500 }}
                       >
                         {row.manager} →
                       </Link>
                     )}
                   </td>
-                  <td className="mono">{formatMoney(row.cashOnCall)}</td>
-                  <td className="mono">{formatMoney(row.salesRevenue)}</td>
                   <td className="mono">{formatNumber(row.newCalls)}</td>
                   <td className="mono">{formatNumber(row.showed)}</td>
+                  <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.showPct)}</td>
+                  <td className="mono">{formatNumber(row.offersMade)}</td>
+                  <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.offerPct)}</td>
                   <td className="mono">{formatNumber(row.salesMade)}</td>
-                  <td className="mono">{formatPercent(row.rates.showPct)}</td>
-                  <td className="mono">{formatPercent(row.rates.closePctShows)}</td>
+                  <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.closePctShows)}</td>
+                  <td className="mono">{formatMoney(row.cashOnCall)}</td>
+                  <td className="mono">{formatMoney(row.salesRevenue)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
+        </div>
+      )}
+
+      {/* View records footer strip — replaces the always-visible row table */}
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> daily entries match current filters
+        </div>
+        <button className="link-btn" onClick={() => setDrilldown({ title: "All Daily Entries", rows: filtered })}>
+          View records →
+        </button>
       </div>
 
-      <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} />
+      <DrillDownModal
+        open={!!drilldown}
+        onClose={() => setDrilldown(null)}
+        title={drilldown?.title || ""}
+        subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} daily entries` : ""}
+      >
+        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} />
+      </DrillDownModal>
     </div>
   );
 }

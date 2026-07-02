@@ -24,12 +24,18 @@
   --gradient-blue: linear-gradient(135deg, #61aaf2 0%, #4a7ec0 100%);
   --gradient-red: linear-gradient(135deg, #f07070 0%, #c04b4b 100%);
   --gradient-purple: linear-gradient(135deg, #a48bf2 0%, #7c68c7 100%);
-  --gradient-surface: linear-gradient(180deg, #131a22 0%, #0e141b 100%);
-  --gradient-bg: radial-gradient(ellipse at top, #131a22 0%, #0a0e14 60%);
+  --gradient-surface: linear-gradient(180deg, rgba(24, 32, 41, 0.7) 0%, rgba(19, 26, 34, 0.5) 100%);
+  --gradient-bg:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(242, 182, 60, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 30%, rgba(97, 170, 242, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 0% 70%, rgba(69, 208, 147, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #0d1218 0%, #0a0e14 100%);
 
-  --shadow-lg: 0 20px 40px -20px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 40px rgba(242, 182, 60, 0.08);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 40px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  --shadow-glow: 0 0 40px rgba(242, 182, 60, 0.15), 0 0 20px rgba(242, 182, 60, 0.08);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --glass-blur: blur(20px);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.05);
 
   --font-display: "Barlow Condensed", sans-serif;
   --font-body: "Inter", sans-serif;
@@ -61,12 +67,17 @@
   --gradient-blue: linear-gradient(135deg, #61aaf2 0%, #3778cf 100%);
   --gradient-red: linear-gradient(135deg, #f07070 0%, #d54646 100%);
   --gradient-purple: linear-gradient(135deg, #a48bf2 0%, #7a5fdc 100%);
-  --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f4f6fa 100%);
-  --gradient-bg: radial-gradient(ellipse at top, #ffffff 0%, #eef1f6 60%);
+  --gradient-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(244, 246, 250, 0.7) 100%);
+  --gradient-bg:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(224, 160, 60, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 30%, rgba(97, 170, 242, 0.06) 0%, transparent 50%),
+    linear-gradient(180deg, #ffffff 0%, #eef1f6 100%);
 
-  --shadow-lg: 0 20px 40px -24px rgba(15, 27, 45, 0.18);
-  --shadow-glow: 0 0 40px rgba(224, 160, 60, 0.15);
+  --shadow-lg: 0 20px 40px -24px rgba(15, 27, 45, 0.2);
+  --shadow-glow: 0 0 40px rgba(224, 160, 60, 0.2);
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 4px 16px -8px rgba(15, 27, 45, 0.08);
+  --glass-blur: blur(20px);
+  --glass-border: 1px solid rgba(15, 27, 45, 0.06);
 }
 
 * {
@@ -143,15 +154,20 @@ select {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: var(--surface);
+  background: rgba(19, 26, 34, 0.75);
   border-bottom: 1px solid var(--line);
   padding: 12px 28px;
   display: flex;
   align-items: center;
   gap: 32px;
   flex-wrap: wrap;
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-card), 0 0 40px rgba(242, 182, 60, 0.04);
+}
+
+:root[data-theme="light"] .pulse-bar {
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .pulse-brand {
@@ -460,11 +476,13 @@ select {
   position: relative;
   background: var(--gradient-surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px 18px;
   overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s ease, box-shadow 0.3s ease, background 0.25s ease;
   box-shadow: var(--shadow-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .kpi-card::before {
@@ -476,17 +494,38 @@ select {
   height: 2px;
   background: var(--gradient-accent);
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease;
+}
+
+.kpi-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(242, 182, 60, 0), rgba(242, 182, 60, 0));
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease, background 0.3s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(242, 182, 60, 0.06);
 }
 
 .kpi-card:hover::before {
   opacity: 1;
+}
+
+.kpi-card:hover::after {
+  opacity: 1;
+  background: linear-gradient(135deg, rgba(242, 182, 60, 0.5), rgba(97, 170, 242, 0.2));
 }
 
 .kpi-label {
@@ -537,9 +576,16 @@ select {
 .panel {
   background: var(--gradient-surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 18px;
   box-shadow: var(--shadow-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: border-color 0.2s ease, box-shadow 0.25s ease;
+}
+
+.panel:hover {
+  border-color: var(--line-strong);
 }
 
 .panel-header {
@@ -847,4 +893,83 @@ tbody tr.test-row {
   flex: 1;
   height: 1px;
   background: linear-gradient(90deg, var(--line), transparent);
+}
+
+/* ---------- Fade-in on load ---------- */
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kpi-card,
+.panel {
+  animation: fadeSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.kpi-card:nth-child(2) { animation-delay: 0.04s; }
+.kpi-card:nth-child(3) { animation-delay: 0.08s; }
+.kpi-card:nth-child(4) { animation-delay: 0.12s; }
+.kpi-card:nth-child(5) { animation-delay: 0.16s; }
+.kpi-card:nth-child(6) { animation-delay: 0.20s; }
+.kpi-card:nth-child(7) { animation-delay: 0.24s; }
+.kpi-card:nth-child(8) { animation-delay: 0.28s; }
+
+/* ---------- Refined interactions ---------- */
+
+.leaderboard tbody tr {
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.leaderboard tbody tr:hover {
+  background: linear-gradient(90deg, rgba(242, 182, 60, 0.04), transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Scrollbar polish */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Ensure recharts labels use theme colors regardless of dark/light */
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text,
+.recharts-text {
+  fill: var(--muted) !important;
+}
+.recharts-cartesian-grid-vertical line,
+.recharts-cartesian-grid-horizontal line {
+  stroke: var(--line) !important;
+}
+.recharts-cartesian-axis-line {
+  stroke: var(--line) !important;
+}
+
+/* Utility */
+.gradient-text {
+  background: var(--gradient-accent);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

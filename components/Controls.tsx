@@ -1,6 +1,7 @@
 "use client";
 
 import type { RangePreset } from "@/lib/dates";
+import type { CompareMode } from "@/lib/comparison";
 
 const PRESETS: { key: RangePreset; label: string }[] = [
   { key: "all", label: "All" },
@@ -33,6 +34,8 @@ interface Props {
   searchPlaceholder?: string;
   includeTest: boolean;
   onIncludeTestChange: (v: boolean) => void;
+  compareMode?: CompareMode;
+  onCompareModeChange?: (m: CompareMode) => void;
 }
 
 export default function Controls({
@@ -48,6 +51,8 @@ export default function Controls({
   searchPlaceholder,
   includeTest,
   onIncludeTestChange,
+  compareMode,
+  onCompareModeChange,
 }: Props) {
   return (
     <div className="controls-bar">
@@ -100,6 +105,17 @@ export default function Controls({
       />
 
       <div className="spacer" />
+
+      {onCompareModeChange && compareMode !== undefined && (
+        <div className="control-group" title="Comparison baseline for deltas">
+          <button className={`preset-btn ${compareMode === "prev" ? "active" : ""}`} onClick={() => onCompareModeChange("prev")}>
+            vs Prev
+          </button>
+          <button className={`preset-btn ${compareMode === "yoy" ? "active" : ""}`} onClick={() => onCompareModeChange("yoy")}>
+            vs YoY
+          </button>
+        </div>
+      )}
 
       <label className="toggle-chip">
         <input type="checkbox" checked={includeTest} onChange={(e) => onIncludeTestChange(e.target.checked)} />

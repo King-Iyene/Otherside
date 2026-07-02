@@ -47,8 +47,16 @@ export default function BreakdownChart({ title, items, valueFormatter, maxBars =
               tickLine={false}
             />
             <Tooltip
-              contentStyle={{ background: "#131a22", border: "1px solid #253242", borderRadius: 8, fontSize: 12 }}
-              labelStyle={{ color: "#e9edf2" }}
+              contentStyle={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "var(--text)",
+                boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)",
+              }}
+              labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+              itemStyle={{ color: "var(--text)" }}
               formatter={(v: number) => (valueFormatter ? valueFormatter(v) : v)}
               cursor={{ fill: "rgba(255,255,255,0.04)" }}
             />

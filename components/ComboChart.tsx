@@ -84,8 +84,16 @@ export default function ComboChart({ title, points }: { title: string; points: C
               domain={[0, 1]}
             />
             <Tooltip
-              contentStyle={{ background: "#131a22", border: "1px solid #253242", borderRadius: 8, fontSize: 12 }}
-              labelStyle={{ color: "#e9edf2" }}
+              contentStyle={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "var(--text)",
+                boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)",
+              }}
+              labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+              itemStyle={{ color: "var(--text)" }}
               formatter={(v: number, name: string) => (name === "Close Rate" ? `${(v * 100).toFixed(1)}%` : v)}
             />
             <Legend wrapperStyle={{ fontSize: 11, color: "#8b98a8" }} />

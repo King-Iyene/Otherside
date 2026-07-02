@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface DataSourceInfo {
   source: string;
@@ -10,15 +10,40 @@ export interface DataSourceInfo {
 }
 
 /**
- * Small "ℹ" chip on KPI cards. Hover reveals which system/field the number
- * comes from and how it's derived. Kills the "where does this number come from"
- * question that comes up every review.
+ * Small "ⓘ" chip on KPI cards. Hover reveals which system/field the number
+ * comes from and how it's derived. Uses a viewport-anchored floating tooltip
+ * (portal-free but position-aware) so it can't get clipped by the card's
+ * overflow:hidden container.
  */
 export default function DataSourceChip({ info }: { info: DataSourceInfo }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number; placement: "top" | "bottom" } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const tooltipWidth = 280;
+    const tooltipHeight = 130;
+    const gap = 8;
+
+    let left = rect.right - tooltipWidth;
+    if (left < 12) left = 12;
+    if (left + tooltipWidth > window.innerWidth - 12) left = window.innerWidth - tooltipWidth - 12;
+
+    let top = rect.top - tooltipHeight - gap;
+    let placement: "top" | "bottom" = "top";
+    if (top < 12) {
+      top = rect.bottom + gap;
+      placement = "bottom";
+    }
+    setCoords({ left, top, placement });
+  }, [open]);
+
   return (
-    <span style={{ position: "relative", display: "inline-flex" }}>
+    <>
       <button
+        ref={btnRef}
         onClick={() => setOpen((x) => !x)}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
@@ -29,52 +54,50 @@ export default function DataSourceChip({ info }: { info: DataSourceInfo }) {
           color: "var(--muted)",
           cursor: "help",
           padding: 2,
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: 1,
           borderRadius: 4,
         }}
       >
         ⓘ
       </button>
-      {open && (
+      {open && coords && (
         <div
           role="tooltip"
           style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            right: 0,
+            position: "fixed",
+            left: coords.left,
+            top: coords.top,
             background: "var(--surface-2)",
             border: "1px solid var(--line-strong)",
-            borderRadius: 8,
-            padding: "8px 10px",
+            borderRadius: 10,
+            padding: "10px 12px",
             fontSize: 11,
-            width: 260,
-            zIndex: 20,
-            boxShadow: "0 8px 24px -12px rgba(0,0,0,0.5)",
+            width: 280,
+            zIndex: 9999,
+            boxShadow: "0 20px 40px -12px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset",
+            pointerEvents: "none",
+            backdropFilter: "blur(8px)",
           }}
         >
-          <div style={{ color: "var(--muted)", marginBottom: 2 }}>Source</div>
-          <div className="mono" style={{ color: "var(--text)", marginBottom: 6 }}>{info.source}</div>
-          <div style={{ color: "var(--muted)", marginBottom: 2 }}>Field</div>
-          <div className="mono" style={{ color: "var(--text)", marginBottom: info.formula ? 6 : 0 }}>{info.field}</div>
+          <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+            Source
+          </div>
+          <div className="mono" style={{ color: "var(--accent)", marginBottom: 8, fontSize: 12 }}>{info.source}</div>
+          <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+            Field
+          </div>
+          <div className="mono" style={{ color: "var(--text)", marginBottom: info.formula ? 8 : 0 }}>{info.field}</div>
           {info.formula && (
             <>
-              <div style={{ color: "var(--muted)", marginBottom: 2 }}>Formula</div>
-              <div className="mono" style={{ color: "var(--text-dim)", fontSize: 10, lineHeight: 1.4 }}>{info.formula}</div>
+              <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+                Formula
+              </div>
+              <div className="mono" style={{ color: "var(--text-dim)", fontSize: 10, lineHeight: 1.5 }}>{info.formula}</div>
             </>
-          )}
-          {info.href && (
-            <a
-              href={info.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: "block", marginTop: 6, color: "var(--blue)", fontSize: 11 }}
-            >
-              Open source →
-            </a>
           )}
         </div>
       )}
-    </span>
+    </>
   );
 }

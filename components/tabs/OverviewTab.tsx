@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AppointmentRow, ApplicationRow, CashRow, SalesActivityRow } from "@/lib/types";
+import type { AppointmentRow, ApplicationRow, CashRow, ChallengeRow, SalesActivityRow } from "@/lib/types";
+import { analyzeChallengeToReborn } from "@/lib/crossSource";
 import { resolveRange, inRange, type RangePreset, bucketKey, parseDateOnly } from "@/lib/dates";
 import { sum } from "@/lib/filtering";
-import { previousPeriod, computeDelta } from "@/lib/comparison";
+import { comparisonRange, computeDelta, type CompareMode } from "@/lib/comparison";
 import { getBenchmarks } from "@/lib/benchmarks";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
@@ -20,6 +21,7 @@ interface Props {
   appointments: AppointmentRow[];
   applications: ApplicationRow[];
   salesActivity: SalesActivityRow[];
+  challenge?: ChallengeRow[];
 }
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
@@ -143,11 +145,12 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
   return signals;
 }
 
-export default function OverviewTab({ cash, appointments, applications, salesActivity }: Props) {
-  const [preset, setPreset] = useState<RangePreset>("mtd");
+export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [] }: Props) {
+  const [preset, setPreset] = useState<RangePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
+  const [compareMode, setCompareMode] = useState<CompareMode>("prev");
 
   const bench = useMemo(() => getBenchmarks(), []);
   const { from, to } = resolveRange(preset, customFrom, customTo);
@@ -157,7 +160,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
     [cash, appointments, applications, salesActivity, from, to, includeTest]
   );
 
-  const prevRange = previousPeriod(from, to);
+  const prevRange = comparisonRange(compareMode, from, to);
   const prevStats = useMemo(() => {
     if (!prevRange) return null;
     return computeStats(cash, appointments, applications, salesActivity, prevRange.from, prevRange.to, includeTest);
@@ -195,6 +198,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         dimensions={[]}
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
+        compareMode={compareMode}
+        onCompareModeChange={setCompareMode}
       />
 
       {/* HERO ROW — 4 big cards with pace bars and sparklines */}
@@ -364,6 +369,95 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           the pipeline rather than a strict per-lead conversion trace.
         </p>
       </div>
+
+      <ChallengeToRebornPanel challenge={challenge} cash={cash} />
+    </div>
+  );
+}
+
+function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]; cash: CashRow[] }) {
+  const analysis = useMemo(() => analyzeChallengeToReborn(challenge, cash), [challenge, cash]);
+
+  if (challenge.length === 0) {
+    return null;
+  }
+
+  const totalRebornRevenue = analysis.matches.reduce((s, m) => s + (m.rebornCashCollected ?? 0), 0);
+
+  return (
+    <div className="panel" style={{ marginTop: 20 }}>
+      <div className="panel-header">
+        <div className="panel-title">Challenge → Reborn Conversion</div>
+        <span style={{ color: "var(--muted)", fontSize: 11 }}>
+          Cross-source join · Challenge Sheet email ↔ Reborn Cash Tracker email
+        </span>
+      </div>
+      <div className="kpi-grid" style={{ marginBottom: 14 }}>
+        <div className="kpi-card">
+          <div className="kpi-label">Unique Challenge Emails</div>
+          <div className="kpi-value mono">{formatNumber(analysis.challengeUniqueEmails)}</div>
+          <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--line)", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
+            Source: Challenge Sheet · Email column
+          </div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Bought Reborn</div>
+          <div className="kpi-value mono" style={{ color: "var(--green)" }}>
+            {formatNumber(analysis.challengeBoughtReborn)}
+          </div>
+          <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--line)", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
+            Source: Challenge ∩ Cash Tracker · matched by email
+          </div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Conversion Rate</div>
+          <div className="kpi-value mono" style={{ color: analysis.conversionRate !== null && analysis.conversionRate >= 0.05 ? "var(--green)" : "var(--accent)" }}>
+            {formatPercent(analysis.conversionRate)}
+          </div>
+          <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--line)", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
+            Bought Reborn ÷ Unique Challenge Emails
+          </div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Revenue From Converters</div>
+          <div className="kpi-value mono" style={{ color: "var(--green)" }}>
+            {formatMoney(totalRebornRevenue)}
+          </div>
+          <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--line)", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
+            Sum of Cash Collected for matched emails
+          </div>
+        </div>
+      </div>
+      {analysis.matches.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Top converters (by Reborn cash collected)</div>
+          <table className="leaderboard">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Challenge Product</th>
+                <th>Reborn Product</th>
+                <th>Cash Collected</th>
+              </tr>
+            </thead>
+            <tbody>
+              {analysis.matches.slice(0, 15).map((m) => (
+                <tr key={m.email}>
+                  <td className="mono" style={{ fontSize: 11 }}>{m.email}</td>
+                  <td>{m.challengeProduct || "—"}</td>
+                  <td>{m.rebornProduct || "—"}</td>
+                  <td className="mono">{formatMoney(m.rebornCashCollected)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {analysis.matches.length > 15 && (
+            <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 8 }}>
+              +{analysis.matches.length - 15} more converters
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
