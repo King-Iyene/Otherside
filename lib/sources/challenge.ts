@@ -48,20 +48,65 @@ function parseCsv(text: string): string[][] {
 export const MONEY_HEADER_PATTERN = /(cash|revenue|balance|paid|price|amount|\$)/i;
 export const DATE_HEADER_PATTERN = /(date|created|enrolled|time)/i;
 
+function looksLikeHtml(text: string): boolean {
+  const start = text.trimStart().slice(0, 200).toLowerCase();
+  return start.startsWith("<!doctype html") || start.startsWith("<html");
+}
+
+interface CsvAttempt {
+  text: string;
+  status: number;
+  redirectedToLogin: boolean;
+}
+
+async function tryFetchCsv(url: string): Promise<CsvAttempt> {
+  const res = await fetch(url, { cache: "no-store", redirect: "follow" });
+  const text = await res.text();
+  const redirectedToLogin = res.url.includes("accounts.google.com") || res.url.includes("ServiceLogin");
+  return { text, status: res.status, redirectedToLogin };
+}
+
+/**
+ * Tries the standard CSV export endpoint first, then falls back to the gviz query
+ * endpoint (Google sometimes serves one but not the other depending on sheet
+ * config), before giving up with a diagnostic error.
+ */
+async function fetchCsvWithFallback(sheetId: string, gid: string): Promise<string> {
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+
+  const attempts: { label: string; result: CsvAttempt }[] = [];
+
+  const first = await tryFetchCsv(exportUrl);
+  attempts.push({ label: "export", result: first });
+  if (first.status === 200 && !looksLikeHtml(first.text) && !first.redirectedToLogin) {
+    return first.text;
+  }
+
+  const second = await tryFetchCsv(gvizUrl);
+  attempts.push({ label: "gviz", result: second });
+  if (second.status === 200 && !looksLikeHtml(second.text) && !second.redirectedToLogin) {
+    return second.text;
+  }
+
+  const detail = attempts
+    .map((a) => `${a.label}: HTTP ${a.result.status}${a.result.redirectedToLogin ? " (redirected to Google login)" : ""}`)
+    .join("; ");
+
+  throw new Error(
+    `Google Sheet ${sheetId} (gid ${gid}) did not return CSV data from either endpoint (${detail}). ` +
+      `This almost always means the sheet isn't actually public: open it, click Share, and confirm ` +
+      `"General access" says "Anyone with the link" (globe icon) — not "Anyone at [your domain]" or "Restricted". ` +
+      `If your Google Workspace admin has disabled external link-sharing org-wide, individual files can't override ` +
+      `that policy; use File → Share → "Publish to web" instead (a separate, always-public mechanism) and point ` +
+      `CHALLENGE_SHEET_ID/CHALLENGE_SHEET_GID at that published sheet, or ask an admin to allow external sharing.`
+  );
+}
+
 export async function fetchChallengeSheet(): Promise<SourceResult<ChallengeRow> & { columns: string[] }> {
   const sheetId = process.env.CHALLENGE_SHEET_ID || "1mJ3DLye8otnjs2CbUganWGNQbciBssZFHEFusoGQFpc";
   const gid = process.env.CHALLENGE_SHEET_GID || "0";
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-
-  const res = await fetch(url, { cache: "no-store" });
-  const text = await res.text();
-
-  const trimmedStart = text.trimStart().slice(0, 200).toLowerCase();
-  if (trimmedStart.startsWith("<!doctype html") || trimmedStart.startsWith("<html")) {
-    throw new Error(
-      "Google Sheet returned an HTML login page instead of CSV. Make sure the sheet is shared as \"Anyone with the link can view\"."
-    );
-  }
+  const text = await fetchCsvWithFallback(sheetId, gid);
 
   const table = parseCsv(text).filter((r) => r.some((cell) => cell.trim() !== ""));
   if (table.length === 0) {

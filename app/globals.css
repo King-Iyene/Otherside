@@ -320,6 +320,23 @@ select {
   color: var(--text);
 }
 
+.kpi-delta {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.kpi-delta.green {
+  color: var(--green);
+}
+.kpi-delta.red {
+  color: var(--red);
+}
+.kpi-delta.muted {
+  color: var(--muted);
+}
+
 /* ---------- Chart panels ---------- */
 
 .chart-grid {
