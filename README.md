@@ -13,9 +13,20 @@ Live business dashboard for Otherside, pulling directly from Notion and a Google
 
 Each tab has date range presets, dimension filters, search, KPI cards, a time-series chart (day/week/month), a breakdown chart, and a sortable table capped at 200 rows with "show all."
 
+## Notion access — two paths, they coexist
+
+The dashboard supports **two ways** to authenticate to Notion, and both can be configured at the same time. Whichever the current viewer has, wins:
+
+| Path | Who authorizes | What it needs | Best for |
+|---|---|---|---|
+| **A. Workspace token** (`NOTION_TOKEN`) | Workspace admin, once | Admin adds an internal integration to the pages | Everyone-shares-one-service-account model |
+| **B. Per-user OAuth** ("Connect my Notion account" button) | Each viewer, once | Public integration + OAuth client ID/secret | Members without admin access, or if permissions should follow the viewer |
+
+**Which does the dashboard use?** OAuth cookie always wins. If a user hasn't connected their own account, the dashboard falls back to `NOTION_TOKEN`. If neither is set, Notion tabs show a clear "connect required" state.
+
 ## Setup
 
-### 1. Create a Notion integration
+### 1. (Option A) Workspace-scoped internal integration
 
 1. Go to [notion.so/profile/integrations](https://notion.so/profile/integrations) and create a new **internal integration**.
 2. Under capabilities, enable:
@@ -23,38 +34,54 @@ Each tab has date range presets, dimension filters, search, KPI cards, a time-se
    - **Read user information without email** — this is required for the Sales Activity tab to resolve the "Enr Manager" person field into closer names.
 3. Copy the integration's secret token — this is your `NOTION_TOKEN`.
 
-### 2. Connect the integration to each database
+### 2. (Option A) Connect the integration to the parent page
 
-For each of the following databases, open it in Notion, click **•••** in the top-right corner, go to **Connections**, and add your integration:
+Open the **Execution System** page in Notion (the ancestor page containing all 4 databases), click **•••** → **Connections** → add your integration. Confirm "add to sub-pages" so it cascades to all 4 databases in one shot.
 
-- Reborn Cash Tracker
-- Appointments Tracker
-- REBORN Application Tracker
-- Sales Activity Tracker Daily Inputs
+### 3. (Option B) Public integration + OAuth (recommended for members without admin access)
 
-### 3. Share the Google Sheet
+This adds a **"Connect my Notion account"** button to the dashboard. Each viewer authorizes with their own Notion account and only sees data their account has permission to see. No shared token needed, easy to disconnect anytime.
+
+1. Go to [notion.so/profile/integrations](https://notion.so/profile/integrations) → **New integration** → set type to **Public**.
+2. Fill in name, workspace, and — critically — set the **Redirect URI** to `https://<your-vercel-domain>/api/notion/callback` (e.g. `https://otherside-ewfc.vercel.app/api/notion/callback`).
+3. Under Capabilities: enable **Read content** and **Read user information without email**.
+4. Copy the **OAuth client ID** and **OAuth client secret**.
+5. Add to Vercel env vars: `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`. Redirect URI is auto-derived from the request host, so `NOTION_OAUTH_REDIRECT_URI` is optional.
+
+Then, in the dashboard, click **Connect my Notion account** in the Notion Access panel. Notion asks which pages to grant, you select **Execution System**, land back on the dashboard — all 4 tabs populate.
+
+To disconnect: click **Disconnect** in the same panel. The OAuth cookie is deleted; the dashboard falls back to the workspace token (if set).
+
+### 4. Share the Google Sheet
 
 Open the Challenge Master Cash Tracker sheet, click **Share**, and set general access to **Anyone with the link can view**. The dashboard reads it via the CSV export endpoint, so no API key is required — but it will fail with a clear error if the sheet is not publicly viewable (it detects and rejects Google's HTML login page instead of silently parsing it as data).
 
-### 4. Configure environment variables
+### 5. Configure environment variables
 
-Copy `.env.example` to `.env.local` and fill in:
+Copy `.env.example` to `.env.local` and fill in. Both auth paths can coexist:
 
 ```
+# Option A — workspace-scoped internal integration (optional if using OAuth)
 NOTION_TOKEN=secret_...
+
+# Option B — Public integration for per-user OAuth (optional if using token)
+NOTION_OAUTH_CLIENT_ID=
+NOTION_OAUTH_CLIENT_SECRET=
+NOTION_OAUTH_REDIRECT_URI=     # optional; auto-derived from request host
+
 DASHBOARD_PASSWORD=            # optional — leave blank to disable the login wall
 CHALLENGE_SHEET_ID=1mJ3DLye8otnjs2CbUganWGNQbciBssZFHEFusoGQFpc
 CHALLENGE_SHEET_GID=0
 ```
 
-### 5. Run locally
+### 6. Run locally
 
 ```
 npm install
 npm run dev
 ```
 
-### 6. Deploy to Vercel
+### 7. Deploy to Vercel
 
 1. Import the repo into Vercel.
 2. Add the same environment variables in **Project Settings → Environment Variables**.

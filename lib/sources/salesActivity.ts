@@ -3,8 +3,8 @@ import type { HealthFlag, SalesActivityRow, SourceResult } from "../types";
 
 const DATABASE_ID = "25ac2fe5-3b3e-450b-bf9f-4a485cf6a410";
 
-export async function fetchSalesActivity(): Promise<SourceResult<SalesActivityRow>> {
-  const pages = await queryDatabase(DATABASE_ID);
+export async function fetchSalesActivity(token: string): Promise<SourceResult<SalesActivityRow>> {
+  const pages = await queryDatabase(DATABASE_ID, token);
 
   const rows: SalesActivityRow[] = pages.map((page) => {
     const props = page.properties;

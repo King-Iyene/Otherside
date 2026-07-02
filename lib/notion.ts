@@ -14,10 +14,9 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function notionFetch(url: string, body: unknown): Promise<any> {
-  const token = process.env.NOTION_TOKEN;
+async function notionFetch(url: string, body: unknown, token: string): Promise<any> {
   if (!token) {
-    throw new Error("NOTION_TOKEN is not configured on the server.");
+    throw new Error("No Notion access token available (neither OAuth cookie nor NOTION_TOKEN env var is set).");
   }
 
   let attempt = 0;
@@ -54,7 +53,11 @@ async function notionFetch(url: string, body: unknown): Promise<any> {
 }
 
 /** Queries a full Notion database, following pagination cursors with a rate-limit pause. */
-export async function queryDatabase(databaseId: string, baseBody: Record<string, unknown> = {}): Promise<NotionPage[]> {
+export async function queryDatabase(
+  databaseId: string,
+  token: string,
+  baseBody: Record<string, unknown> = {}
+): Promise<NotionPage[]> {
   const url = `https://api.notion.com/v1/databases/${databaseId}/query`;
   const pages: NotionPage[] = [];
   let cursor: string | undefined;
@@ -65,7 +68,7 @@ export async function queryDatabase(databaseId: string, baseBody: Record<string,
     first = false;
 
     const body = { ...baseBody, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) };
-    const json = await notionFetch(url, body);
+    const json = await notionFetch(url, body, token);
     pages.push(...json.results);
     cursor = json.has_more ? json.next_cursor : undefined;
   } while (cursor);

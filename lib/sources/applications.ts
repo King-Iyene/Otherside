@@ -5,8 +5,8 @@ import type { ApplicationRow, HealthFlag, SourceResult } from "../types";
 const DATABASE_ID = "33ec2386-6468-8004-b411-d9243b1f17e5";
 const EARNINGS_FIELD = "What is your current level of annual earnings in USD?";
 
-export async function fetchApplications(): Promise<SourceResult<ApplicationRow>> {
-  const pages = await queryDatabase(DATABASE_ID);
+export async function fetchApplications(token: string): Promise<SourceResult<ApplicationRow>> {
+  const pages = await queryDatabase(DATABASE_ID, token);
 
   const rows: ApplicationRow[] = pages.map((page) => {
     const props = page.properties;

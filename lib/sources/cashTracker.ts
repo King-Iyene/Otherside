@@ -4,8 +4,8 @@ import type { CashRow, HealthFlag, SourceResult } from "../types";
 
 const DATABASE_ID = "367c2386-6468-80af-bbe1-d5f6d2510876";
 
-export async function fetchCashTracker(): Promise<SourceResult<CashRow>> {
-  const pages = await queryDatabase(DATABASE_ID);
+export async function fetchCashTracker(token: string): Promise<SourceResult<CashRow>> {
+  const pages = await queryDatabase(DATABASE_ID, token);
 
   const rows: CashRow[] = pages.map((page) => {
     const props = page.properties;

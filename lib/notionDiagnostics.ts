@@ -1,8 +1,14 @@
-import { NotionPage } from "./notion";
+import type { NotionPage } from "./notion";
 
 const NOTION_VERSION = "2022-06-28";
 
 export interface NotionAccessInfo {
+  authMode: "oauth" | "env" | "none";
+  connectedUser: {
+    name: string | null;
+    workspaceName: string | null;
+    connectedAt: number | null;
+  } | null;
   bot: {
     id: string | null;
     name: string | null;
@@ -35,9 +41,7 @@ const TARGET_DATABASES: { label: string; id: string }[] = [
   { label: "Sales Activity Tracker Daily Inputs", id: "25ac2fe5-3b3e-450b-bf9f-4a485cf6a410" },
 ];
 
-async function notionRequest(url: string, method: "GET" | "POST", body?: unknown): Promise<Response> {
-  const token = process.env.NOTION_TOKEN;
-  if (!token) throw new Error("NOTION_TOKEN not configured on the server.");
+async function notionRequest(url: string, method: "GET" | "POST", token: string, body?: unknown): Promise<Response> {
   return fetch(url, {
     method,
     headers: {
@@ -50,8 +54,8 @@ async function notionRequest(url: string, method: "GET" | "POST", body?: unknown
   });
 }
 
-async function getBotIdentity(): Promise<NotionAccessInfo["bot"] | null> {
-  const res = await notionRequest("https://api.notion.com/v1/users/me", "GET");
+async function getBotIdentity(token: string): Promise<NotionAccessInfo["bot"] | null> {
+  const res = await notionRequest("https://api.notion.com/v1/users/me", "GET", token);
   if (!res.ok) return null;
   const json: any = await res.json();
   const bot = json?.bot ?? {};
@@ -65,8 +69,8 @@ async function getBotIdentity(): Promise<NotionAccessInfo["bot"] | null> {
   };
 }
 
-async function listAccessible(): Promise<NotionAccessInfo["accessible"]> {
-  const dbRes = await notionRequest("https://api.notion.com/v1/search", "POST", {
+async function listAccessible(token: string): Promise<NotionAccessInfo["accessible"]> {
+  const dbRes = await notionRequest("https://api.notion.com/v1/search", "POST", token, {
     filter: { property: "object", value: "database" },
     page_size: 100,
   });
@@ -76,23 +80,21 @@ async function listAccessible(): Promise<NotionAccessInfo["accessible"]> {
     .map((d: any) => d?.title?.map?.((t: any) => t.plain_text).join("") || "(untitled)")
     .filter(Boolean);
 
-  const pageRes = await notionRequest("https://api.notion.com/v1/search", "POST", {
+  const pageRes = await notionRequest("https://api.notion.com/v1/search", "POST", token, {
     filter: { property: "object", value: "page" },
     page_size: 25,
   });
   const pageJson: any = pageRes.ok ? await pageRes.json() : { results: [] };
-  const samplePageTitles = (pageJson.results ?? [])
-    .slice(0, 15)
-    .map((p: any) => {
-      const props = p?.properties || {};
-      for (const key of Object.keys(props)) {
-        const prop = props[key];
-        if (prop?.type === "title") {
-          return (prop.title || []).map((t: any) => t.plain_text).join("") || "(untitled)";
-        }
+  const samplePageTitles = (pageJson.results ?? []).slice(0, 15).map((p: any) => {
+    const props = p?.properties || {};
+    for (const key of Object.keys(props)) {
+      const prop = props[key];
+      if (prop?.type === "title") {
+        return (prop.title || []).map((t: any) => t.plain_text).join("") || "(untitled)";
       }
-      return p?.id || "(no title)";
-    });
+    }
+    return p?.id || "(no title)";
+  });
 
   return {
     pages: pageJson.results?.length ?? 0,
@@ -102,11 +104,11 @@ async function listAccessible(): Promise<NotionAccessInfo["accessible"]> {
   };
 }
 
-async function probeTargets(): Promise<TargetProbeResult[]> {
+async function probeTargets(token: string): Promise<TargetProbeResult[]> {
   const results: TargetProbeResult[] = [];
   for (const target of TARGET_DATABASES) {
     try {
-      const res = await notionRequest(`https://api.notion.com/v1/databases/${target.id}`, "GET");
+      const res = await notionRequest(`https://api.notion.com/v1/databases/${target.id}`, "GET", token);
       if (res.ok) {
         results.push({ label: target.label, databaseId: target.id, ok: true, errorCode: null, errorMessage: null });
       } else {
@@ -132,9 +134,15 @@ async function probeTargets(): Promise<TargetProbeResult[]> {
   return results;
 }
 
-export async function collectNotionDiagnostics(): Promise<NotionAccessInfo> {
-  if (!process.env.NOTION_TOKEN) {
+export async function collectNotionDiagnostics(
+  token: string | null,
+  authMode: "oauth" | "env" | "none",
+  connectedUser: NotionAccessInfo["connectedUser"] = null
+): Promise<NotionAccessInfo> {
+  if (!token) {
     return {
+      authMode,
+      connectedUser,
       bot: null,
       accessible: { pages: 0, databases: 0, databaseTitles: [], samplePageTitles: [] },
       targets: TARGET_DATABASES.map((t) => ({
@@ -142,21 +150,23 @@ export async function collectNotionDiagnostics(): Promise<NotionAccessInfo> {
         databaseId: t.id,
         ok: false,
         errorCode: "no_token",
-        errorMessage: "NOTION_TOKEN environment variable is not set on the server.",
+        errorMessage: "No Notion token available. Connect your own account or set NOTION_TOKEN.",
       })),
-      tokenError: "NOTION_TOKEN is not configured on the server.",
+      tokenError: "No Notion token available.",
     };
   }
 
   try {
     const [bot, accessible, targets] = await Promise.all([
-      getBotIdentity().catch(() => null),
-      listAccessible().catch(() => ({ pages: 0, databases: 0, databaseTitles: [], samplePageTitles: [] })),
-      probeTargets(),
+      getBotIdentity(token).catch(() => null),
+      listAccessible(token).catch(() => ({ pages: 0, databases: 0, databaseTitles: [], samplePageTitles: [] })),
+      probeTargets(token),
     ]);
-    return { bot, accessible, targets, tokenError: null };
+    return { authMode, connectedUser, bot, accessible, targets, tokenError: null };
   } catch (err: any) {
     return {
+      authMode,
+      connectedUser,
       bot: null,
       accessible: { pages: 0, databases: 0, databaseTitles: [], samplePageTitles: [] },
       targets: [],

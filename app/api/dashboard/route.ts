@@ -5,6 +5,7 @@ import { fetchAppointments } from "@/lib/sources/appointments";
 import { fetchApplications } from "@/lib/sources/applications";
 import { fetchSalesActivity } from "@/lib/sources/salesActivity";
 import { fetchChallengeSheet } from "@/lib/sources/challenge";
+import { resolveTokenFromRequest } from "@/lib/notionAuth";
 import type { ChallengeRow, SourceResult } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,24 @@ async function isolateChallenge(): Promise<SourceResult<ChallengeRow> & { column
   }
 }
 
-async function buildPayload() {
+async function buildPayload(token: string | null, authMode: string) {
+  const notionCall = async <T>(fn: (t: string) => Promise<SourceResult<T>>): Promise<SourceResult<T>> => {
+    if (!token) {
+      return {
+        rows: [],
+        error:
+          "No Notion access. Either connect your own Notion account (top-right Connect button), or set NOTION_TOKEN in Vercel env vars.",
+        fetchedAt: Date.now(),
+      };
+    }
+    return isolate(() => fn(token));
+  };
+
   const [cash, appointments, applications, salesActivity, challenge] = await Promise.all([
-    isolate(fetchCashTracker),
-    isolate(fetchAppointments),
-    isolate(fetchApplications),
-    isolate(fetchSalesActivity),
+    notionCall(fetchCashTracker),
+    notionCall(fetchAppointments),
+    notionCall(fetchApplications),
+    notionCall(fetchSalesActivity),
     isolateChallenge(),
   ]);
 
@@ -40,12 +53,17 @@ async function buildPayload() {
     applications,
     salesActivity,
     challenge,
+    authMode,
     generatedAt: Date.now(),
   };
 }
 
 export async function GET(request: NextRequest) {
   const fresh = request.nextUrl.searchParams.get("fresh") === "1";
-  const payload = await cached("dashboard", fresh, buildPayload);
+  const { token, authMode } = resolveTokenFromRequest(request);
+  // Cache-key includes the auth mode + token identity so an OAuth user's data
+  // doesn't leak into the env-fallback cache and vice versa.
+  const cacheKey = `dashboard:${authMode}:${token ? token.slice(-8) : "none"}`;
+  const payload = await cached(cacheKey, fresh, () => buildPayload(token, authMode));
   return NextResponse.json(payload);
 }
