@@ -12,6 +12,7 @@ import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
+import DrillDownModal from "../DrillDownModal";
 
 export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
@@ -21,6 +22,7 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
   const [earnings, setEarnings] = useState("");
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
+  const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: ApplicationRow[] } | null>(null);
 
   const statuses = useMemo(() => uniqueSorted(rows.map((r) => r.applicationStatus)), [rows]);
   const earningsOptions = useMemo(() => uniqueSorted(rows.map((r) => r.annualEarnings)), [rows]);
@@ -124,11 +126,15 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
             label: "Applications",
             value: formatNumber(filtered.length),
             delta: prevFiltered && computeDelta(filtered.length, prevFiltered.length),
+            source: { source: "REBORN Application Tracker (Notion)", field: "COUNT", formula: "Rows where Date Created in period" },
+            onClick: () => setDrilldown({ title: "All Applications", rows: filtered }),
           },
           {
             label: "Purchased",
             value: formatNumber(purchasedCount),
             delta: prevPurchased !== null ? computeDelta(purchasedCount, prevPurchased) : null,
+            source: { source: "REBORN Application Tracker (Notion)", field: "REBORN Payments Tracker relation", formula: "Non-empty relation" },
+            onClick: () => setDrilldown({ title: "Purchased Applications", rows: filtered.filter((r) => r.purchased) }),
           },
           {
             label: "Conversion Rate",
@@ -137,6 +143,7 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
               conversionRate !== null && prevConversionRate !== null
                 ? computeDelta(conversionRate, prevConversionRate)
                 : null,
+            source: { source: "Derived", field: "Purchased ÷ Total Applications" },
           },
         ]}
       />
@@ -171,8 +178,12 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
             </thead>
             <tbody>
               {earningsComparison.map((e) => (
-                <tr key={e.bucket}>
-                  <td>{e.bucket}</td>
+                <tr
+                  key={e.bucket}
+                  onClick={() => setDrilldown({ title: `Bracket: ${e.bucket}`, rows: filtered.filter((r) => r.annualEarnings === e.bucket) })}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td style={{ fontWeight: 500 }}>{e.bucket} →</td>
                   <td className="mono">{formatNumber(e.applications)}</td>
                   <td className="mono">{formatNumber(e.purchased)}</td>
                   <td className="mono">{formatPercent(e.conversion)}</td>
@@ -195,7 +206,35 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
         </div>
       )}
 
-      <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> applications match current filters
+        </div>
+        <button className="link-btn" onClick={() => setDrilldown({ title: "All Filtered Applications", rows: filtered })}>
+          View records →
+        </button>
+      </div>
+
+      <DrillDownModal
+        open={!!drilldown}
+        onClose={() => setDrilldown(null)}
+        title={drilldown?.title || ""}
+        subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} applications` : ""}
+      >
+        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      </DrillDownModal>
     </div>
   );
 }

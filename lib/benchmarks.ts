@@ -43,6 +43,10 @@ export interface Benchmarks {
   dailyCalls: number;
   weeklyCashOnCall: number;
   avgDealSize: number;
+  /** Business-level pacing targets (Overview tab). */
+  monthlyCashCollected: number;
+  monthlyRevenueBooked: number;
+  monthlyEnrollments: number;
 }
 
 export interface ScorecardWeights {
@@ -63,6 +67,9 @@ export function getBenchmarks(): Benchmarks {
     dailyCalls: num("BENCHMARK_DAILY_CALLS", 8),
     weeklyCashOnCall: num("BENCHMARK_WEEKLY_CASH_ON_CALL", 15000),
     avgDealSize: num("BENCHMARK_AVG_DEAL_SIZE", 3000),
+    monthlyCashCollected: num("TARGET_MONTHLY_CASH", 150000),
+    monthlyRevenueBooked: num("TARGET_MONTHLY_REVENUE", 200000),
+    monthlyEnrollments: num("TARGET_MONTHLY_ENROLLMENTS", 40),
   };
 }
 

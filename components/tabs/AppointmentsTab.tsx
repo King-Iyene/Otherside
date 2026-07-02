@@ -12,6 +12,7 @@ import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
+import DrillDownModal from "../DrillDownModal";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
 
@@ -25,6 +26,7 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
   const [enrManager, setEnrManager] = useState("");
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
+  const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: AppointmentRow[] } | null>(null);
 
   const statuses = useMemo(() => uniqueSorted(rows.map((r) => r.status)), [rows]);
   const types = useMemo(() => uniqueSorted(rows.map((r) => r.appointmentType)), [rows]);
@@ -117,27 +119,42 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
             label: "Total Appointments",
             value: formatNumber(filtered.length),
             delta: prevKpis && computeDelta(filtered.length, prevKpis.total),
+            source: { source: "Appointments Tracker (Notion)", field: "COUNT", formula: "Rows where Appointment Time in period" },
+            onClick: () => setDrilldown({ title: "All Appointments", rows: filtered }),
           },
-          { label: "Showed", value: formatNumber(showedCount), delta: prevKpis && computeDelta(showedCount, prevKpis.showed) },
+          {
+            label: "Showed",
+            value: formatNumber(showedCount),
+            delta: prevKpis && computeDelta(showedCount, prevKpis.showed),
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Status", formula: "Status ∈ {Showed, Client Won, Finisher}" },
+            onClick: () =>
+              setDrilldown({
+                title: "Showed Appointments",
+                subtitle: "Status = Showed / Client Won / Finisher",
+                rows: filtered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)),
+              }),
+          },
           {
             label: "Show Rate",
             value: formatPercent(showRate),
-            delta:
-              prevShowRate !== null && showRate !== null
-                ? computeDelta(showRate, prevShowRate)
-                : null,
+            delta: prevShowRate !== null && showRate !== null ? computeDelta(showRate, prevShowRate) : null,
+            source: { source: "Derived", field: "Showed ÷ Total Appointments" },
           },
           {
             label: "No Shows",
             value: formatNumber(noShowCount),
             delta: prevKpis && computeDelta(noShowCount, prevKpis.noShow),
             higherIsBetter: false,
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Status = No show" },
+            onClick: () => setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status === "No show") }),
           },
           {
             label: "Cancelled",
             value: formatNumber(cancelledCount),
             delta: prevKpis && computeDelta(cancelledCount, prevKpis.cancelled),
             higherIsBetter: false,
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Status = Cancelled" },
+            onClick: () => setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status === "Cancelled") }),
           },
         ]}
       />
@@ -154,7 +171,70 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         />
       </div>
 
-      <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      {/* Status breakdown as clickable rows */}
+      {statuses.length > 0 && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">
+            <div className="panel-title">Status Breakdown</div>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a status to see those appointments</span>
+          </div>
+          <table className="leaderboard">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Count</th>
+                <th>% of Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statuses
+                .map((s) => ({ status: s, count: filtered.filter((r) => r.status === s).length }))
+                .sort((a, b) => b.count - a.count)
+                .map(({ status: s, count }) => (
+                  <tr
+                    key={s}
+                    onClick={() => setDrilldown({ title: `Appointments — ${s}`, rows: filtered.filter((r) => r.status === s) })}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td style={{ fontWeight: 500 }}>{s} →</td>
+                    <td className="mono">{formatNumber(count)}</td>
+                    <td className="mono">{formatPercent(filtered.length ? count / filtered.length : null)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> appointments match current filters
+        </div>
+        <button className="link-btn" onClick={() => setDrilldown({ title: "All Filtered Appointments", rows: filtered })}>
+          View records →
+        </button>
+      </div>
+
+      <DrillDownModal
+        open={!!drilldown}
+        onClose={() => setDrilldown(null)}
+        title={drilldown?.title || ""}
+        subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} appointments` : ""}
+      >
+        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+      </DrillDownModal>
     </div>
   );
 }
