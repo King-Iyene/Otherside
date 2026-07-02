@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/lib/money";
+import ThemeToggle from "./ThemeToggle";
 
 interface Props {
   cashCollected: number;
@@ -14,7 +15,10 @@ interface Props {
 export default function PulseBar({ cashCollected, revenueBooked, outstanding, updatedAt, loading, onRefresh }: Props) {
   return (
     <div className="pulse-bar">
-      <div className="pulse-brand">OTHERSIDE</div>
+      <div className="pulse-brand">
+        <span className="pulse-brand-mark" />
+        OTHERSIDE
+      </div>
       <div className="pulse-metrics">
         <div className="pulse-metric">
           <span className="pulse-metric-label">Cash Collected</span>
@@ -33,6 +37,7 @@ export default function PulseBar({ cashCollected, revenueBooked, outstanding, up
         <span className="pulse-updated">
           {updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString()}` : "Loading..."}
         </span>
+        <ThemeToggle />
         <button className="refresh-btn" onClick={onRefresh} disabled={loading}>
           {loading ? "Refreshing…" : "Refresh"}
         </button>
