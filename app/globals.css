@@ -231,6 +231,24 @@ select {
 .pulse-metric-value.green { color: var(--green); }
 .pulse-metric-value.blue { color: var(--blue); }
 .pulse-metric-value.red { color: var(--red); }
+.pulse-metric-value.amber { color: #f2b63c; }
+
+.pulse-quality {
+  background: none;
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  align-items: flex-start;
+  text-align: left;
+  font-family: inherit;
+}
+.pulse-quality:hover { background: var(--surface-2); }
+.pulse-quality-green { border-color: rgba(69, 208, 147, 0.35); }
+.pulse-quality-amber { border-color: rgba(242, 182, 60, 0.35); }
+.pulse-quality-red { border-color: rgba(240, 112, 112, 0.35); }
+.pulse-quality .pulse-metric-value { font-size: 14px; }
 
 .pulse-actions {
   display: flex;

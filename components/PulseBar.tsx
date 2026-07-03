@@ -10,9 +10,29 @@ interface Props {
   updatedAt: number | null;
   loading: boolean;
   onRefresh: () => void;
+  /** Number of data-quality issues detected. Shown as a clickable chip that scrolls to the panel.
+   *  Omit to hide the chip (e.g. on the closer scorecard page where there's no health panel). */
+  dataQualityIssues?: number;
 }
 
-export default function PulseBar({ cashCollected, revenueBooked, outstanding, updatedAt, loading, onRefresh }: Props) {
+export default function PulseBar({
+  cashCollected,
+  revenueBooked,
+  outstanding,
+  updatedAt,
+  loading,
+  onRefresh,
+  dataQualityIssues,
+}: Props) {
+  const scrollToHealth = () => {
+    const el = document.querySelector(".health-panel");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const issues = dataQualityIssues ?? 0;
+  const qualityTone = issues === 0 ? "green" : issues < 20 ? "amber" : "red";
+  const qualityLabel = issues === 0 ? "All clean" : `${issues} issue${issues === 1 ? "" : "s"}`;
+
   return (
     <div className="pulse-bar">
       <div className="pulse-brand">
@@ -32,6 +52,17 @@ export default function PulseBar({ cashCollected, revenueBooked, outstanding, up
           <span className="pulse-metric-label">Outstanding</span>
           <span className="pulse-metric-value red mono">{formatMoney(outstanding)}</span>
         </div>
+        {dataQualityIssues !== undefined && (
+          <button
+            type="button"
+            className={`pulse-metric pulse-quality pulse-quality-${qualityTone}`}
+            onClick={scrollToHealth}
+            title="Click to see the Data Health details"
+          >
+            <span className="pulse-metric-label">Data Quality</span>
+            <span className={`pulse-metric-value mono ${qualityTone}`}>{qualityLabel}</span>
+          </button>
+        )}
       </div>
       <div className="pulse-actions">
         <span className="pulse-updated">
