@@ -6,12 +6,15 @@ import {
   applyFilters,
   buildDatasets,
   computeGroup,
+  describeGroup,
   getRowsForDataset,
   optionsFor,
+  OP_LABELS_SALES,
   type CrossJoin,
   type DataBundle,
   type DatasetDef,
   type DatasetKey,
+  type FieldDef,
   type FilterRule,
   type QueryGroup,
 } from "@/lib/insightsQuery";
@@ -27,19 +30,7 @@ interface Props {
   challengeColumns: string[];
 }
 
-const OP_LABELS: Record<string, string> = {
-  eq: "equals",
-  neq: "does not equal",
-  in: "is any of",
-  notIn: "is not any of",
-  gt: ">",
-  gte: "≥",
-  lt: "<",
-  lte: "≤",
-  contains: "contains",
-  isEmpty: "is empty",
-  isNotEmpty: "is not empty",
-};
+const OP_LABELS = OP_LABELS_SALES;
 
 const OPS_FOR_TYPE: Record<string, string[]> = {
   // Multi-select ("in") is now the default for select fields so you can immediately
@@ -59,6 +50,10 @@ function makeEmptyGroup(datasetKey: DatasetKey, label: string, color: string): Q
   return { id: genId(), datasetKey, label, filters: [], color };
 }
 
+function filterableFields(dataset: DatasetDef): FieldDef[] {
+  return dataset.fields.filter((f) => f.filterable !== false);
+}
+
 export default function InsightsBuilder({
   cash,
   appointments,
@@ -72,8 +67,8 @@ export default function InsightsBuilder({
 
   const [includeTest, setIncludeTest] = useState(false);
   const [groups, setGroups] = useState<QueryGroup[]>([
-    makeEmptyGroup("applications", "Group A", "var(--accent)"),
-    makeEmptyGroup("applications", "Group B", "var(--blue)"),
+    makeEmptyGroup("applications", "", "var(--accent)"),
+    makeEmptyGroup("applications", "", "var(--blue)"),
   ]);
   const [crossEnabled, setCrossEnabled] = useState(true);
   const [cross, setCross] = useState<CrossJoin>({ crossWith: "cash", crossFilters: [] });
@@ -95,7 +90,8 @@ export default function InsightsBuilder({
       gs.map((g) => {
         if (g.id !== groupId) return g;
         const dataset = datasets.find((d) => d.key === g.datasetKey);
-        const firstField = dataset?.fields[0];
+        if (!dataset) return g;
+        const firstField = filterableFields(dataset)[0];
         if (!firstField) return g;
         const defaultOp = OPS_FOR_TYPE[firstField.type][0] as any;
         const newRule: FilterRule = {
@@ -121,10 +117,7 @@ export default function InsightsBuilder({
   function addGroup() {
     if (groups.length >= 4) return;
     const palette = ["var(--accent)", "var(--blue)", "var(--green)", "var(--purple)"];
-    setGroups((gs) => [
-      ...gs,
-      makeEmptyGroup("applications", `Group ${String.fromCharCode(65 + gs.length)}`, palette[gs.length] || "var(--accent)"),
-    ]);
+    setGroups((gs) => [...gs, makeEmptyGroup("applications", "", palette[gs.length] || "var(--accent)")]);
   }
 
   function removeGroup(id: string) {
@@ -348,12 +341,11 @@ function ResultCard({
     >
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: result.group.color, opacity: 0.6 }} />
 
-      <div style={{ fontSize: 11, letterSpacing: 0.06, textTransform: "uppercase", color: result.group.color, fontWeight: 600 }}>
-        {result.group.label}
+      <div style={{ fontSize: 13, color: result.group.color, fontWeight: 700, fontFamily: "var(--font-display)", letterSpacing: 0.01, lineHeight: 1.3 }}>
+        {result.group.label || describeGroup(result.group, dataset)}
       </div>
-      <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>
+      <div style={{ color: "var(--muted)", fontSize: 10, marginTop: 4, textTransform: "uppercase", letterSpacing: 0.06 }}>
         {dataset.icon} {dataset.label}
-        {result.group.filters.length > 0 && ` · ${result.group.filters.length} filter${result.group.filters.length === 1 ? "" : "s"}`}
       </div>
 
       {/* Hero metric — either the count or the percentage, whichever is toggled */}
@@ -416,10 +408,14 @@ function ResultCard({
                     text: `${countDelta >= 0 ? "▲" : "▼"} ${formatNumber(Math.abs(countDelta))}`,
                     color: countDelta >= 0 ? "var(--green)" : "var(--red)",
                   };
+            const otherDataset = datasets.find((d) => d.key === other.group.datasetKey)!;
+            const otherLabel = other.group.label || describeGroup(other.group, otherDataset);
             return (
-              <div key={other.group.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
-                <span style={{ color: other.group.color }}>vs {other.group.label}</span>
-                <span className="mono" style={{ color: primaryDelta.color, fontWeight: 600 }}>
+              <div key={other.group.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, gap: 8 }}>
+                <span style={{ color: other.group.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  vs {otherLabel}
+                </span>
+                <span className="mono" style={{ color: primaryDelta.color, fontWeight: 600, whiteSpace: "nowrap" }}>
                   {primaryDelta.text}
                 </span>
               </div>
@@ -545,12 +541,13 @@ function GroupEditor({
         <input
           value={group.label}
           onChange={(e) => onChangeLabel(e.target.value)}
+          placeholder={describeGroup(group, dataset)}
           style={{
             background: "transparent",
             border: "none",
             color: group.color,
             fontFamily: "var(--font-display)",
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: 700,
             letterSpacing: 0.02,
             padding: 0,
@@ -670,7 +667,7 @@ function FilterRow({
         }}
         style={{ fontSize: 11, padding: "5px 8px" }}
       >
-        {dataset.fields.map((f) => (
+        {filterableFields(dataset).map((f) => (
           <option key={f.key} value={f.key}>
             {f.label}
           </option>
@@ -684,7 +681,7 @@ function FilterRow({
       >
         {ops.map((op) => (
           <option key={op} value={op}>
-            {OP_LABELS[op]}
+            {(OP_LABELS as Record<string, string>)[op]}
           </option>
         ))}
       </select>
@@ -855,7 +852,8 @@ function CrossFilterEditor({
           ))}
           <button
             onClick={() => {
-              const first = dataset.fields[0];
+              const first = filterableFields(dataset)[0];
+              if (!first) return;
               onChange({
                 ...cross,
                 crossFilters: [...cross.crossFilters, { fieldKey: first.key, op: OPS_FOR_TYPE[first.type][0] as any }],
