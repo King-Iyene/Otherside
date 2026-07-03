@@ -105,11 +105,19 @@ export function getRichText(properties: Record<string, any>, name: string): stri
   return null;
 }
 
+/**
+ * Read an email property and normalize it. RFC 5321 says the local part is
+ * technically case-sensitive but every real-world mail server treats
+ * `Foo@x.com` and `foo@x.com` as the same address — treating them as separate
+ * people splits every join and inflates counts. We normalize at the read
+ * boundary so downstream code doesn't have to remember.
+ */
 export function getEmail(properties: Record<string, any>, name: string): string | null {
   const prop = getProp(properties, name);
   if (!prop) return null;
-  if (prop.type === "email") return prop.email || null;
-  return getRichText(properties, name);
+  const raw = prop.type === "email" ? prop.email : getRichText(properties, name);
+  if (!raw) return null;
+  return String(raw).trim().toLowerCase() || null;
 }
 
 export function getSelect(properties: Record<string, any>, name: string): string | null {
