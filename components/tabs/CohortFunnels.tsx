@@ -5,7 +5,6 @@ import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "@/li
 import {
   computeAllCohortFunnels,
   stageToStageRate,
-  stageOfTotalRate,
   type CohortFunnel,
   type FunnelStage,
 } from "@/lib/cohortFunnel";
@@ -189,7 +188,6 @@ export default function CohortFunnels({ cash, appointments, applications, challe
 // ────────────────────────────────────────────────────────────────
 
 function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickStage: (stage: FunnelStage) => void }) {
-  const top = funnel.stages[0].count;
   const maxCount = Math.max(...funnel.stages.map((s) => s.count), 1);
 
   return (
@@ -211,7 +209,6 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
         {funnel.stages.map((stage, idx) => {
           const prevCount = idx > 0 ? funnel.stages[idx - 1].count : null;
           const stageRate = idx > 0 ? stageToStageRate(prevCount!, stage.count) : null;
-          const totalRate = idx > 0 ? stageOfTotalRate(top, stage.count) : null;
           const barWidth = (stage.count / maxCount) * 100;
           const isCash = stage.key === "cash";
 
@@ -244,22 +241,14 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
               {idx > 0 && (
                 <div className="funnel-stage-conv">
                   <span className="funnel-stage-conv-primary">
-                    {stageRate !== null ? formatPercent(stageRate) : "—"} from prev
+                    {stageRate !== null ? formatPercent(stageRate) : "—"}
                   </span>
-                  <span className="funnel-stage-conv-secondary">
-                    {totalRate !== null ? formatPercent(totalRate) : "—"} of top
-                  </span>
+                  <span className="funnel-stage-conv-secondary">from previous stage</span>
                 </div>
               )}
             </button>
           );
         })}
-      </div>
-
-      <div className="funnel-card-explain">
-        <strong>How to read this:</strong> each row is unique-people at that stage of the funnel. "from prev" is the
-        conversion from the row above (e.g. of everyone who Applied, this % Booked a Call). Click any stage to see the
-        actual people and search by name/email.
       </div>
 
       <style jsx>{`

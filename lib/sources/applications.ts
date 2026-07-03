@@ -1,5 +1,6 @@
 import { queryDatabase, getTitle, getEmail, getRichText, getSelect, getDate, getRelationCount } from "../notion";
 import { isTestRecord } from "../testFlag";
+import { applicationRowHealthChecks } from "../dataHealth";
 import type { ApplicationRow, HealthFlag, SourceResult } from "../types";
 
 const DATABASE_ID = "33ec2386-6468-8004-b411-d9243b1f17e5";
@@ -18,6 +19,9 @@ export async function fetchApplications(token: string): Promise<SourceResult<App
 
     if (!dateCreated) health.push({ field: "Date Created", kind: "missing_date", raw: "" });
 
+    const annualEarnings = getSelect(props, EARNINGS_FIELD);
+    health.push(...applicationRowHealthChecks({ annualEarnings }));
+
     return {
       id: page.id,
       url: page.url,
@@ -28,7 +32,7 @@ export async function fetchApplications(token: string): Promise<SourceResult<App
       email,
       phone: getRichText(props, "Phone"),
       applicationStatus: getSelect(props, "Application Status"),
-      annualEarnings: getSelect(props, EARNINGS_FIELD),
+      annualEarnings,
       dateCreated,
       purchased: getRelationCount(props, "REBORN Payments Tracker") > 0,
     };

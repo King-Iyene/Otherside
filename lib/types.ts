@@ -1,7 +1,23 @@
+export type HealthFlagKind =
+  | "unparseable_money"
+  | "missing_date"
+  | "missing_value"
+  | "missing_cohort"
+  | "inconsistent_cohort"
+  | "missing_closer"
+  | "duplicate_email_in_cash"
+  | "zero_revenue_enrollment"
+  | "cash_gt_revenue"
+  | "outstanding_no_next_payment"
+  | "showed_no_status"
+  | "missing_income_bracket";
+
 export type HealthFlag = {
   field: string;
-  kind: "unparseable_money" | "missing_date" | "missing_value";
+  kind: HealthFlagKind;
   raw: string;
+  /** Optional short human explanation shown in the data-health tooltip. */
+  hint?: string;
 };
 
 export interface BaseRow {
