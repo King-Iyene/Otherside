@@ -210,7 +210,6 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           const prevCount = idx > 0 ? funnel.stages[idx - 1].count : null;
           const stageRate = idx > 0 ? stageToStageRate(prevCount!, stage.count) : null;
           const barWidth = (stage.count / maxCount) * 100;
-          const isCash = stage.key === "cash";
 
           return (
             <button
@@ -225,9 +224,7 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
                   <span style={{ marginRight: 6 }}>{stage.emoji}</span>
                   {stage.label}
                 </div>
-                <div className="funnel-stage-count">
-                  {isCash ? formatMoney(stage.dollarAmount ?? 0) : formatNumber(stage.count)}
-                </div>
+                <div className="funnel-stage-count">{formatNumber(stage.count)}</div>
               </div>
               <div className="funnel-stage-bar-track">
                 <div
@@ -374,19 +371,59 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
 // ────────────────────────────────────────────────────────────────
 
 function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
-  const stageKeys = funnels[0].stages.map((s) => ({ key: s.key, label: s.label, emoji: s.emoji }));
+  // Three KPIs — the only questions a sales lead actually asks side-by-side.
+  const kpis: {
+    key: string;
+    label: string;
+    emoji: string;
+    getValue: (f: CohortFunnel) => number;
+    format: (v: number) => string;
+    higherIsBetter: boolean;
+    color?: string;
+  }[] = [
+    {
+      key: "enrolled",
+      label: "Enrolled",
+      emoji: "🏆",
+      getValue: (f) => f.stages.find((s) => s.key === "enrolled")!.count,
+      format: formatNumber,
+      higherIsBetter: true,
+    },
+    {
+      key: "conv",
+      label: "Registered → Enrolled",
+      emoji: "🎯",
+      getValue: (f) => {
+        const reg = f.stages[0].count;
+        const enr = f.stages.find((s) => s.key === "enrolled")!.count;
+        return reg > 0 ? enr / reg : 0;
+      },
+      format: (v) => formatPercent(v),
+      higherIsBetter: true,
+      color: "var(--accent)",
+    },
+    {
+      key: "cash",
+      label: "Cash Collected",
+      emoji: "💰",
+      getValue: (f) => f.totalCash,
+      format: formatMoney,
+      higherIsBetter: true,
+      color: "var(--green)",
+    },
+  ];
 
   return (
     <div className="comparison-wrap">
       <div className="comparison-header">
         <div className="comparison-title">Side-by-Side</div>
-        <div className="comparison-subtitle">Same funnel stage across every active cohort. Highest number wins the row.</div>
+        <div className="comparison-subtitle">The three numbers a sales lead asks about. Winner gets a ▲ badge.</div>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="comparison-table">
           <thead>
             <tr>
-              <th style={{ textAlign: "left" }}>Stage</th>
+              <th style={{ textAlign: "left" }}>KPI</th>
               {funnels.map((f) => (
                 <th key={f.cohort.id} style={{ color: f.cohort.color }}>
                   {f.cohort.emoji} {f.cohort.label}
@@ -395,100 +432,28 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
             </tr>
           </thead>
           <tbody>
-            {stageKeys.map((s) => {
-              const values = funnels.map((f) => {
-                const stage = f.stages.find((x) => x.key === s.key)!;
-                return stage.key === "cash" ? stage.dollarAmount ?? 0 : stage.count;
-              });
-              const max = Math.max(...values);
+            {kpis.map((kpi) => {
+              const values = funnels.map((f) => kpi.getValue(f));
+              const best = kpi.higherIsBetter ? Math.max(...values) : Math.min(...values);
               return (
-                <tr key={s.key}>
+                <tr key={kpi.key}>
                   <td style={{ fontWeight: 500 }}>
-                    <span style={{ marginRight: 6 }}>{s.emoji}</span>
-                    {s.label}
+                    <span style={{ marginRight: 6 }}>{kpi.emoji}</span>
+                    {kpi.label}
                   </td>
                   {funnels.map((f, i) => {
-                    const stage = f.stages.find((x) => x.key === s.key)!;
                     const v = values[i];
-                    const isMax = v === max && v > 0;
+                    const isBest = v === best && v > 0;
                     return (
-                      <td key={f.cohort.id} className={isMax ? "winner mono" : "mono"}>
-                        {stage.key === "cash" ? formatMoney(v) : formatNumber(v)}
-                        {isMax && v > 0 && <span className="winner-badge">▲ best</span>}
+                      <td key={f.cohort.id} className={isBest ? "winner mono" : "mono"} style={kpi.color && !isBest ? { color: kpi.color } : undefined}>
+                        {kpi.format(v)}
+                        {isBest && <span className="winner-badge">▲ best</span>}
                       </td>
                     );
                   })}
                 </tr>
               );
             })}
-            <tr className="separator-row">
-              <td colSpan={funnels.length + 1}></td>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 500, color: "var(--muted)" }}>Registered → Enrolled %</td>
-              {funnels.map((f) => {
-                const registered = f.stages[0].count;
-                const enrolled = f.stages[4].count;
-                const rate = registered > 0 ? enrolled / registered : null;
-                return (
-                  <td key={f.cohort.id} className="mono" style={{ color: "var(--accent)", fontWeight: 600 }}>
-                    {rate !== null ? formatPercent(rate) : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 500, color: "var(--muted)" }}>Applied → Booked %</td>
-              {funnels.map((f) => {
-                const applied = f.stages[1].count;
-                const booked = f.stages[2].count;
-                const rate = applied > 0 ? booked / applied : null;
-                return (
-                  <td key={f.cohort.id} className="mono">
-                    {rate !== null ? formatPercent(rate) : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 500, color: "var(--muted)" }}>Booked → Showed %</td>
-              {funnels.map((f) => {
-                const booked = f.stages[2].count;
-                const showed = f.stages[3].count;
-                const rate = booked > 0 ? showed / booked : null;
-                return (
-                  <td key={f.cohort.id} className="mono">
-                    {rate !== null ? formatPercent(rate) : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 500, color: "var(--muted)" }}>Showed → Enrolled %</td>
-              {funnels.map((f) => {
-                const showed = f.stages[3].count;
-                const enrolled = f.stages[4].count;
-                const rate = showed > 0 ? enrolled / showed : null;
-                return (
-                  <td key={f.cohort.id} className="mono" style={{ color: "var(--green)", fontWeight: 600 }}>
-                    {rate !== null ? formatPercent(rate) : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 500, color: "var(--muted)" }}>Avg cash per enrolled</td>
-              {funnels.map((f) => {
-                const enrolled = f.stages[4].count;
-                const cash = f.totalCash;
-                const avg = enrolled > 0 ? cash / enrolled : 0;
-                return (
-                  <td key={f.cohort.id} className="mono">
-                    {formatMoney(avg)}
-                  </td>
-                );
-              })}
-            </tr>
           </tbody>
         </table>
       </div>

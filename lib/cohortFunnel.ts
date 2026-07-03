@@ -94,7 +94,7 @@ function challengeAmountOf(r: ChallengeRow): number {
 }
 
 export interface FunnelStage {
-  key: "registered" | "applied" | "booked" | "showed" | "enrolled" | "cash";
+  key: "registered" | "applied" | "booked" | "showed" | "enrolled";
   label: string;
   emoji: string;
   /** Unique-lead count for this stage. */
@@ -235,17 +235,11 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
       count: enrolledDedup.length,
       rows: enrolledDedup,
       source: "cash",
-      howCalculated: `Unique buyers in the Cash Tracker whose cohort field matches "${cohort.label}". Deduped by email — one buyer = one enrollment even if they paid on multiple invoices.`,
-    },
-    {
-      key: "cash",
-      label: "Cash Collected",
-      emoji: "💰",
-      count: enrolledDedup.length,
-      rows: enrolledDedup,
-      source: "cash",
+      // Cash lives on the Enrolled stage — same rows, different lens. The card
+      // header shows the total dollar figure; each stage row keeps focus on
+      // people-counts so the funnel reads as a single story.
       dollarAmount: totalCash,
-      howCalculated: `Sum of the "Cash Collected" column on all Cash Tracker rows tagged with "${cohort.label}". Includes every payment even if the same buyer paid on multiple invoices.`,
+      howCalculated: `Unique buyers in the Cash Tracker whose cohort field matches "${cohort.label}". Deduped by email — one buyer = one enrollment even if they paid on multiple invoices. Cash Collected column is the sum of every payment.`,
     },
   ];
 
