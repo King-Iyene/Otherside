@@ -142,18 +142,16 @@ export default function CohortFunnels({ cash, appointments, applications, challe
           flex-wrap: wrap;
         }
         .cohort-funnels-title {
-          font-family: var(--font-display);
-          font-size: 22px;
+          font-family: var(--font-body);
+          font-size: var(--fs-lg);
           font-weight: 600;
-          background: linear-gradient(90deg, var(--accent), var(--blue));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          color: var(--text);
+          letter-spacing: -0.01em;
         }
         .cohort-funnels-subtitle {
-          font-size: 12px;
-          color: var(--text);
-          margin-top: 6px;
+          font-size: var(--fs-sm);
+          color: var(--muted);
+          margin-top: 4px;
           line-height: 1.5;
           max-width: 640px;
         }
@@ -252,16 +250,15 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
         .funnel-card {
           background: var(--surface);
           border: 1px solid var(--line);
-          border-radius: 14px;
-          padding: 18px;
+          border-radius: 6px;
+          padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 14px;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          transition: border-color 0.12s ease;
         }
         .funnel-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.4);
+          border-color: var(--line-strong);
         }
         .funnel-card-header {
           display: flex;
@@ -270,31 +267,33 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           gap: 12px;
         }
         .funnel-card-title {
-          font-family: var(--font-display);
-          font-size: 17px;
+          font-family: var(--font-body);
+          font-size: var(--fs-md);
           font-weight: 600;
+          color: var(--text);
           display: flex;
           align-items: center;
           gap: 6px;
         }
         .funnel-card-summary-value {
-          font-family: var(--font-display);
-          font-size: 18px;
-          font-weight: 700;
-          color: var(--green);
+          font-family: var(--font-mono);
+          font-size: var(--fs-md);
+          font-weight: 500;
+          color: var(--text);
           text-align: right;
+          font-variant-numeric: tabular-nums;
         }
         .funnel-card-summary-label {
-          font-size: 10px;
+          font-size: var(--fs-xs);
           color: var(--muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+          text-transform: none;
+          letter-spacing: 0;
           text-align: right;
         }
         .funnel-stages {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 2px;
         }
         .funnel-stage-btn {
           all: unset;
@@ -302,13 +301,12 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           flex-direction: column;
           gap: 4px;
           padding: 8px 10px;
-          border-radius: 8px;
+          border-radius: 5px;
           cursor: pointer;
           border: 1px solid transparent;
-          transition: border-color 0.15s ease, background 0.15s ease;
+          transition: background 0.12s ease;
         }
         .funnel-stage-btn:hover {
-          border-color: var(--line-strong);
           background: var(--surface-2);
         }
         .funnel-stage-row {
@@ -317,13 +315,16 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           align-items: baseline;
         }
         .funnel-stage-label {
-          font-size: 12px;
+          font-size: var(--fs-sm);
+          color: var(--text-dim);
           font-weight: 500;
         }
         .funnel-stage-count {
-          font-family: var(--font-display);
-          font-size: 16px;
-          font-weight: 700;
+          font-family: var(--font-mono);
+          font-size: var(--fs-md);
+          font-weight: 500;
+          color: var(--text);
+          font-variant-numeric: tabular-nums;
         }
         .funnel-stage-bar-track {
           height: 6px;
