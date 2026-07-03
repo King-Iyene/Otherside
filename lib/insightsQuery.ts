@@ -420,3 +420,163 @@ export function optionsFor(dataset: DatasetDef, field: FieldDef, rows: any[]): s
   }
   return Array.from(s).sort();
 }
+
+// ────────────────────────────────────────────────────────────────
+// Cohort presets — one-click filter sets keyed on real data patterns.
+// Applied against the group's dataset; only fires for the datasets
+// listed under `appliesTo`. Missing options are silently skipped so
+// a preset still works when a cohort name changes.
+// ────────────────────────────────────────────────────────────────
+
+export interface CohortPreset {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  /** Which datasets this preset makes sense on. */
+  appliesTo: DatasetKey[];
+  /** Build the filter rules for a given dataset (or return null to skip). */
+  buildFilters: (datasetKey: DatasetKey, availableOptions: Record<string, string[]>) => FilterRule[] | null;
+}
+
+const cohortContains = (pattern: RegExp) => (options: string[]) => options.filter((o) => pattern.test(o));
+
+export const COHORT_PRESETS: CohortPreset[] = [
+  {
+    id: "penetrate",
+    label: "Penetrate",
+    emoji: "🎯",
+    color: "#61aaf2",
+    appliesTo: ["cash", "appointments", "challenge"],
+    buildFilters: (key, opts) => {
+      if (key === "challenge") {
+        const products = cohortContains(/penetrate/i)(opts["Product"] || []);
+        if (!products.length) return null;
+        return [{ fieldKey: "Product", op: "in", valueList: products }];
+      }
+      const matches = cohortContains(/penetrate/i)(opts.cohort || []);
+      if (!matches.length) return null;
+      return [{ fieldKey: "cohort", op: "in", valueList: matches }];
+    },
+  },
+  {
+    id: "erupt1",
+    label: "Erupt 1 / Reborn Dec 2025",
+    emoji: "🔥",
+    color: "#f28b61",
+    appliesTo: ["cash", "appointments"],
+    buildFilters: (_key, opts) => {
+      const matches = cohortContains(/erupt\s*1|dec\s*2025/i)(opts.cohort || []);
+      if (!matches.length) return null;
+      return [{ fieldKey: "cohort", op: "in", valueList: matches }];
+    },
+  },
+  {
+    id: "erupt2",
+    label: "Erupt 2 / Reborn Apr 2026",
+    emoji: "🔥",
+    color: "#a48bf2",
+    appliesTo: ["cash", "appointments"],
+    buildFilters: (_key, opts) => {
+      const matches = cohortContains(/erupt\s*2|apr\s*2026/i)(opts.cohort || []);
+      if (!matches.length) return null;
+      return [{ fieldKey: "cohort", op: "in", valueList: matches }];
+    },
+  },
+  {
+    id: "erupt3",
+    label: "Erupt 3 / Reborn Aug 2026",
+    emoji: "🔥",
+    color: "#f2b63c",
+    appliesTo: ["cash", "appointments"],
+    buildFilters: (_key, opts) => {
+      const matches = cohortContains(/erupt\s*3|aug\s*2026/i)(opts.cohort || []);
+      if (!matches.length) return null;
+      return [{ fieldKey: "cohort", op: "in", valueList: matches }];
+    },
+  },
+  {
+    id: "highIncome",
+    label: "$100k+ leads",
+    emoji: "💎",
+    color: "#45d093",
+    appliesTo: ["applications"],
+    buildFilters: (_key, opts) => {
+      const brackets = (opts.annualEarnings || []).filter((o) => /\$100k|\$250k|\$1M/i.test(o));
+      if (!brackets.length) return null;
+      return [{ fieldKey: "annualEarnings", op: "in", valueList: brackets }];
+    },
+  },
+  {
+    id: "midIncome",
+    label: "$50k-$100k leads",
+    emoji: "💼",
+    color: "#61aaf2",
+    appliesTo: ["applications"],
+    buildFilters: (_key, opts) => {
+      const brackets = (opts.annualEarnings || []).filter((o) => /\$50k\s*-\s*\$100k/i.test(o));
+      if (!brackets.length) return null;
+      return [{ fieldKey: "annualEarnings", op: "in", valueList: brackets }];
+    },
+  },
+  {
+    id: "lowIncome",
+    label: "$0-$50k leads",
+    emoji: "🌱",
+    color: "#7d8899",
+    appliesTo: ["applications"],
+    buildFilters: (_key, opts) => {
+      const brackets = (opts.annualEarnings || []).filter((o) => /\$0.*\$50k/i.test(o));
+      if (!brackets.length) return null;
+      return [{ fieldKey: "annualEarnings", op: "in", valueList: brackets }];
+    },
+  },
+  {
+    id: "readyToInvest",
+    label: "Ready to Invest",
+    emoji: "✅",
+    color: "#45d093",
+    appliesTo: ["applications"],
+    buildFilters: () => [{ fieldKey: "applicationStatus", op: "in", valueList: ["Ready to Invest"] }],
+  },
+  {
+    id: "adeyemiApproved",
+    label: "Adeyemi Approved",
+    emoji: "🎓",
+    color: "#a48bf2",
+    appliesTo: ["applications"],
+    buildFilters: () => [{ fieldKey: "applicationStatus", op: "in", valueList: ["Adeyemi Approved DQ App"] }],
+  },
+  {
+    id: "usedCoupon",
+    label: "Used Coupon",
+    emoji: "🏷️",
+    color: "#f28b61",
+    appliesTo: ["challenge", "cash"],
+    buildFilters: (key) => {
+      if (key === "challenge") return [{ fieldKey: "Coupon", op: "isNotEmpty" }];
+      return [{ fieldKey: "couponCode", op: "isNotEmpty" }];
+    },
+  },
+  {
+    id: "showedCalls",
+    label: "Showed Calls",
+    emoji: "✅",
+    color: "#45d093",
+    appliesTo: ["appointments"],
+    buildFilters: () => [{ fieldKey: "showed", op: "eq", value: "true" }],
+  },
+  {
+    id: "noShows",
+    label: "No Shows",
+    emoji: "❌",
+    color: "#f07070",
+    appliesTo: ["appointments"],
+    buildFilters: () => [{ fieldKey: "status", op: "in", valueList: ["No show"] }],
+  },
+];
+
+/** Datasets that CAN cross-join by email. Sales Activity is aggregate (no email), so it's excluded. */
+export function canCrossJoin(datasetKey: DatasetKey): boolean {
+  return datasetKey !== "sales";
+}

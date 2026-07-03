@@ -973,3 +973,55 @@ tbody tr.test-row {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* ---------- Insights hero — heavy glass finish ---------- */
+
+.insights-hero {
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(242, 182, 60, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(97, 170, 242, 0.08) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(24, 32, 41, 0.55) 0%, rgba(19, 26, 34, 0.35) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px 22px;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  box-shadow:
+    0 24px 60px -30px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset;
+  overflow: hidden;
+}
+
+.insights-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(242, 182, 60, 0.25), transparent 50%, rgba(97, 170, 242, 0.15));
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+:root[data-theme="light"] .insights-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(224, 160, 60, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(97, 170, 242, 0.10) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(244, 246, 250, 0.65) 100%);
+  border-color: rgba(15, 27, 45, 0.08);
+  box-shadow:
+    0 24px 60px -30px rgba(15, 27, 45, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+/* Group + result cards get the smoke treatment too when in the Insights context */
+.insights-hero + div .kpi-card,
+.insights-hero ~ div .kpi-card {
+  background:
+    linear-gradient(180deg, rgba(24, 32, 41, 0.6), rgba(19, 26, 34, 0.4));
+}
