@@ -27,6 +27,8 @@ export interface CohortDef {
   color: string;
   /** Match rows whose cohort/product/challange field contains one of these patterns. */
   patterns: RegExp[];
+  /** Launch window — used as fallback attribution when the cohort tag is blank. */
+  window?: { start: string; end: string };
 }
 
 export const COHORTS: CohortDef[] = [
@@ -36,6 +38,7 @@ export const COHORTS: CohortDef[] = [
     emoji: "🎯",
     color: "#61aaf2",
     patterns: [/penetrate/i],
+    // Penetrate is an evergreen offer, no fixed window
   },
   {
     id: "erupt1",
@@ -43,6 +46,7 @@ export const COHORTS: CohortDef[] = [
     emoji: "🔥",
     color: "#f28b61",
     patterns: [/erupt\s*1/i, /reborn\s*dec\s*2025/i, /dec\s*2025/i],
+    window: { start: "2025-10-01", end: "2026-01-31" },
   },
   {
     id: "erupt2",
@@ -50,6 +54,7 @@ export const COHORTS: CohortDef[] = [
     emoji: "🔥",
     color: "#a48bf2",
     patterns: [/erupt\s*2/i, /reborn\s*apr\s*2026/i, /apr\s*2026/i],
+    window: { start: "2026-02-01", end: "2026-05-31" },
   },
   {
     id: "erupt3",
@@ -57,8 +62,18 @@ export const COHORTS: CohortDef[] = [
     emoji: "🔥",
     color: "#f2b63c",
     patterns: [/erupt\s*3/i, /reborn\s*aug\s*2026/i, /aug\s*2026/i],
+    window: { start: "2026-06-01", end: "2026-09-30" },
   },
 ];
+
+function inWindow(dateStr: string | null | undefined, window?: { start: string; end: string }): boolean {
+  if (!window || !dateStr) return false;
+  const t = new Date(dateStr).getTime();
+  if (isNaN(t)) return false;
+  const s = new Date(window.start).getTime();
+  const e = new Date(window.end).getTime();
+  return t >= s && t <= e;
+}
 
 function matchesCohort(value: unknown, cohort: CohortDef): boolean {
   if (value === null || value === undefined) return false;
@@ -171,20 +186,28 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   const appliedEmails = emailSetOf(appliedDedup, (r) => norm(r.email));
 
   // Stage 3: Booked Call — appointments tagged with this cohort OR email matches applied
+  // OR appointment falls inside the cohort's launch window (catches untagged bookings)
   const bookedByCohort = appts.filter((a) => matchesCohort(a.cohort, cohort));
   const bookedByEmail = appts.filter((a) => {
     const e = norm(a.email);
     return e && (registeredEmails.has(e) || appliedEmails.has(e));
   });
-  const bookedAll = Array.from(new Set([...bookedByCohort, ...bookedByEmail]));
+  const bookedByWindow = cohort.window
+    ? appts.filter((a) => !a.cohort && inWindow(a.appointmentTime, cohort.window))
+    : [];
+  const bookedAll = Array.from(new Set([...bookedByCohort, ...bookedByEmail, ...bookedByWindow]));
   const bookedDedup = dedupeByEmail(bookedAll, (r) => norm(r.email));
 
   // Stage 4: Showed — subset of booked with a "showed" status
   const showed = bookedAll.filter((a) => a.status && SHOWED_STATUSES.has(a.status));
   const showedDedup = dedupeByEmail(showed, (r) => norm(r.email));
 
-  // Stage 5: Enrolled — cash rows tagged with this cohort
-  const enrolled = cash.filter((c) => matchesCohort(c.cohort, cohort));
+  // Stage 5: Enrolled — cash rows tagged with this cohort OR enrolled during the window
+  const enrolledByCohort = cash.filter((c) => matchesCohort(c.cohort, cohort));
+  const enrolledByWindow = cohort.window
+    ? cash.filter((c) => !c.cohort && inWindow(c.enrollmentDate, cohort.window))
+    : [];
+  const enrolled = Array.from(new Set([...enrolledByCohort, ...enrolledByWindow]));
   const enrolledDedup = dedupeByEmail(enrolled, (r) => norm(r.email));
 
   // Stage 6: Cash Collected — dollar sum on enrolled
@@ -217,7 +240,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
       count: bookedDedup.length,
       rows: bookedDedup,
       source: "appointments",
-      howCalculated: `Unique appointments where the cohort field matches "${cohort.label}" OR the email matches a Registered / Applied lead. Catches bookings even if the cohort field was left blank.`,
+      howCalculated: `Unique appointments where the cohort field matches "${cohort.label}" OR the email matches a Registered / Applied lead${
+        cohort.window ? ` OR the appointment falls between ${cohort.window.start} and ${cohort.window.end}` : ""
+      }. Catches bookings even if the cohort field was left blank.`,
     },
     {
       key: "showed",
@@ -239,7 +264,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
       // header shows the total dollar figure; each stage row keeps focus on
       // people-counts so the funnel reads as a single story.
       dollarAmount: totalCash,
-      howCalculated: `Unique buyers in the Cash Tracker whose cohort field matches "${cohort.label}". Deduped by email — one buyer = one enrollment even if they paid on multiple invoices. Cash Collected column is the sum of every payment.`,
+      howCalculated: `Unique buyers in the Cash Tracker whose cohort field matches "${cohort.label}"${
+        cohort.window ? ` OR whose enrollment date falls between ${cohort.window.start} and ${cohort.window.end}` : ""
+      }. Deduped by email — one buyer = one enrollment even if they paid on multiple invoices. Cash Collected is the sum of every payment.`,
     },
   ];
 

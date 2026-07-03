@@ -93,6 +93,7 @@ export default function Home() {
         updatedAt={data?.generatedAt ?? null}
         loading={loading}
         onRefresh={() => load(true)}
+        dataQualityIssues={healthEntries.reduce((s, e) => s + e.flags.length, 0)}
       />
       <div className="app-body">
         <Tabs active={activeTab} onChange={setActiveTab} />
