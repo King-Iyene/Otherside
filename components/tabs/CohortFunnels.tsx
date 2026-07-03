@@ -63,7 +63,6 @@ export default function CohortFunnels({ cash, appointments, applications, challe
   );
   const [drilldown, setDrilldown] = useState<DrilldownState>(null);
 
-  // Only show cohorts that have at least SOMETHING in them
   const activeCohorts = funnels.filter((f) => f.stages.some((s) => s.count > 0));
   const emptyCohorts = funnels.filter((f) => f.stages.every((s) => s.count === 0));
 
@@ -73,11 +72,7 @@ export default function CohortFunnels({ cash, appointments, applications, challe
         <div>
           <div className="cohort-funnels-title">Cohort Funnels</div>
           <div className="cohort-funnels-subtitle">
-            The full sales story for every launch — one click, no filter building.
-            <br />
-            <span style={{ color: "var(--muted)" }}>
-              Every number is unique-people (deduped by email). Click any stage to see who's in it.
-            </span>
+            The full sales story for every launch. Every number is unique people (deduped by email). Click any stage to see who&#39;s in it.
           </div>
         </div>
         <label className="toggle-chip">
@@ -109,7 +104,7 @@ export default function CohortFunnels({ cash, appointments, applications, challe
         <DrillDownModal
           open={true}
           onClose={() => setDrilldown(null)}
-          title={`${drilldown.cohort.cohort.emoji} ${drilldown.cohort.cohort.label} — ${drilldown.stage.label}`}
+          title={`${drilldown.cohort.cohort.label} — ${drilldown.stage.label}`}
           subtitle={`${formatNumber(drilldown.stage.count)} unique ${drilldown.stage.count === 1 ? "person" : "people"}${
             drilldown.stage.dollarAmount ? ` · ${formatMoney(drilldown.stage.dollarAmount)}` : ""
           }`}
@@ -128,21 +123,20 @@ export default function CohortFunnels({ cash, appointments, applications, challe
         .cohort-funnels {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 16px;
         }
         .cohort-funnels-hero {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          gap: 20px;
-          padding: 20px 22px;
-          border-radius: 14px;
-          background: var(--gradient-surface);
-          border: 1px solid var(--line-strong);
+          gap: 16px;
+          padding: 16px 18px;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 4px;
           flex-wrap: wrap;
         }
         .cohort-funnels-title {
-          font-family: var(--font-body);
           font-size: var(--fs-lg);
           font-weight: 600;
           color: var(--text);
@@ -157,24 +151,24 @@ export default function CohortFunnels({ cash, appointments, applications, challe
         }
         .cohort-funnels-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 16px;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 12px;
         }
         .cohort-funnels-empty {
           padding: 40px 24px;
           text-align: center;
           color: var(--muted);
-          font-size: 13px;
+          font-size: var(--fs-md);
           background: var(--surface);
           border: 1px dashed var(--line);
-          border-radius: 14px;
+          border-radius: 4px;
           grid-column: 1 / -1;
         }
         .cohort-funnels-empty-note {
-          font-size: 11px;
+          font-size: var(--fs-xs);
           color: var(--muted);
           text-align: center;
-          padding: 8px 0;
+          padding: 4px 0;
         }
       `}</style>
     </div>
@@ -189,17 +183,15 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
   const maxCount = Math.max(...funnel.stages.map((s) => s.count), 1);
 
   return (
-    <div className="funnel-card" style={{ borderTop: `3px solid ${funnel.cohort.color}` }}>
+    <div className="funnel-card">
       <div className="funnel-card-header">
         <div className="funnel-card-title">
-          <span style={{ fontSize: 20 }}>{funnel.cohort.emoji}</span>
+          <span className="funnel-card-swatch" style={{ background: funnel.cohort.color }} aria-hidden="true" />
           <span>{funnel.cohort.label}</span>
         </div>
         <div className="funnel-card-summary">
-          <div>
-            <div className="funnel-card-summary-value">{formatMoney(funnel.totalCash)}</div>
-            <div className="funnel-card-summary-label">cash collected</div>
-          </div>
+          <div className="funnel-card-summary-value">{formatMoney(funnel.totalCash)}</div>
+          <div className="funnel-card-summary-label">cash collected</div>
         </div>
       </div>
 
@@ -215,22 +207,16 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
               type="button"
               className="funnel-stage-btn"
               onClick={() => onClickStage(stage)}
-              title={`Click to see the ${formatNumber(stage.count)} ${stage.label.toLowerCase()} — search included`}
+              title={`See the ${formatNumber(stage.count)} ${stage.label.toLowerCase()}`}
             >
               <div className="funnel-stage-row">
-                <div className="funnel-stage-label">
-                  <span style={{ marginRight: 6 }}>{stage.emoji}</span>
-                  {stage.label}
-                </div>
+                <div className="funnel-stage-label">{stage.label}</div>
                 <div className="funnel-stage-count">{formatNumber(stage.count)}</div>
               </div>
               <div className="funnel-stage-bar-track">
                 <div
                   className="funnel-stage-bar-fill"
-                  style={{
-                    width: `${barWidth}%`,
-                    background: `linear-gradient(90deg, ${funnel.cohort.color}, ${funnel.cohort.color}88)`,
-                  }}
+                  style={{ width: `${barWidth}%`, background: funnel.cohort.color }}
                 />
               </div>
               {idx > 0 && (
@@ -250,11 +236,11 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
         .funnel-card {
           background: var(--surface);
           border: 1px solid var(--line);
-          border-radius: 6px;
-          padding: 16px;
+          border-radius: 4px;
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           transition: border-color 0.12s ease;
         }
         .funnel-card:hover {
@@ -267,13 +253,19 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           gap: 12px;
         }
         .funnel-card-title {
-          font-family: var(--font-body);
           font-size: var(--fs-md);
           font-weight: 600;
           color: var(--text);
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
+        }
+        .funnel-card-swatch {
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 2px;
+          flex: 0 0 auto;
         }
         .funnel-card-summary-value {
           font-family: var(--font-mono);
@@ -286,8 +278,6 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
         .funnel-card-summary-label {
           font-size: var(--fs-xs);
           color: var(--muted);
-          text-transform: none;
-          letter-spacing: 0;
           text-align: right;
         }
         .funnel-stages {
@@ -300,14 +290,13 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           display: flex;
           flex-direction: column;
           gap: 4px;
-          padding: 8px 10px;
-          border-radius: 5px;
+          padding: 6px 8px;
+          border-radius: 3px;
           cursor: pointer;
-          border: 1px solid transparent;
           transition: background 0.12s ease;
         }
         .funnel-stage-btn:hover {
-          background: var(--surface-2);
+          background: var(--surface-hover);
         }
         .funnel-stage-row {
           display: flex;
@@ -324,43 +313,28 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           font-size: var(--fs-md);
           font-weight: 500;
           color: var(--text);
-          font-variant-numeric: tabular-nums;
         }
         .funnel-stage-bar-track {
-          height: 6px;
+          height: 4px;
           background: var(--surface-2);
-          border-radius: 3px;
+          border-radius: 2px;
           overflow: hidden;
         }
         .funnel-stage-bar-fill {
           height: 100%;
-          border-radius: 3px;
-          transition: width 0.4s ease;
+          border-radius: 2px;
         }
         .funnel-stage-conv {
           display: flex;
-          gap: 8px;
-          font-size: 10px;
+          gap: 6px;
+          font-size: var(--fs-xs);
           color: var(--muted);
           padding-top: 2px;
         }
         .funnel-stage-conv-primary {
           color: var(--text);
           font-weight: 500;
-        }
-        .funnel-stage-conv-secondary {
-          color: var(--muted);
-        }
-        .funnel-card-explain {
-          padding: 10px 12px;
-          background: var(--surface-2);
-          border-radius: 8px;
-          font-size: 10px;
-          color: var(--muted);
-          line-height: 1.5;
-        }
-        .funnel-card-explain strong {
-          color: var(--text);
+          font-family: var(--font-mono);
         }
       `}</style>
     </div>
@@ -368,24 +342,20 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
 }
 
 // ────────────────────────────────────────────────────────────────
-// Side-by-side comparison table — clean sales scoreboard
+// Side-by-Side scoreboard — 3 KPIs
 // ────────────────────────────────────────────────────────────────
 
 function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
-  // Three KPIs — the only questions a sales lead actually asks side-by-side.
   const kpis: {
     key: string;
     label: string;
-    emoji: string;
     getValue: (f: CohortFunnel) => number;
     format: (v: number) => string;
     higherIsBetter: boolean;
-    color?: string;
   }[] = [
     {
       key: "enrolled",
       label: "Enrolled",
-      emoji: "🏆",
       getValue: (f) => f.stages.find((s) => s.key === "enrolled")!.count,
       format: formatNumber,
       higherIsBetter: true,
@@ -393,7 +363,6 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
     {
       key: "conv",
       label: "Registered → Enrolled",
-      emoji: "🎯",
       getValue: (f) => {
         const reg = f.stages[0].count;
         const enr = f.stages.find((s) => s.key === "enrolled")!.count;
@@ -401,16 +370,13 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
       },
       format: (v) => formatPercent(v),
       higherIsBetter: true,
-      color: "var(--accent)",
     },
     {
       key: "cash",
       label: "Cash Collected",
-      emoji: "💰",
       getValue: (f) => f.totalCash,
       format: formatMoney,
       higherIsBetter: true,
-      color: "var(--green)",
     },
   ];
 
@@ -418,7 +384,7 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
     <div className="comparison-wrap">
       <div className="comparison-header">
         <div className="comparison-title">Side-by-Side</div>
-        <div className="comparison-subtitle">The three numbers a sales lead asks about. Winner gets a ▲ badge.</div>
+        <div className="comparison-subtitle">Winner of each row gets ▲.</div>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="comparison-table">
@@ -426,8 +392,9 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
             <tr>
               <th style={{ textAlign: "left" }}>KPI</th>
               {funnels.map((f) => (
-                <th key={f.cohort.id} style={{ color: f.cohort.color }}>
-                  {f.cohort.emoji} {f.cohort.label}
+                <th key={f.cohort.id}>
+                  <span className="th-swatch" style={{ background: f.cohort.color }} aria-hidden="true" />
+                  {f.cohort.label}
                 </th>
               ))}
             </tr>
@@ -438,17 +405,14 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
               const best = kpi.higherIsBetter ? Math.max(...values) : Math.min(...values);
               return (
                 <tr key={kpi.key}>
-                  <td style={{ fontWeight: 500 }}>
-                    <span style={{ marginRight: 6 }}>{kpi.emoji}</span>
-                    {kpi.label}
-                  </td>
+                  <td style={{ fontWeight: 500 }}>{kpi.label}</td>
                   {funnels.map((f, i) => {
                     const v = values[i];
                     const isBest = v === best && v > 0;
                     return (
-                      <td key={f.cohort.id} className={isBest ? "winner mono" : "mono"} style={kpi.color && !isBest ? { color: kpi.color } : undefined}>
+                      <td key={f.cohort.id} className={isBest ? "winner mono" : "mono"}>
                         {kpi.format(v)}
-                        {isBest && <span className="winner-badge">▲ best</span>}
+                        {isBest && <span className="winner-badge">▲</span>}
                       </td>
                     );
                   })}
@@ -463,66 +427,55 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
         .comparison-wrap {
           background: var(--surface);
           border: 1px solid var(--line);
-          border-radius: 14px;
-          padding: 20px;
+          border-radius: 4px;
+          padding: 16px;
         }
-        .comparison-header {
-          margin-bottom: 14px;
-        }
+        .comparison-header { margin-bottom: 12px; }
         .comparison-title {
-          font-family: var(--font-display);
-          font-size: 17px;
+          font-size: var(--fs-md);
           font-weight: 600;
+          color: var(--text);
         }
         .comparison-subtitle {
-          font-size: 11px;
+          font-size: var(--fs-xs);
           color: var(--muted);
-          margin-top: 4px;
+          margin-top: 2px;
         }
         .comparison-table {
           width: 100%;
-          font-size: 13px;
+          font-size: var(--fs-md);
           border-collapse: collapse;
+          font-variant-numeric: tabular-nums;
         }
         .comparison-table th {
           text-align: right;
-          padding: 10px 14px;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+          padding: 8px 12px;
+          font-size: var(--fs-xs);
           color: var(--muted);
           border-bottom: 1px solid var(--line);
-          font-weight: 600;
+          font-weight: 500;
         }
-        .comparison-table th:first-child {
-          text-align: left;
+        .comparison-table th:first-child { text-align: left; }
+        .th-swatch {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 2px;
+          margin-right: 6px;
+          vertical-align: middle;
         }
         .comparison-table td {
-          padding: 10px 14px;
+          padding: 8px 12px;
           text-align: right;
           border-bottom: 1px solid var(--line);
+          color: var(--text);
         }
-        .comparison-table td:first-child {
-          text-align: left;
-        }
-        .separator-row td {
-          padding: 0;
-          border-bottom: 2px solid var(--line-strong);
-        }
-        .winner {
-          color: var(--accent);
-          font-weight: 700;
-        }
+        .comparison-table td:first-child { text-align: left; }
+        .winner { font-weight: 600; }
         .winner-badge {
-          font-size: 9px;
-          margin-left: 6px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          background: rgba(69, 208, 147, 0.12);
-          color: var(--green);
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+          font-size: 10px;
+          margin-left: 4px;
+          color: var(--status-good);
         }
       `}</style>
     </div>
