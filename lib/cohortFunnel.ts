@@ -42,36 +42,40 @@ export interface CohortDef {
   window?: { start: string; end: string };
 }
 
+/**
+ * Cohorts assigned to categorical slots from the Claude dataviz reference
+ * palette in FIXED order (--cat-1..--cat-8 in globals.css). A new cohort
+ * takes the next slot, never a rotated hue.
+ */
 export const COHORTS: CohortDef[] = [
   {
     id: "penetrate",
     label: "Penetrate",
-    emoji: "🎯",
-    color: "#61aaf2",
+    emoji: "",
+    color: "var(--cat-1)",           // blue — slot 1
     patterns: [/penetrate/i],
-    // Penetrate is an evergreen offer, no fixed window
   },
   {
     id: "erupt1",
     label: "Erupt 1",
-    emoji: "🔥",
-    color: "#f28b61",
+    emoji: "",
+    color: "var(--cat-2)",           // aqua — slot 2
     patterns: [/erupt\s*1/i, /reborn\s*dec\s*2025/i, /dec\s*2025/i],
     window: { start: "2025-10-01", end: "2026-01-31" },
   },
   {
     id: "erupt2",
     label: "Erupt 2",
-    emoji: "🔥",
-    color: "#a48bf2",
+    emoji: "",
+    color: "var(--cat-3)",           // yellow — slot 3
     patterns: [/erupt\s*2/i, /reborn\s*apr\s*2026/i, /apr\s*2026/i],
     window: { start: "2026-02-01", end: "2026-05-31" },
   },
   {
     id: "erupt3",
     label: "Erupt 3",
-    emoji: "🔥",
-    color: "#f2b63c",
+    emoji: "",
+    color: "var(--cat-5)",           // violet — slot 5 (skip slot 4 green for CVD)
     patterns: [/erupt\s*3/i, /reborn\s*aug\s*2026/i, /aug\s*2026/i],
     window: { start: "2026-06-01", end: "2026-09-30" },
   },
@@ -254,7 +258,7 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
     {
       key: "registered",
       label: "Challenge Registered",
-      emoji: "🎟️",
+      emoji: "",
       count: registeredDedup.length,
       rows: registeredDedup,
       source: "challenge",
@@ -266,7 +270,7 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
     {
       key: "applied",
       label: "Applied",
-      emoji: "🧲",
+      emoji: "",
       count: appliedDedup.length,
       rows: appliedDedup,
       source: "applications",
@@ -277,7 +281,7 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
     {
       key: "booked",
       label: "Booked Call",
-      emoji: "📞",
+      emoji: "",
       count: bookedDedup.length,
       rows: bookedDedup,
       source: "appointments",
@@ -288,7 +292,7 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
     {
       key: "showed",
       label: "Showed",
-      emoji: "✅",
+      emoji: "",
       count: showedDedup.length,
       rows: showedDedup,
       source: "appointments",
@@ -297,7 +301,7 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
     {
       key: "enrolled",
       label: "Enrolled",
-      emoji: "🏆",
+      emoji: "",
       count: enrolledDedup.length,
       rows: enrolledDedup,
       source: "cash",
