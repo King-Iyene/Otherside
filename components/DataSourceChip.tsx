@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface DataSourceInfo {
   source: string;
@@ -18,7 +19,10 @@ export interface DataSourceInfo {
 export default function DataSourceChip({ info }: { info: DataSourceInfo }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ left: number; top: number; placement: "top" | "bottom" } | null>(null);
+  const [mounted, setMounted] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!open || !btnRef.current) return;
@@ -61,43 +65,45 @@ export default function DataSourceChip({ info }: { info: DataSourceInfo }) {
       >
         ⓘ
       </button>
-      {open && coords && (
-        <div
-          role="tooltip"
-          style={{
-            position: "fixed",
-            left: coords.left,
-            top: coords.top,
-            background: "var(--surface-2)",
-            border: "1px solid var(--line-strong)",
-            borderRadius: 10,
-            padding: "10px 12px",
-            fontSize: 11,
-            width: 280,
-            zIndex: 9999,
-            boxShadow: "0 20px 40px -12px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset",
-            pointerEvents: "none",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
-            Source
-          </div>
-          <div className="mono" style={{ color: "var(--accent)", marginBottom: 8, fontSize: 12 }}>{info.source}</div>
-          <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
-            Field
-          </div>
-          <div className="mono" style={{ color: "var(--text)", marginBottom: info.formula ? 8 : 0 }}>{info.field}</div>
-          {info.formula && (
-            <>
-              <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
-                Formula
-              </div>
-              <div className="mono" style={{ color: "var(--text-dim)", fontSize: 10, lineHeight: 1.5 }}>{info.formula}</div>
-            </>
-          )}
-        </div>
-      )}
+      {mounted && open && coords &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: "fixed",
+              left: coords.left,
+              top: coords.top,
+              background: "var(--surface-2)",
+              border: "1px solid var(--line-strong)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: 11,
+              width: 280,
+              zIndex: 9999,
+              boxShadow: "var(--shadow-lg)",
+              pointerEvents: "none",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+              Source
+            </div>
+            <div className="mono" style={{ color: "var(--accent)", marginBottom: 8, fontSize: 12 }}>{info.source}</div>
+            <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+              Field
+            </div>
+            <div className="mono" style={{ color: "var(--text)", marginBottom: info.formula ? 8 : 0 }}>{info.field}</div>
+            {info.formula && (
+              <>
+                <div style={{ color: "var(--muted)", marginBottom: 2, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>
+                  Formula
+                </div>
+                <div className="mono" style={{ color: "var(--text-dim)", fontSize: 10, lineHeight: 1.5 }}>{info.formula}</div>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }

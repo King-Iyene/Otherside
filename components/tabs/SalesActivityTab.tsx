@@ -313,7 +313,13 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         title={drilldown?.title || ""}
         subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} daily entries` : ""}
       >
-        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} />
+        <DataTable
+          columns={columns}
+          rows={drilldown?.rows || []}
+          rowKey={(r) => r.id}
+          searchable
+          searchPlaceholder="Search entry, date, closer, launch…"
+        />
       </DrillDownModal>
     </div>
   );
