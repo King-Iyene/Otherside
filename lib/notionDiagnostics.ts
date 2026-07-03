@@ -108,7 +108,14 @@ async function probeTargets(token: string): Promise<TargetProbeResult[]> {
   const results: TargetProbeResult[] = [];
   for (const target of TARGET_DATABASES) {
     try {
-      const res = await notionRequest(`https://api.notion.com/v1/databases/${target.id}`, "GET", token);
+      // Use the same POST /query endpoint the dashboard actually uses — GET /v1/databases/{id}
+      // can return 200 for pages the token can see but not query, which was giving false positives.
+      const res = await notionRequest(
+        `https://api.notion.com/v1/databases/${target.id}/query`,
+        "POST",
+        token,
+        { page_size: 1 }
+      );
       if (res.ok) {
         results.push({ label: target.label, databaseId: target.id, ok: true, errorCode: null, errorMessage: null });
       } else {
