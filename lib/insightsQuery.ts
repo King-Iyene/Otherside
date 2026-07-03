@@ -319,12 +319,21 @@ export interface CrossJoin {
 export interface GroupResult {
   group: QueryGroup;
   base: any[];
+  /** Raw row count in the base dataset matching the filters. */
   baseCount: number;
+  /** Unique-email count within the base rows. Falls back to baseCount when the dataset has no email. */
+  uniqueLeads: number;
+  /** Rows on the base side that had an email match on the cross side (unfiltered — for record-level display). */
   crossMatched: any[];
   crossMatchedCount: number;
+  /** Distinct emails that matched — this is the "leads who converted" metric. */
+  uniqueLeadsMatched: number;
+  /** Conversion rate = uniqueLeadsMatched ÷ uniqueLeads (only lead-level makes sense for cross-join). */
   conversionRate: number | null;
   revenue: number;
   crossRows: any[];
+  /** Whether the base dataset has an email field (drives which metrics to show). */
+  hasEmail: boolean;
 }
 
 export function computeGroup(
@@ -339,17 +348,32 @@ export function computeGroup(
   const base = applyFilters(dataset, rows, group.filters, includeTest);
   const baseCount = base.length;
 
+  // Deduplicate base by email to compute "unique leads". A single person who bought
+  // 3 different challenges is one lead, not three.
+  const hasEmail = dataset.fields.some((f) => f.emailField);
+  const uniqueBaseEmails = new Set<string>();
+  if (hasEmail) {
+    for (const r of base) {
+      const e = dataset.getEmail(r);
+      if (e) uniqueBaseEmails.add(e);
+    }
+  }
+  const uniqueLeads = hasEmail ? uniqueBaseEmails.size : baseCount;
+
   if (!cross) {
     const revenue = sumRevenueOf(dataset, base);
     return {
       group,
       base,
       baseCount,
+      uniqueLeads,
       crossMatched: [],
       crossMatchedCount: 0,
+      uniqueLeadsMatched: 0,
       conversionRate: null,
       revenue,
       crossRows: [],
+      hasEmail,
     };
   }
 
@@ -364,6 +388,7 @@ export function computeGroup(
 
   const crossMatched: any[] = [];
   const crossRows: any[] = [];
+  const matchedUniqueEmails = new Set<string>();
   for (const r of base) {
     const e = dataset.getEmail(r);
     if (!e) continue;
@@ -371,19 +396,24 @@ export function computeGroup(
     if (match) {
       crossMatched.push(r);
       crossRows.push({ base: r, cross: match });
+      matchedUniqueEmails.add(e);
     }
   }
-  const crossRevenue = sumRevenueOf(crossDataset, crossRows.map((x) => x.cross));
+  const crossRevenue = sumRevenueOf(crossDataset, Array.from(matchedUniqueEmails).map((e) => crossByEmail.get(e)));
 
   return {
     group,
     base,
     baseCount,
+    uniqueLeads,
     crossMatched,
     crossMatchedCount: crossMatched.length,
-    conversionRate: baseCount > 0 ? crossMatched.length / baseCount : null,
+    uniqueLeadsMatched: matchedUniqueEmails.size,
+    // Conversion rate is UNIQUE LEADS MATCHED ÷ UNIQUE LEADS — the honest lead-level metric
+    conversionRate: uniqueLeads > 0 ? matchedUniqueEmails.size / uniqueLeads : null,
     revenue: crossRevenue,
     crossRows,
+    hasEmail,
   };
 }
 
