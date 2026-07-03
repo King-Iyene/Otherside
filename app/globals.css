@@ -740,6 +740,12 @@ tbody tr.test-row {
   border: 1px solid var(--line);
 }
 
+.badge.amber {
+  background: rgba(242, 182, 60, 0.14);
+  color: #f2b63c;
+  border: 1px solid rgba(242, 182, 60, 0.35);
+}
+
 /* ---------- Health panel ---------- */
 
 .health-panel {

@@ -1,5 +1,6 @@
 import { queryDatabase, getTitle, getEmail, getRichText, getSelect, getDate } from "../notion";
 import { isTestRecord } from "../testFlag";
+import { appointmentRowHealthChecks } from "../dataHealth";
 import type { AppointmentRow, HealthFlag, SourceResult } from "../types";
 
 const DATABASE_ID = "368c2386-6468-803e-8fac-fe68a4ed8a6a";
@@ -21,6 +22,13 @@ export async function fetchAppointments(token: string): Promise<SourceResult<App
 
     if (!appointmentTime) health.push({ field: "Appointment Time", kind: "missing_date", raw: "" });
 
+    const status = getStatusProp(props, "Appointment Status");
+    const cohort = getSelect(props, "Cohort");
+    const enrManager = getRichText(props, "Enr Manager ");
+
+    // Extended per-row checks
+    health.push(...appointmentRowHealthChecks({ cohort, enrManager, status, appointmentTime }));
+
     return {
       id: page.id,
       url: page.url,
@@ -31,11 +39,11 @@ export async function fetchAppointments(token: string): Promise<SourceResult<App
       phone: getRichText(props, "Phone"),
       appointmentTime,
       created: getDate(props, "Created"),
-      status: getStatusProp(props, "Appointment Status"),
+      status,
       appointmentType: getSelect(props, "Appointment Type"),
-      cohort: getSelect(props, "Cohort"),
+      cohort,
       calendar: getRichText(props, "Calendar"),
-      enrManager: getRichText(props, "Enr Manager "),
+      enrManager,
       ghlAppointmentId: getRichText(props, "GHL Appointment ID"),
       notes: getRichText(props, "Notes"),
     };

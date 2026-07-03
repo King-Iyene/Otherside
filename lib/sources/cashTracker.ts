@@ -1,5 +1,6 @@
 import { queryDatabase, getTitle, getEmail, getRichText, getSelect, getDate, getMoney } from "../notion";
 import { isTestRecord } from "../testFlag";
+import { cashRowHealthChecks } from "../dataHealth";
 import type { CashRow, HealthFlag, SourceResult } from "../types";
 
 const DATABASE_ID = "367c2386-6468-80af-bbe1-d5f6d2510876";
@@ -29,6 +30,22 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
       health.push({ field: "Balance", kind: "unparseable_money", raw: balance.raw });
     }
 
+    const cohort = getSelect(props, "Cohort");
+    const enrManager = getRichText(props, "Enr Manager ");
+    const nextPaymentDate = getDate(props, "Date of Next Payment");
+
+    // Extended per-row checks (cohort/closer/zero-revenue/cash>revenue/outstanding-no-date)
+    health.push(
+      ...cashRowHealthChecks({
+        cohort,
+        enrManager,
+        revenue: revenue.value,
+        cashCollected: cashCollected.value,
+        balance: balance.value,
+        nextPaymentDate,
+      })
+    );
+
     return {
       id: page.id,
       url: page.url,
@@ -37,15 +54,15 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
       name,
       email,
       product: getRichText(props, "Product"),
-      cohort: getSelect(props, "Cohort"),
+      cohort,
       enrollmentDate,
       revenue: revenue.value,
       cashCollected: cashCollected.value,
       balance: balance.value,
       couponCode: getRichText(props, "Coupon Code"),
       paymentMethod: getRichText(props, "Payment Method"),
-      nextPaymentDate: getDate(props, "Date of Next Payment"),
-      enrManager: getRichText(props, "Enr Manager "),
+      nextPaymentDate,
+      enrManager,
       note: getRichText(props, "Note"),
     };
   });
