@@ -1,6 +1,6 @@
 "use client";
 
-export const TAB_KEYS = ["overview", "insights", "cash", "appointments", "applications", "sales", "challenge"] as const;
+export const TAB_KEYS = ["overview", "insights", "cash", "appointments", "applications", "sales", "challenge", "reconciliation"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 const LABELS: Record<TabKey, string> = {
@@ -11,6 +11,7 @@ const LABELS: Record<TabKey, string> = {
   applications: "Applications",
   sales: "Sales Activity",
   challenge: "Challenge",
+  reconciliation: "Reconciliation",
 };
 
 export default function Tabs({ active, onChange }: { active: TabKey; onChange: (t: TabKey) => void }) {
