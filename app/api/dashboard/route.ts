@@ -6,9 +6,11 @@ import { fetchApplications } from "@/lib/sources/applications";
 import { fetchSalesActivity } from "@/lib/sources/salesActivity";
 import { fetchChallengeSheet } from "@/lib/sources/challenge";
 import { resolveTokenFromRequest } from "@/lib/notionAuth";
-// Duplicate-email flagging removed — the Cash Tracker intentionally has one
-// row per transaction (installments, upgrades). Same email across multiple
-// rows is expected. The Master REBORN CRM database rolls them up per person.
+// Duplicate detection is kept for Applications and Challenge registrations —
+// the Cash Tracker is intentionally per-transaction so duplicates there are
+// expected (installments/upgrades), but a duplicate application or same-person
+// registering twice for the same challenge is a real ops issue.
+import { flagDuplicateApplications, flagDuplicateChallengeRegistrations } from "@/lib/dataHealth";
 import type { ChallengeRow, SourceResult } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,11 @@ async function buildPayload(token: string | null, authMode: string) {
     notionCall(fetchSalesActivity),
     isolateChallenge(),
   ]);
+
+  // Cross-row post-pass — flag duplicate applications and duplicate Challenge
+  // registrations (same email + same product). Cash duplicates are intentional.
+  if (applications.rows.length) flagDuplicateApplications(applications.rows);
+  if (challenge.rows.length) flagDuplicateChallengeRegistrations(challenge.rows);
 
   return {
     cash,

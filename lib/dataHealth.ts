@@ -2,6 +2,7 @@ import type {
   AppointmentRow,
   ApplicationRow,
   CashRow,
+  ChallengeRow,
   HealthFlag,
   HealthFlagKind,
 } from "./types";
@@ -205,6 +206,70 @@ export function applicationRowHealthChecks(row: {
 
 const norm = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim().toLowerCase());
 
+/** Flag applicants who submitted multiple applications. Same email applying
+ *  twice is worth a second look — either a real re-application (fine, but
+ *  worth noting) or a mistake. */
+export function flagDuplicateApplications(apps: ApplicationRow[]): void {
+  const counts = new Map<string, number>();
+  for (const r of apps) {
+    const e = norm(r.email);
+    if (!e) continue;
+    counts.set(e, (counts.get(e) ?? 0) + 1);
+  }
+  for (const r of apps) {
+    const e = norm(r.email);
+    if (!e) continue;
+    const count = counts.get(e) ?? 0;
+    if (count > 1) {
+      r.health.push({
+        field: "Email",
+        kind: "duplicate_application",
+        raw: `${e} applied ${count}× times`,
+        hint: "Same email appears on multiple applications — verify whether this is a re-application or a duplicate submission.",
+      });
+    }
+  }
+}
+
+/** Flag registrants who signed up for the same Product/Challenge more than
+ *  once. Same email on multiple different products is fine (they took
+ *  Penetrate then Erupt), same email on the same product is a dupe. */
+export function flagDuplicateChallengeRegistrations(challenge: ChallengeRow[]): void {
+  const counts = new Map<string, number>();
+  const emailOf = (r: ChallengeRow) => {
+    for (const k of Object.keys(r)) if (k.toLowerCase().includes("email")) return norm(r[k]);
+    return "";
+  };
+  const productOf = (r: ChallengeRow) => {
+    for (const k of Object.keys(r)) {
+      const lk = k.toLowerCase();
+      if (lk === "product" || lk === "challange" || lk === "challenge") return String(r[k] ?? "").toLowerCase();
+    }
+    return "";
+  };
+  for (const r of challenge) {
+    const e = emailOf(r);
+    const p = productOf(r);
+    if (!e || !p) continue;
+    const key = `${e}||${p}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  for (const r of challenge) {
+    const e = emailOf(r);
+    const p = productOf(r);
+    if (!e || !p) continue;
+    const count = counts.get(`${e}||${p}`) ?? 0;
+    if (count > 1) {
+      r.health.push({
+        field: "Email",
+        kind: "duplicate_challenge_registration",
+        raw: `${e} registered ${count}× for the same product`,
+        hint: "Same email + same challenge product on multiple rows. Different products are fine; same product twice is likely a duplicate.",
+      });
+    }
+  }
+}
+
 export function flagDuplicateCashEmails(cash: CashRow[]): void {
   const counts = new Map<string, number>();
   for (const r of cash) {
@@ -239,6 +304,8 @@ export const HEALTH_LABELS: Record<HealthFlagKind, { label: string; tone: "red" 
   inconsistent_cohort: { label: "COHORT NAME", tone: "amber" },
   missing_closer: { label: "NO CLOSER", tone: "amber" },
   duplicate_email_in_cash: { label: "DUPLICATE EMAIL", tone: "amber" },
+  duplicate_application: { label: "DUPLICATE APPLICATION", tone: "amber" },
+  duplicate_challenge_registration: { label: "DUPLICATE REGISTRATION", tone: "amber" },
   zero_revenue_enrollment: { label: "$0 DEAL", tone: "red" },
   cash_gt_revenue: { label: "CASH > REVENUE", tone: "red" },
   outstanding_no_next_payment: { label: "OWES + NO DATE", tone: "amber" },
