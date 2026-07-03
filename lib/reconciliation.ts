@@ -1,3 +1,4 @@
+// Reconciliation engine — Cash Tracker ↔ Stripe fuzzy join. Read-only.
 import type { CashRow } from "./types";
 import type { StripeCharge } from "./sources/stripe";
 
