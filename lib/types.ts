@@ -6,6 +6,8 @@ export type HealthFlagKind =
   | "inconsistent_cohort"
   | "missing_closer"
   | "duplicate_email_in_cash"
+  | "duplicate_application"
+  | "duplicate_challenge_registration"
   | "zero_revenue_enrollment"
   | "cash_gt_revenue"
   | "outstanding_no_next_payment"
