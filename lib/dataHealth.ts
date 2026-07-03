@@ -90,13 +90,22 @@ export function cashRowHealthChecks(row: {
     });
   }
 
-  // Zero-revenue enrollment is almost always a data-entry mistake unless it's a comp
-  if (row.revenue === null || row.revenue === 0) {
+  // Distinguish blank Revenue (forgot to enter) from an intentional $0 (comp).
+  // We only flag when there's clearly a real transaction: someone was paid
+  // (cashCollected > 0) but the deal size was left blank.
+  if (row.revenue === null && (row.cashCollected ?? 0) > 0) {
     flags.push({
       field: "Revenue",
       kind: "zero_revenue_enrollment",
-      raw: row.revenue === null ? "(blank)" : "$0",
-      hint: "Enrollment with no deal amount — check if this is a comp or data-entry error.",
+      raw: "(blank)",
+      hint: `Cash was collected ($${row.cashCollected}) but the Revenue / deal size field is blank. Enter the deal amount so cohort economics are accurate.`,
+    });
+  } else if (row.revenue === 0 && (row.cashCollected ?? 0) > 0) {
+    flags.push({
+      field: "Revenue",
+      kind: "zero_revenue_enrollment",
+      raw: "$0",
+      hint: `Deal size is $0 but $${row.cashCollected} was collected — either fix the Revenue field, or note this is a comp so it isn't miscounted.`,
     });
   }
 
