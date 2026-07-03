@@ -394,14 +394,15 @@ function ResultCard({
 }) {
   const dataset = datasets.find((d) => d.key === result.group.datasetKey)!;
   const rate = result.conversionRate;
+  // Avg deal is now computed from UNIQUE matched leads, not raw rows.
   const avgDeal =
-    crossEnabled && result.crossMatchedCount > 0 ? result.revenue / result.crossMatchedCount : null;
+    crossEnabled && result.uniqueLeadsMatched > 0 ? result.revenue / result.uniqueLeadsMatched : null;
 
-  // Compute deltas vs each other group
+  // Compute deltas vs each other group — use unique-lead counts when cross-joining.
   const deltas = others.map((o) => {
     const oRate = o.conversionRate;
     const rateDelta = rate !== null && oRate !== null ? rate - oRate : null;
-    const countDelta = crossEnabled ? result.crossMatchedCount - o.crossMatchedCount : result.baseCount - o.baseCount;
+    const countDelta = crossEnabled ? result.uniqueLeadsMatched - o.uniqueLeadsMatched : result.baseCount - o.baseCount;
     const revenueDelta = result.revenue - o.revenue;
     return { other: o, rateDeltaPts: rateDelta, countDelta, revenueDelta };
   });
@@ -445,27 +446,71 @@ function ResultCard({
           {crossEnabled
             ? displayMode === "percent"
               ? formatPercent(rate)
-              : formatNumber(result.crossMatchedCount)
-            : formatNumber(result.baseCount)}
+              : formatNumber(result.uniqueLeadsMatched)
+            : formatNumber(result.hasEmail ? result.uniqueLeads : result.baseCount)}
         </div>
         <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>
           {crossEnabled
             ? displayMode === "percent"
-              ? "conversion rate"
-              : "matched leads"
-            : "leads in group"}
+              ? "conversion rate (unique leads)"
+              : "unique leads matched"
+            : result.hasEmail
+            ? "unique leads in group"
+            : "rows in group"}
         </div>
       </button>
 
-      {/* Secondary metrics — everything at once */}
+      {/* Secondary metrics — deduped by email when possible */}
       <div style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <SubMetric label="In group" value={formatNumber(result.baseCount)} onClick={() => onDrilldown("all")} />
+        <SubMetric
+          label="Unique leads"
+          value={formatNumber(result.hasEmail ? result.uniqueLeads : result.baseCount)}
+          onClick={() => onDrilldown("all")}
+          tip={
+            result.hasEmail
+              ? `Distinct emails in group. Formula: unique(email) across ${formatNumber(result.baseCount)} matching rows.`
+              : `This dataset has no email — this is raw row count.`
+          }
+        />
+        <SubMetric
+          label="Raw rows"
+          value={formatNumber(result.baseCount)}
+          onClick={() => onDrilldown("all")}
+          tip={
+            result.hasEmail
+              ? `Total matching rows before dedup. Same person can appear multiple times if they have multiple records.`
+              : `Total matching rows.`
+          }
+        />
         {crossEnabled && (
           <>
-            <SubMetric label="Matched" value={formatNumber(result.crossMatchedCount)} onClick={() => onDrilldown("matched")} />
-            <SubMetric label="Rate" value={formatPercent(rate)} />
-            {result.revenue > 0 && <SubMetric label="Revenue" value={formatMoney(result.revenue)} color="var(--green)" />}
-            {avgDeal !== null && avgDeal > 0 && <SubMetric label="Avg Deal" value={formatMoney(avgDeal)} color="var(--green)" />}
+            <SubMetric
+              label="Matched (unique)"
+              value={formatNumber(result.uniqueLeadsMatched)}
+              onClick={() => onDrilldown("matched")}
+              tip={`Distinct emails from this group that also appear in the cross-source. Formula: |group_emails ∩ cross_emails|.`}
+            />
+            <SubMetric
+              label="Rate"
+              value={formatPercent(rate)}
+              tip={`Matched (unique) ÷ Unique leads = ${formatNumber(result.uniqueLeadsMatched)} ÷ ${formatNumber(result.uniqueLeads)}.`}
+            />
+            {result.revenue > 0 && (
+              <SubMetric
+                label="Revenue"
+                value={formatMoney(result.revenue)}
+                color="var(--green)"
+                tip={`Sum of Cash Collected / Amount across the matched unique leads on the cross-source.`}
+              />
+            )}
+            {avgDeal !== null && avgDeal > 0 && (
+              <SubMetric
+                label="Avg Deal"
+                value={formatMoney(avgDeal)}
+                color="var(--green)"
+                tip={`Revenue ÷ Matched (unique) = ${formatMoney(result.revenue)} ÷ ${formatNumber(result.uniqueLeadsMatched)}.`}
+              />
+            )}
           </>
         )}
       </div>
@@ -604,12 +649,25 @@ function PresetChip({
   );
 }
 
-function SubMetric({ label, value, color, onClick }: { label: string; value: string; color?: string; onClick?: () => void }) {
+function SubMetric({
+  label,
+  value,
+  color,
+  onClick,
+  tip,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+  onClick?: () => void;
+  tip?: string;
+}) {
   return (
     <div
       onClick={onClick}
+      title={tip}
       style={{
-        cursor: onClick ? "pointer" : "default",
+        cursor: onClick ? "pointer" : tip ? "help" : "default",
         transition: "background 0.15s ease",
         padding: "4px 6px",
         marginLeft: -6,
@@ -623,7 +681,9 @@ function SubMetric({ label, value, color, onClick }: { label: string; value: str
         e.currentTarget.style.background = "transparent";
       }}
     >
-      <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.06 }}>{label}</div>
+      <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.06 }}>
+        {label} {tip && <span style={{ opacity: 0.6 }}>ⓘ</span>}
+      </div>
       <div className="mono" style={{ fontSize: 14, color: color || "var(--text)", fontWeight: 600, marginTop: 2 }}>
         {value}
       </div>
@@ -1052,32 +1112,116 @@ function CrossFilterEditor({
 
 function LeadTable({ rows, dataset }: { rows: any[]; dataset: DatasetDef }) {
   const cols = dataset.fields.filter((f) => f.type !== "date").slice(0, 8);
+  const [search, setSearch] = useState("");
+  const [dedupe, setDedupe] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  // Compute unique-email count for the badge
+  const uniqueEmailsSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) {
+      const e = dataset.getEmail(r);
+      if (e) s.add(e);
+    }
+    return s;
+  }, [rows, dataset]);
+  const uniqueCount = uniqueEmailsSet.size;
+
+  const filtered = useMemo(() => {
+    let out = rows;
+    if (dedupe) {
+      const seen = new Set<string>();
+      out = out.filter((r) => {
+        const e = dataset.getEmail(r);
+        if (!e) return true;
+        if (seen.has(e)) return false;
+        seen.add(e);
+        return true;
+      });
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((r) =>
+        cols.some((c) => {
+          const v = c.get(r);
+          return v !== null && v !== undefined && String(v).toLowerCase().includes(q);
+        })
+      );
+    }
+    return out;
+  }, [rows, dedupe, search, dataset, cols]);
+
+  const displayed = showAll ? filtered : filtered.slice(0, 300);
+
   return (
-    <table style={{ width: "100%", fontSize: 12 }}>
-      <thead>
-        <tr>
-          {cols.map((c) => (
-            <th key={c.key} style={{ textAlign: "left", padding: "8px 12px", color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.05 }}>
-              {c.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.slice(0, 300).map((r, idx) => (
-          <tr key={idx} style={{ borderTop: "1px solid var(--line)" }}>
-            {cols.map((c) => {
-              const v = c.get(r);
-              const display = v === null || v === undefined ? "—" : typeof v === "number" ? formatNumber(v) : typeof v === "boolean" ? (v ? "yes" : "no") : String(v);
-              return (
-                <td key={c.key} style={{ padding: "8px 12px" }} className="mono">
-                  {display}
-                </td>
-              );
-            })}
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <input
+          type="text"
+          className="text-input"
+          placeholder={`Search name, email, product…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: "1 1 240px" }}
+        />
+        <label className="toggle-chip">
+          <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
+          Dedupe by email
+        </label>
+        <div style={{ color: "var(--muted)", fontSize: 11 }}>
+          <span className="mono" style={{ color: "var(--text)", fontWeight: 600 }}>{formatNumber(rows.length)}</span> rows ·{" "}
+          <span className="mono" style={{ color: "var(--accent)", fontWeight: 600 }}>{formatNumber(uniqueCount)}</span> unique leads
+          {filtered.length !== rows.length && (
+            <span>
+              {" "} · showing <span className="mono" style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      <table style={{ width: "100%", fontSize: 12 }}>
+        <thead>
+          <tr>
+            {cols.map((c) => (
+              <th key={c.key} style={{ textAlign: "left", padding: "8px 12px", color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.05 }}>
+                {c.label}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {displayed.map((r, idx) => (
+            <tr key={idx} style={{ borderTop: "1px solid var(--line)" }}>
+              {cols.map((c) => {
+                const v = c.get(r);
+                const display = v === null || v === undefined ? "—" : typeof v === "number" ? formatNumber(v) : typeof v === "boolean" ? (v ? "yes" : "no") : String(v);
+                return (
+                  <td key={c.key} style={{ padding: "8px 12px" }} className="mono">
+                    {display}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {filtered.length > 300 && (
+        <div style={{ padding: 12, textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
+          {showAll ? (
+            <button className="link-btn" onClick={() => setShowAll(false)}>
+              Show fewer
+            </button>
+          ) : (
+            <>
+              Showing 300 of {formatNumber(filtered.length)} ·{" "}
+              <button className="link-btn" onClick={() => setShowAll(true)}>
+                Show all
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
