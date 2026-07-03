@@ -268,8 +268,8 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           border-radius: 8px 8px 0 0;
         }
         .funnel-card:hover {
-          border-color: var(--line-strong);
-          transform: translateY(-1px);
+          border-color: var(--border-ring);
+          transform: translateY(-2px);
           box-shadow: var(--shadow-elev);
         }
         .funnel-card-header {
@@ -322,7 +322,7 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
           transition: background 0.12s ease;
         }
         .funnel-stage-btn:hover {
-          background: var(--surface-hover);
+          background: var(--accent-soft);
         }
         .funnel-stage-row {
           display: flex;

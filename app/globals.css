@@ -1,92 +1,116 @@
 /**
- * Design tokens — bound to the Claude dataviz reference palette EXACTLY.
- * See @dataviz/references/palette.md for provenance.
+ * Design tokens — Otherside dashboard, deep teal-emerald identity.
  *
- * Non-negotiables:
- * - System sans everywhere. No display face, no web fonts.
- * - Text tokens for text; series colors touch marks only.
- * - No gradients on text, backgrounds, or borders. Flat surfaces.
- * - Status colors reserved; never reused as "series 4".
- * - Categorical hues assigned in a fixed order (never cycled).
- * - `tabular-nums` only in columns that align vertically.
+ * Reference points studied: Mercury Bank (deep teal-black + emerald),
+ * Framer (colored gradient scrims), Superhuman (tinted dark),
+ * Attio (rich navy), Perplexity (teal-cyan). We're not any of them —
+ * this is the coaching-business identity: money is the story, so the
+ * primary accent is emerald and the ground is warm-dark teal.
+ *
+ * From the dataviz skill (kept):
+ * - System sans only.
+ * - Categorical hues assigned in fixed slot order for series identity.
+ * - Status colors reserved (good/warning/serious/critical).
+ * - Text tokens for text (KPI values ink-colored, not "$ = green").
+ * - `tabular-nums` only in aligning columns.
+ *
+ * New character (pivoted from generic dark neutral):
+ * - Deep teal-black ground with a subtle radial gradient wash.
+ * - Emerald primary accent for money/CTA/active states.
+ * - Warm amber secondary for brand highlights.
+ * - Colored borders + colored soft shadows on hover — not gray glow.
+ * - Chrome gets a tinted glass, not neutral gray.
  */
 
 :root,
 :root[data-theme="dark"] {
-  /* Chart chrome & ink (dark) — verbatim from the reference palette */
-  --bg: #0d0d0d;                      /* page plane */
-  --bg-2: #0d0d0d;
-  --surface: #1a1a19;                 /* chart surface */
-  --surface-2: #1a1a19;
-  --surface-hover: #232322;
-  --line: #2c2c2a;                    /* gridline hairline */
-  --line-strong: #383835;             /* baseline / axis */
-  --text: #ffffff;                    /* primary ink */
-  --text-dim: #c3c2b7;                /* secondary ink */
-  --muted: #898781;                   /* muted axis/labels */
-  --border-ring: rgba(255,255,255,0.10);
+  /* Ground — deep teal-black, not neutral gray */
+  --bg: #061717;
+  --bg-2: #08201f;
+  --bg-wash:
+    radial-gradient(1200px 700px at 20% -10%, rgba(16,185,129,0.10), transparent 60%),
+    radial-gradient(900px 600px at 100% 100%, rgba(6,182,212,0.06), transparent 55%),
+    radial-gradient(700px 500px at 50% 40%, rgba(15,43,42,0.6), transparent 60%),
+    linear-gradient(180deg, #061717 0%, #051312 100%);
 
-  /* Status palette — fixed roles, never repurposed */
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-serious: #ec835a;
-  --status-critical: #d03b3b;
-  --delta-good: #0ca30c;
+  --surface: #0c2321;                 /* chart surface (slightly warmer, greener than bg) */
+  --surface-2: #0f2b29;
+  --surface-hover: #133633;
+  --line: #1a3a37;                    /* teal-tinted line */
+  --line-strong: #23504b;
+  --text: #eaf5f0;                    /* off-white, warm-green cast */
+  --text-dim: #b3c7c1;
+  --muted: #6e8783;
+  --border-ring: rgba(16,185,129,0.18);
 
+  /* Primary accent — emerald. Used on CTAs, active states, hero indicators. */
+  --accent: #10b981;
+  --accent-2: #34d399;
+  --accent-soft: rgba(16,185,129,0.12);
+  --accent-strong: #059669;
+
+  /* Secondary — warm amber, keeps the brand pop */
+  --amber-ui: #f59e0b;
+  --amber-soft: rgba(245,158,11,0.14);
+
+  /* Status palette — fixed roles */
+  --status-good: #10b981;
+  --status-warning: #f59e0b;
+  --status-serious: #f97316;
+  --status-critical: #ef4444;
+  --delta-good: #10b981;
   --green: var(--status-good);
   --red: var(--status-critical);
   --amber: var(--status-warning);
 
-  /* Categorical palette (dark) — assign in this exact order, never cycle */
-  --cat-1: #3987e5;                   /* blue */
-  --cat-2: #199e70;                   /* aqua */
-  --cat-3: #c98500;                   /* yellow */
-  --cat-4: #008300;                   /* green */
-  --cat-5: #9085e9;                   /* violet */
-  --cat-6: #e66767;                   /* red */
-  --cat-7: #d55181;                   /* magenta */
-  --cat-8: #d95926;                   /* orange */
-  --blue: var(--cat-1);
-  --purple: var(--cat-5);
+  /* Categorical palette — teal-adjusted for the ground; still CVD-safe order */
+  --cat-1: #10b981;   /* emerald */
+  --cat-2: #06b6d4;   /* cyan */
+  --cat-3: #f59e0b;   /* amber */
+  --cat-4: #8b5cf6;   /* violet */
+  --cat-5: #ec4899;   /* pink */
+  --cat-6: #ef4444;   /* red */
+  --cat-7: #14b8a6;   /* teal */
+  --cat-8: #f97316;   /* orange */
+  --blue: var(--cat-2);
+  --purple: var(--cat-4);
   --orange: var(--cat-8);
 
-  /* Single UI accent — text-toned, not a series color */
-  --accent: var(--text);
-  --accent-2: var(--text-dim);
-  --accent-soft: rgba(255,255,255,0.06);
+  /* Chrome — tinted (teal-black translucent), NOT neutral gray */
+  --chrome-hi: rgba(16,185,129,0.14);         /* emerald-tinted sheen */
+  --chrome-md: rgba(52,211,153,0.06);
+  --chrome-lo: rgba(0,20,15,0.55);
 
-  /* No gradients — aliases resolve to flat colors */
-  --gradient-accent: var(--text);
-  --gradient-green: var(--status-good);
-  --gradient-blue: var(--cat-1);
-  --gradient-red: var(--status-critical);
-  --gradient-purple: var(--cat-5);
-  --gradient-surface: var(--surface);
-  --gradient-bg: var(--bg);
-
-  /* Layered chrome — subtle depth, done tastefully.
-     Soft shadows on cards, glass on chrome (nav/modal/hero) only,
-     translucent inner sheen (1px inset top) for a lit-from-above feel.
-     No rainbow, no colored glow, no bounce. */
-  --chrome-hi: rgba(255,255,255,0.06);
-  --chrome-md: rgba(255,255,255,0.03);
-  --chrome-lo: rgba(0,0,0,0.35);
+  /* Shadows — softer, colored ambient (teal-tinted). Depth carries hue. */
   --shadow-card:
-    0 1px 0 rgba(255,255,255,0.03) inset,
-    0 1px 2px rgba(0,0,0,0.2),
-    0 8px 24px -12px rgba(0,0,0,0.5);
+    0 1px 0 rgba(52,211,153,0.05) inset,
+    0 1px 2px rgba(0,10,8,0.4),
+    0 12px 32px -14px rgba(0,10,8,0.7);
   --shadow-elev:
-    0 1px 0 rgba(255,255,255,0.05) inset,
-    0 6px 14px -6px rgba(0,0,0,0.4),
-    0 16px 40px -18px rgba(0,0,0,0.6);
+    0 1px 0 rgba(52,211,153,0.08) inset,
+    0 8px 20px -6px rgba(0,10,8,0.55),
+    0 24px 60px -22px rgba(16,185,129,0.20);
   --shadow-lg:
-    0 20px 60px -30px rgba(0,0,0,0.7),
-    0 1px 0 rgba(255,255,255,0.04) inset;
-  --shadow-glow: none;
-  --glass-bg: rgba(20,20,19,0.72);
-  --glass-blur: blur(20px) saturate(140%);
+    0 30px 80px -30px rgba(0,10,8,0.85),
+    0 1px 0 rgba(52,211,153,0.08) inset;
+  --shadow-glow: 0 0 0 3px rgba(16,185,129,0.16), 0 12px 32px -8px rgba(16,185,129,0.25);
+
+  /* Glass — teal-tinted translucent, not gray */
+  --glass-bg: linear-gradient(180deg, rgba(15,43,42,0.72), rgba(12,35,33,0.68));
+  --glass-blur: blur(24px) saturate(140%);
   --glass-border: 1px solid var(--chrome-hi);
   --hairline: linear-gradient(90deg, transparent, var(--chrome-hi) 50%, transparent);
+  --hairline-accent: linear-gradient(90deg, transparent, rgba(16,185,129,0.5) 50%, transparent);
+
+  /* Gradients — used ON MARKS (buttons, brand mark, cohort bars), NEVER on text */
+  --gradient-accent: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  --gradient-green: linear-gradient(135deg, #10b981, #059669);
+  --gradient-blue: linear-gradient(135deg, #06b6d4, #2563eb);
+  --gradient-red: linear-gradient(135deg, #ef4444, #b91c1c);
+  --gradient-purple: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  --gradient-surface: linear-gradient(180deg, rgba(15,43,42,0.9), rgba(12,35,33,0.75));
+  --gradient-bg: var(--bg-wash);
 
   /* System sans only. */
   --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -104,71 +128,82 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #f9f9f7;
-  --bg-2: #f9f9f7;
-  --surface: #fcfcfb;
-  --surface-2: #f4f3ef;
-  --surface-hover: #efeee9;
-  --line: #e1e0d9;
-  --line-strong: #c3c2b7;
-  --text: #0b0b0b;
-  --text-dim: #52514e;
-  --muted: #898781;
-  --border-ring: rgba(11,11,11,0.10);
+  --bg: #f7fbf9;
+  --bg-2: #eef7f3;
+  --bg-wash:
+    radial-gradient(1000px 600px at 20% -10%, rgba(16,185,129,0.08), transparent 60%),
+    radial-gradient(800px 500px at 100% 100%, rgba(6,182,212,0.05), transparent 55%),
+    linear-gradient(180deg, #f7fbf9 0%, #f0f7f4 100%);
 
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-serious: #ec835a;
-  --status-critical: #d03b3b;
-  --delta-good: #006300;
+  --surface: #ffffff;
+  --surface-2: #f2f8f5;
+  --surface-hover: #e8f2ee;
+  --line: #d5e4de;
+  --line-strong: #a8c1b7;
+  --text: #062421;
+  --text-dim: #345c53;
+  --muted: #6c8c83;
+  --border-ring: rgba(16,185,129,0.22);
 
+  --accent: #059669;
+  --accent-2: #10b981;
+  --accent-soft: rgba(16,185,129,0.12);
+  --accent-strong: #047857;
+
+  --amber-ui: #d97706;
+  --amber-soft: rgba(217,119,6,0.10);
+
+  --status-good: #059669;
+  --status-warning: #d97706;
+  --status-serious: #ea580c;
+  --status-critical: #dc2626;
+  --delta-good: #047857;
   --green: var(--status-good);
   --red: var(--status-critical);
   --amber: var(--status-warning);
 
-  --cat-1: #2a78d6;
-  --cat-2: #1baf7a;
-  --cat-3: #eda100;
-  --cat-4: #008300;
-  --cat-5: #4a3aa7;
-  --cat-6: #e34948;
-  --cat-7: #e87ba4;
-  --cat-8: #eb6834;
-  --blue: var(--cat-1);
-  --purple: var(--cat-5);
+  --cat-1: #059669;
+  --cat-2: #0891b2;
+  --cat-3: #d97706;
+  --cat-4: #7c3aed;
+  --cat-5: #db2777;
+  --cat-6: #dc2626;
+  --cat-7: #0d9488;
+  --cat-8: #ea580c;
+  --blue: var(--cat-2);
+  --purple: var(--cat-4);
   --orange: var(--cat-8);
 
-  --accent: var(--text);
-  --accent-2: var(--text-dim);
-  --accent-soft: rgba(11,11,11,0.04);
-
-  --gradient-accent: var(--text);
-  --gradient-green: var(--status-good);
-  --gradient-blue: var(--cat-1);
-  --gradient-red: var(--status-critical);
-  --gradient-purple: var(--cat-5);
-  --gradient-surface: var(--surface);
-  --gradient-bg: var(--bg);
-
-  --chrome-hi: rgba(11,11,11,0.08);
-  --chrome-md: rgba(11,11,11,0.04);
-  --chrome-lo: rgba(11,11,11,0.06);
+  --chrome-hi: rgba(6,36,33,0.08);
+  --chrome-md: rgba(6,36,33,0.04);
+  --chrome-lo: rgba(6,36,33,0.10);
   --shadow-card:
-    0 1px 0 rgba(255,255,255,0.6) inset,
-    0 1px 2px rgba(15,27,45,0.06),
-    0 8px 24px -12px rgba(15,27,45,0.10);
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 1px 2px rgba(6,36,33,0.06),
+    0 12px 32px -14px rgba(6,36,33,0.10);
   --shadow-elev:
-    0 1px 0 rgba(255,255,255,0.7) inset,
-    0 6px 14px -6px rgba(15,27,45,0.14),
-    0 16px 40px -18px rgba(15,27,45,0.20);
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 8px 20px -6px rgba(6,36,33,0.10),
+    0 24px 60px -22px rgba(16,185,129,0.15);
   --shadow-lg:
-    0 20px 60px -30px rgba(15,27,45,0.18),
-    0 1px 0 rgba(255,255,255,0.7) inset;
-  --shadow-glow: none;
-  --glass-bg: rgba(252,252,251,0.72);
-  --glass-blur: blur(20px) saturate(140%);
+    0 30px 80px -30px rgba(6,36,33,0.20),
+    0 1px 0 rgba(255,255,255,0.9) inset;
+  --shadow-glow: 0 0 0 3px rgba(16,185,129,0.16), 0 12px 32px -8px rgba(16,185,129,0.18);
+
+  --glass-bg: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(242,248,245,0.75));
+  --glass-blur: blur(24px) saturate(140%);
   --glass-border: 1px solid var(--chrome-hi);
   --hairline: linear-gradient(90deg, transparent, var(--chrome-hi) 50%, transparent);
+  --hairline-accent: linear-gradient(90deg, transparent, rgba(16,185,129,0.4) 50%, transparent);
+
+  --gradient-accent: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+  --gradient-warm: linear-gradient(135deg, #d97706 0%, #dc2626 100%);
+  --gradient-green: linear-gradient(135deg, #059669, #047857);
+  --gradient-blue: linear-gradient(135deg, #0891b2, #1d4ed8);
+  --gradient-red: linear-gradient(135deg, #dc2626, #991b1b);
+  --gradient-purple: linear-gradient(135deg, #7c3aed, #6d28d9);
+  --gradient-surface: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(242,248,245,0.85));
+  --gradient-bg: var(--bg-wash);
 }
 
 * {
@@ -182,13 +217,15 @@ body {
 }
 
 body {
-  background: var(--bg);
+  background: var(--bg-wash);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--fs-md);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 h1,
@@ -202,7 +239,7 @@ h4 {
 }
 
 a {
-  color: var(--cat-1);
+  color: var(--accent);
   text-decoration: none;
 }
 a:hover {
@@ -274,14 +311,16 @@ select {
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  letter-spacing: 0.02em;
 }
 
 .pulse-brand-mark {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--text);
+  background: var(--gradient-accent);
+  box-shadow: 0 0 12px rgba(16,185,129,0.6);
 }
 
 .pulse-metrics {
@@ -335,7 +374,7 @@ select {
   flex-direction: column;
   min-width: 100px;
 }
-.pulse-quality:hover { background: var(--surface-2); border-color: var(--line-strong); }
+.pulse-quality:hover { background: var(--accent-soft); border-color: var(--accent); }
 .pulse-quality-green { border-color: color-mix(in oklab, var(--status-good) 40%, var(--line)); }
 .pulse-quality-amber { border-color: color-mix(in oklab, var(--status-warning) 40%, var(--line)); }
 .pulse-quality-red   { border-color: color-mix(in oklab, var(--status-critical) 40%, var(--line)); }
@@ -358,26 +397,27 @@ select {
 }
 
 .refresh-btn {
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
-  color: var(--text);
-  border: 1px solid var(--chrome-hi);
+  background: var(--gradient-accent);
+  color: #ffffff;
+  border: 1px solid rgba(52,211,153,0.5);
   border-radius: 6px;
   padding: 7px 14px;
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--fs-sm);
   cursor: pointer;
   white-space: nowrap;
+  letter-spacing: 0.01em;
   box-shadow:
-    0 1px 0 rgba(255,255,255,0.06) inset,
-    0 1px 2px rgba(0,0,0,0.2);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 4px 12px -4px rgba(16,185,129,0.4);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.2s ease;
 }
 .refresh-btn:hover {
-  border-color: var(--text-dim);
   transform: translateY(-1px);
+  filter: brightness(1.08);
   box-shadow:
-    0 1px 0 rgba(255,255,255,0.1) inset,
-    0 4px 10px -2px rgba(0,0,0,0.35);
+    0 1px 0 rgba(255,255,255,0.2) inset,
+    0 6px 18px -4px rgba(16,185,129,0.55);
 }
 .refresh-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
 
@@ -424,7 +464,7 @@ select {
 }
 .tab-btn.active {
   color: var(--text);
-  border-bottom-color: var(--text);
+  border-bottom-color: var(--accent);
 }
 .tab-btn:hover:not(.active) {
   color: var(--text-dim);
@@ -485,9 +525,9 @@ select {
 }
 .preset-btn:hover { color: var(--text); background: var(--surface-2); }
 .preset-btn.active {
-  background: var(--surface-2);
-  color: var(--text);
-  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-2);
+  border-color: var(--accent);
 }
 
 .select-input,
@@ -507,7 +547,11 @@ select {
 .date-input:hover { border-color: var(--line-strong); }
 .select-input:focus,
 .text-input:focus,
-.date-input:focus { outline: none; border-color: var(--text-dim); }
+.date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 .text-input { min-width: 220px; }
 
 .toggle-chip {
@@ -524,7 +568,7 @@ select {
   user-select: none;
   transition: border-color 0.12s ease, color 0.12s ease;
 }
-.toggle-chip:hover { color: var(--text); border-color: var(--line-strong); }
+.toggle-chip:hover { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 
 .spacer { flex: 1; }
 
@@ -556,8 +600,8 @@ select {
   border-radius: 8px 8px 0 0;
 }
 .kpi-card:hover {
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
+  border-color: var(--border-ring);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-elev);
 }
 
@@ -621,7 +665,7 @@ select {
   border-radius: 8px 8px 0 0;
 }
 .panel:hover {
-  border-color: var(--line-strong);
+  border-color: var(--border-ring);
   box-shadow: var(--shadow-elev);
 }
 
@@ -699,8 +743,11 @@ tbody td {
   white-space: nowrap;
 }
 tbody tr:last-child td { border-bottom: none; }
-tbody tr { transition: background 0.12s ease; }
-tbody tr:hover { background: var(--surface-hover); }
+tbody tr { transition: background 0.12s ease, box-shadow 0.15s ease; }
+tbody tr:hover {
+  background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 tbody tr.test-row { opacity: 0.5; }
 
 .table-footer {
@@ -716,7 +763,7 @@ tbody tr.test-row { opacity: 0.5; }
 .link-btn {
   background: none;
   border: none;
-  color: var(--cat-1);
+  color: var(--accent);
   cursor: pointer;
   font-size: var(--fs-sm);
   padding: 0;
