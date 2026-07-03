@@ -23,6 +23,7 @@ import {
 } from "@/lib/insightsQuery";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import DrillDownModal from "../DrillDownModal";
+import CohortFunnels from "./CohortFunnels";
 
 interface Props {
   cash: CashRow[];
@@ -77,6 +78,7 @@ export default function InsightsBuilder({
   const [cross, setCross] = useState<CrossJoin>({ crossWith: "cash", crossFilters: [] });
   const [displayMode, setDisplayMode] = useState<"count" | "percent">("percent");
   const [drilldown, setDrilldown] = useState<{ title: string; rows: any[]; group: QueryGroup } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const someGroupIsAggregatePeek = groups.some((g) => !canCrossJoin(g.datasetKey));
   const results = useMemo(
@@ -165,8 +167,51 @@ export default function InsightsBuilder({
 
   return (
     <div>
+      {/* PRIMARY VIEW — high-level Cohort Funnels. This is what the sales team looks at. */}
+      <CohortFunnels
+        cash={cash}
+        appointments={appointments}
+        applications={applications}
+        challenge={challenge}
+      />
+
+      {/* ADVANCED BUILDER — collapsed by default. Only for people who want to dig deeper. */}
+      <div style={{ marginTop: 28, marginBottom: 12 }}>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: "12px 18px",
+            color: "var(--text)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            width: "100%",
+            textAlign: "left",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>
+            {showAdvanced ? "▾" : "▸"}{" "}
+            <span style={{ marginLeft: 8 }}>Advanced Builder</span>{" "}
+            <span style={{ color: "var(--muted)", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
+              Custom cross-source comparisons — for when the cohort funnels above don't answer your question
+            </span>
+          </span>
+          <span style={{ color: "var(--muted)", fontSize: 11 }}>{showAdvanced ? "hide" : "show"}</span>
+        </button>
+      </div>
+
+      {showAdvanced && (
+      <>
+
       {/* Header — hero card with glass finish */}
-      <div className="insights-hero" style={{ marginBottom: 18 }}>
+      <div className="insights-hero" style={{ marginTop: 8, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div className="gradient-text" style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, letterSpacing: 0.02 }}>
@@ -373,6 +418,9 @@ export default function InsightsBuilder({
       >
         {drilldown && <LeadTable rows={drilldown.rows} dataset={datasets.find((d) => d.key === drilldown.group.datasetKey)!} />}
       </DrillDownModal>
+
+      </>
+      )}
     </div>
   );
 }
