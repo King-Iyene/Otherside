@@ -18,7 +18,18 @@ import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "./ty
  */
 
 const norm = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim().toLowerCase());
-const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
+/** Any of these substrings anywhere in the status string counts as "showed".
+ *  Case-insensitive. Errs on the side of catching real appearances — a No Show
+ *  or Cancelled is explicitly excluded, everything else that looks positive
+ *  gets counted. */
+const SHOWED_PATTERNS = [/show/i, /attend/i, /confirm/i, /client\s*won/i, /finish/i, /completed/i];
+const NOT_SHOWED_PATTERNS = [/no\s*show/i, /cancel/i, /resched/i, /didn.?t/i, /missed/i];
+function isShowedStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const s = String(status);
+  if (NOT_SHOWED_PATTERNS.some((p) => p.test(s))) return false;
+  return SHOWED_PATTERNS.some((p) => p.test(s));
+}
 
 export interface CohortDef {
   id: string;
@@ -108,6 +119,17 @@ function challengeAmountOf(r: ChallengeRow): number {
   return 0;
 }
 
+function challengeSaleDateOf(r: ChallengeRow): string | null {
+  for (const k of Object.keys(r)) {
+    const lk = k.toLowerCase();
+    if (lk.includes("sale date") || lk === "date") {
+      const v = r[k];
+      return v ? String(v) : null;
+    }
+  }
+  return null;
+}
+
 export interface FunnelStage {
   key: "registered" | "applied" | "booked" | "showed" | "enrolled";
   label: string;
@@ -171,47 +193,62 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   const appts = includeTest ? data.appointments : data.appointments.filter((r) => !r.isTest);
   const cash = includeTest ? data.cash : data.cash.filter((r) => !r.isTest);
 
-  // Stage 1: Registered — challenge sheet rows tagged with this cohort's Product
-  const registered = chal.filter((r) => matchesCohort(challengeProductOf(r), cohort));
-  const registeredDedup = dedupeByEmail(registered, challengeEmailOf);
-  const registeredEmails = emailSetOf(registeredDedup, challengeEmailOf);
-  const challengeRevenue = registered.reduce((s, r) => s + challengeAmountOf(r), 0);
-
-  // Stage 2: Applied — application whose email matches a registered lead
-  const applied = apps.filter((a) => {
-    const e = norm(a.email);
-    return e && registeredEmails.has(e);
-  });
-  const appliedDedup = dedupeByEmail(applied, (r) => norm(r.email));
-  const appliedEmails = emailSetOf(appliedDedup, (r) => norm(r.email));
-
-  // Stage 3: Booked Call — appointments tagged with this cohort OR email matches applied
-  // OR appointment falls inside the cohort's launch window (catches untagged bookings)
-  const bookedByCohort = appts.filter((a) => matchesCohort(a.cohort, cohort));
-  const bookedByEmail = appts.filter((a) => {
-    const e = norm(a.email);
-    return e && (registeredEmails.has(e) || appliedEmails.has(e));
-  });
-  const bookedByWindow = cohort.window
-    ? appts.filter((a) => !a.cohort && inWindow(a.appointmentTime, cohort.window))
-    : [];
-  const bookedAll = Array.from(new Set([...bookedByCohort, ...bookedByEmail, ...bookedByWindow]));
-  const bookedDedup = dedupeByEmail(bookedAll, (r) => norm(r.email));
-
-  // Stage 4: Showed — subset of booked with a "showed" status
-  const showed = bookedAll.filter((a) => a.status && SHOWED_STATUSES.has(a.status));
-  const showedDedup = dedupeByEmail(showed, (r) => norm(r.email));
-
-  // Stage 5: Enrolled — cash rows tagged with this cohort OR enrolled during the window
+  // ─── STAGE 5 FIRST — Enrolled anchor ─────────────────────────────────
+  // Computing enrolled first gives us the ground-truth set of buyers for
+  // this cohort. Every earlier stage can then retro-attribute (i.e. "of
+  // the eventual buyers, how many applied") which surfaces people who
+  // came in via untagged paths.
   const enrolledByCohort = cash.filter((c) => matchesCohort(c.cohort, cohort));
   const enrolledByWindow = cohort.window
     ? cash.filter((c) => !c.cohort && inWindow(c.enrollmentDate, cohort.window))
     : [];
   const enrolled = Array.from(new Set([...enrolledByCohort, ...enrolledByWindow]));
   const enrolledDedup = dedupeByEmail(enrolled, (r) => norm(r.email));
-
-  // Stage 6: Cash Collected — dollar sum on enrolled
+  const enrolledEmails = emailSetOf(enrolledDedup, (r) => norm(r.email));
   const totalCash = enrolled.reduce((s, r) => s + (r.cashCollected ?? 0), 0);
+
+  // ─── STAGE 1 — Registered ────────────────────────────────────────────
+  // Product name match  ∪  sale date inside window  ∪  email is an eventual buyer
+  const registered = chal.filter((r) => {
+    if (matchesCohort(challengeProductOf(r), cohort)) return true;
+    if (cohort.window && inWindow(challengeSaleDateOf(r), cohort.window)) return true;
+    const e = challengeEmailOf(r);
+    if (e && enrolledEmails.has(e)) return true;
+    return false;
+  });
+  const registeredDedup = dedupeByEmail(registered, challengeEmailOf);
+  const registeredEmails = emailSetOf(registeredDedup, challengeEmailOf);
+  const challengeRevenue = registered.reduce((s, r) => s + challengeAmountOf(r), 0);
+
+  // ─── STAGE 2 — Applied ───────────────────────────────────────────────
+  // email is a registered lead  ∪  email is an eventual buyer  ∪  applied inside window
+  const applied = apps.filter((a) => {
+    const e = norm(a.email);
+    if (e && registeredEmails.has(e)) return true;
+    if (e && enrolledEmails.has(e)) return true;
+    if (cohort.window && inWindow(a.dateCreated, cohort.window)) return true;
+    return false;
+  });
+  const appliedDedup = dedupeByEmail(applied, (r) => norm(r.email));
+  const appliedEmails = emailSetOf(appliedDedup, (r) => norm(r.email));
+
+  // ─── STAGE 3 — Booked ────────────────────────────────────────────────
+  // cohort tag  ∪  email in reg/applied/enrolled  ∪  appointment time inside window
+  const bookedAll = appts.filter((a) => {
+    if (matchesCohort(a.cohort, cohort)) return true;
+    const e = norm(a.email);
+    if (e && (registeredEmails.has(e) || appliedEmails.has(e) || enrolledEmails.has(e))) return true;
+    if (cohort.window && !a.cohort && inWindow(a.appointmentTime, cohort.window)) return true;
+    return false;
+  });
+  const bookedDedup = dedupeByEmail(bookedAll, (r) => norm(r.email));
+
+  // ─── STAGE 4 — Showed ────────────────────────────────────────────────
+  // Substring match — catches "Showed", "Showed Up", "Attended", "Confirmed",
+  // "Client Won", "Finisher", "Completed". Explicitly excludes "No Show",
+  // "Cancelled", "Rescheduled".
+  const showed = bookedAll.filter((a) => isShowedStatus(a.status));
+  const showedDedup = dedupeByEmail(showed, (r) => norm(r.email));
 
   const stages: FunnelStage[] = [
     {
@@ -222,7 +259,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
       rows: registeredDedup,
       source: "challenge",
       dollarAmount: challengeRevenue,
-      howCalculated: `Unique people in the Challenge sheet whose Product/Challange field matches "${cohort.label}". Duplicates by email are counted once.`,
+      howCalculated: `Unique people in the Challenge sheet whose Product/Challange field matches "${cohort.label}"${
+        cohort.window ? ` OR whose Sale Date falls between ${cohort.window.start} and ${cohort.window.end}` : ""
+      } OR whose email also appears in the Enrolled list (retro-attribution). Duplicates by email are counted once.`,
     },
     {
       key: "applied",
@@ -231,7 +270,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
       count: appliedDedup.length,
       rows: appliedDedup,
       source: "applications",
-      howCalculated: `Unique applications whose email also appears in the Registered list. This tells you how many challenge sign-ups actually filled out the application.`,
+      howCalculated: `Unique applications whose email is in the Registered list OR the Enrolled list${
+        cohort.window ? ` OR that were created between ${cohort.window.start} and ${cohort.window.end}` : ""
+      }. Retro-attribution catches people who applied without going through the challenge.`,
     },
     {
       key: "booked",
