@@ -425,7 +425,14 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         title={drilldown?.title || ""}
         subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} enrollments` : ""}
       >
-        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+        <DataTable
+          columns={columns}
+          rows={drilldown?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, cohort, closer, coupon…"
+        />
       </DrillDownModal>
     </div>
   );

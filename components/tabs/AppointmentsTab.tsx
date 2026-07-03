@@ -233,7 +233,14 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         title={drilldown?.title || ""}
         subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} appointments` : ""}
       >
-        <DataTable columns={columns} rows={drilldown?.rows || []} rowKey={(r) => r.id} isTestRow={(r) => r.isTest} />
+        <DataTable
+          columns={columns}
+          rows={drilldown?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, phone, cohort, closer, status…"
+        />
       </DrillDownModal>
     </div>
   );

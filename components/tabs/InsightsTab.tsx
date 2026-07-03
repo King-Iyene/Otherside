@@ -442,7 +442,15 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
         title={drilldown?.title || ""}
         subtitle={drilldown ? drilldown.subtitle || `${drilldown.rows.length} matched leads` : ""}
       >
-        {drilldown && <DataTable columns={drilldown.columns} rows={drilldown.rows} rowKey={(r) => r.email || Math.random().toString()} />}
+        {drilldown && (
+          <DataTable
+            columns={drilldown.columns}
+            rows={drilldown.rows}
+            rowKey={(r) => r.email || Math.random().toString()}
+            searchable
+            searchPlaceholder="Search name, email, product…"
+          />
+        )}
       </DrillDownModal>
     </div>
   );
