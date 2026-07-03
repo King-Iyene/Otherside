@@ -42,7 +42,9 @@ const OP_LABELS: Record<string, string> = {
 };
 
 const OPS_FOR_TYPE: Record<string, string[]> = {
-  select: ["eq", "neq", "in", "notIn", "isEmpty", "isNotEmpty"],
+  // Multi-select ("in") is now the default for select fields so you can immediately
+  // check "$50k-$100k" + "$100k-$250k" as one bucket without changing the operator.
+  select: ["in", "notIn", "eq", "neq", "isEmpty", "isNotEmpty"],
   text: ["eq", "neq", "contains", "isEmpty", "isNotEmpty"],
   number: ["gt", "gte", "lt", "lte", "eq", "neq", "isEmpty", "isNotEmpty"],
   date: ["gt", "gte", "lt", "lte", "isEmpty", "isNotEmpty"],
@@ -95,7 +97,12 @@ export default function InsightsBuilder({
         const dataset = datasets.find((d) => d.key === g.datasetKey);
         const firstField = dataset?.fields[0];
         if (!firstField) return g;
-        const newRule: FilterRule = { fieldKey: firstField.key, op: OPS_FOR_TYPE[firstField.type][0] as any };
+        const defaultOp = OPS_FOR_TYPE[firstField.type][0] as any;
+        const newRule: FilterRule = {
+          fieldKey: firstField.key,
+          op: defaultOp,
+          valueList: ["in", "notIn"].includes(defaultOp) ? [] : undefined,
+        };
         return { ...g, filters: [...g.filters, newRule] };
       })
     );
@@ -261,72 +268,23 @@ export default function InsightsBuilder({
             gap: 14,
           }}
         >
-          {results.map((r) => {
-            const dataset = datasets.find((d) => d.key === r.group.datasetKey)!;
-            const crossDataset = crossEnabled ? datasets.find((d) => d.key === cross.crossWith)! : null;
-
-            const primaryValue = crossEnabled
-              ? displayMode === "count"
-                ? formatNumber(r.crossMatchedCount)
-                : formatPercent(r.conversionRate)
-              : formatNumber(r.baseCount);
-
-            const secondary = crossEnabled
-              ? displayMode === "count"
-                ? `of ${formatNumber(r.baseCount)} in group (${formatPercent(r.conversionRate)})`
-                : `${formatNumber(r.crossMatchedCount)} of ${formatNumber(r.baseCount)}`
-              : `${dataset.label} matching filters`;
-
-            return (
-              <div
-                key={r.group.id}
-                style={{
-                  background: "var(--gradient-surface)",
-                  border: `1px solid ${r.group.color}`,
-                  borderRadius: 14,
-                  padding: 18,
-                  boxShadow: "var(--shadow-card)",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: r.group.color, opacity: 0.6 }} />
-                <div style={{ fontSize: 11, letterSpacing: 0.06, textTransform: "uppercase", color: r.group.color, fontWeight: 600 }}>
-                  {r.group.label}
-                </div>
-                <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>
-                  {dataset.icon} {dataset.label}
-                  {r.group.filters.length > 0 && ` · ${r.group.filters.length} filter${r.group.filters.length === 1 ? "" : "s"}`}
-                </div>
-                <button
-                  onClick={() => setDrilldown({ title: r.group.label, rows: crossEnabled ? r.crossMatched : r.base, group: r.group })}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    marginTop: 12,
-                    textAlign: "left",
-                    width: "100%",
-                    color: "var(--text)",
-                  }}
-                >
-                  <div className="mono" style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", color: r.group.color, lineHeight: 1 }}>
-                    {primaryValue}
-                  </div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 6 }}>{secondary}</div>
-                  {r.revenue > 0 && (
-                    <div style={{ color: "var(--green)", fontSize: 12, marginTop: 6, fontFamily: "var(--font-mono)" }}>
-                      {formatMoney(r.revenue)} revenue attributed
-                    </div>
-                  )}
-                  <div style={{ color: "var(--muted)", fontSize: 10, marginTop: 10, textTransform: "uppercase", letterSpacing: 0.05 }}>
-                    ↗ Click to see leads
-                  </div>
-                </button>
-              </div>
-            );
-          })}
+          {results.map((r, idx) => (
+            <ResultCard
+              key={r.group.id}
+              result={r}
+              others={results.filter((_, i) => i !== idx)}
+              datasets={datasets}
+              crossEnabled={crossEnabled}
+              displayMode={displayMode}
+              onDrilldown={(mode) =>
+                setDrilldown({
+                  title: `${r.group.label} · ${mode === "matched" ? "cross-matched leads" : "all in group"}`,
+                  rows: mode === "matched" ? r.crossMatched : r.base,
+                  group: r.group,
+                })
+              }
+            />
+          ))}
         </div>
 
         {/* Comparison summary */}
@@ -343,6 +301,163 @@ export default function InsightsBuilder({
       >
         {drilldown && <LeadTable rows={drilldown.rows} dataset={datasets.find((d) => d.key === drilldown.group.datasetKey)!} />}
       </DrillDownModal>
+    </div>
+  );
+}
+
+function ResultCard({
+  result,
+  others,
+  datasets,
+  crossEnabled,
+  displayMode,
+  onDrilldown,
+}: {
+  result: ReturnType<typeof computeGroup>;
+  others: ReturnType<typeof computeGroup>[];
+  datasets: DatasetDef[];
+  crossEnabled: boolean;
+  displayMode: "count" | "percent";
+  onDrilldown: (mode: "matched" | "all") => void;
+}) {
+  const dataset = datasets.find((d) => d.key === result.group.datasetKey)!;
+  const rate = result.conversionRate;
+  const avgDeal =
+    crossEnabled && result.crossMatchedCount > 0 ? result.revenue / result.crossMatchedCount : null;
+
+  // Compute deltas vs each other group
+  const deltas = others.map((o) => {
+    const oRate = o.conversionRate;
+    const rateDelta = rate !== null && oRate !== null ? rate - oRate : null;
+    const countDelta = crossEnabled ? result.crossMatchedCount - o.crossMatchedCount : result.baseCount - o.baseCount;
+    const revenueDelta = result.revenue - o.revenue;
+    return { other: o, rateDeltaPts: rateDelta, countDelta, revenueDelta };
+  });
+
+  return (
+    <div
+      style={{
+        background: "var(--gradient-surface)",
+        border: `1px solid ${result.group.color}`,
+        borderRadius: 14,
+        padding: 18,
+        boxShadow: "var(--shadow-card)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: result.group.color, opacity: 0.6 }} />
+
+      <div style={{ fontSize: 11, letterSpacing: 0.06, textTransform: "uppercase", color: result.group.color, fontWeight: 600 }}>
+        {result.group.label}
+      </div>
+      <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>
+        {dataset.icon} {dataset.label}
+        {result.group.filters.length > 0 && ` · ${result.group.filters.length} filter${result.group.filters.length === 1 ? "" : "s"}`}
+      </div>
+
+      {/* Hero metric — either the count or the percentage, whichever is toggled */}
+      <button
+        onClick={() => onDrilldown(crossEnabled ? "matched" : "all")}
+        style={{
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          marginTop: 14,
+          textAlign: "left",
+          width: "100%",
+          color: "var(--text)",
+        }}
+      >
+        <div className="mono" style={{ fontSize: 38, fontWeight: 600, letterSpacing: "-0.03em", color: result.group.color, lineHeight: 1 }}>
+          {crossEnabled
+            ? displayMode === "percent"
+              ? formatPercent(rate)
+              : formatNumber(result.crossMatchedCount)
+            : formatNumber(result.baseCount)}
+        </div>
+        <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>
+          {crossEnabled
+            ? displayMode === "percent"
+              ? "conversion rate"
+              : "matched leads"
+            : "leads in group"}
+        </div>
+      </button>
+
+      {/* Secondary metrics — everything at once */}
+      <div style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <SubMetric label="In group" value={formatNumber(result.baseCount)} onClick={() => onDrilldown("all")} />
+        {crossEnabled && (
+          <>
+            <SubMetric label="Matched" value={formatNumber(result.crossMatchedCount)} onClick={() => onDrilldown("matched")} />
+            <SubMetric label="Rate" value={formatPercent(rate)} />
+            {result.revenue > 0 && <SubMetric label="Revenue" value={formatMoney(result.revenue)} color="var(--green)" />}
+            {avgDeal !== null && avgDeal > 0 && <SubMetric label="Avg Deal" value={formatMoney(avgDeal)} color="var(--green)" />}
+          </>
+        )}
+      </div>
+
+      {/* Inline deltas vs other groups */}
+      {deltas.length > 0 && (
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.06, marginBottom: 2 }}>
+            vs other groups
+          </div>
+          {deltas.map(({ other, rateDeltaPts, countDelta }) => {
+            const primaryDelta =
+              crossEnabled && rateDeltaPts !== null
+                ? {
+                    text: `${rateDeltaPts >= 0 ? "▲" : "▼"} ${Math.abs(rateDeltaPts * 100).toFixed(1)}pts`,
+                    color: rateDeltaPts >= 0 ? "var(--green)" : "var(--red)",
+                  }
+                : {
+                    text: `${countDelta >= 0 ? "▲" : "▼"} ${formatNumber(Math.abs(countDelta))}`,
+                    color: countDelta >= 0 ? "var(--green)" : "var(--red)",
+                  };
+            return (
+              <div key={other.group.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                <span style={{ color: other.group.color }}>vs {other.group.label}</span>
+                <span className="mono" style={{ color: primaryDelta.color, fontWeight: 600 }}>
+                  {primaryDelta.text}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ color: "var(--muted)", fontSize: 9, marginTop: 12, textTransform: "uppercase", letterSpacing: 0.05, textAlign: "right" }}>
+        Click any number to see leads →
+      </div>
+    </div>
+  );
+}
+
+function SubMetric({ label, value, color, onClick }: { label: string; value: string; color?: string; onClick?: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        cursor: onClick ? "pointer" : "default",
+        transition: "background 0.15s ease",
+        padding: "4px 6px",
+        marginLeft: -6,
+        marginRight: -6,
+        borderRadius: 6,
+      }}
+      onMouseEnter={(e) => {
+        if (onClick) e.currentTarget.style.background = "var(--surface-2)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.06 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 14, color: color || "var(--text)", fontWeight: 600, marginTop: 2 }}>
+        {value}
+      </div>
     </div>
   );
 }
