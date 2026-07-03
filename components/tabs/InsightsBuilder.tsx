@@ -5,11 +5,14 @@ import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow, SalesActivi
 import {
   applyFilters,
   buildDatasets,
+  canCrossJoin,
   computeGroup,
   describeGroup,
   getRowsForDataset,
   optionsFor,
   OP_LABELS_SALES,
+  COHORT_PRESETS,
+  type CohortPreset,
   type CrossJoin,
   type DataBundle,
   type DatasetDef,
@@ -75,10 +78,11 @@ export default function InsightsBuilder({
   const [displayMode, setDisplayMode] = useState<"count" | "percent">("percent");
   const [drilldown, setDrilldown] = useState<{ title: string; rows: any[]; group: QueryGroup } | null>(null);
 
+  const someGroupIsAggregatePeek = groups.some((g) => !canCrossJoin(g.datasetKey));
   const results = useMemo(
-    () => groups.map((g) => computeGroup(g, datasets, bundle, crossEnabled ? cross : null, includeTest)),
+    () => groups.map((g) => computeGroup(g, datasets, bundle, crossEnabled && !someGroupIsAggregatePeek ? cross : null, includeTest)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups, datasets, cross, crossEnabled, includeTest, cash, appointments, applications, salesActivity, challenge]
+    [groups, datasets, cross, crossEnabled, includeTest, cash, appointments, applications, salesActivity, challenge, someGroupIsAggregatePeek]
   );
 
   function updateGroup(id: string, patch: Partial<QueryGroup>) {
@@ -124,25 +128,100 @@ export default function InsightsBuilder({
     setGroups((gs) => (gs.length <= 1 ? gs : gs.filter((g) => g.id !== id)));
   }
 
+  /** Options snapshot for a dataset — for preset resolution. */
+  function optsFor(datasetKey: DatasetKey): Record<string, string[]> {
+    const dataset = datasets.find((d) => d.key === datasetKey);
+    if (!dataset) return {};
+    const rows = getRowsForDataset(datasetKey, bundle);
+    const map: Record<string, string[]> = {};
+    for (const f of dataset.fields) {
+      if (f.type === "select" || f.type === "text") {
+        map[f.key] = optionsFor(dataset, f, rows);
+      }
+    }
+    return map;
+  }
+
+  /** Apply a preset to a group: figure out best dataset, populate filters. */
+  function applyPreset(groupId: string, preset: CohortPreset) {
+    setGroups((gs) =>
+      gs.map((g) => {
+        if (g.id !== groupId) return g;
+        // Prefer the group's current dataset if the preset applies to it; else use first supported one
+        const targetKey = preset.appliesTo.includes(g.datasetKey) ? g.datasetKey : preset.appliesTo[0];
+        const filters = preset.buildFilters(targetKey, optsFor(targetKey));
+        if (!filters) return g;
+        return { ...g, datasetKey: targetKey, filters, label: preset.label };
+      })
+    );
+  }
+
+  /** Auto-disable cross-join if a group is on an aggregate dataset. */
+  const someGroupIsAggregate = groups.some((g) => !canCrossJoin(g.datasetKey));
+  const effectiveCrossEnabled = crossEnabled && !someGroupIsAggregate;
+
   const totalBase = results.reduce((s, r) => s + r.baseCount, 0);
+  const crossDatasetLabel = datasets.find((d) => d.key === cross.crossWith)?.label || "";
 
   return (
     <div>
-      {/* Header */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, rgba(242,182,60,0.08), rgba(97,170,242,0.05))",
-          border: "1px solid var(--line)",
-          borderRadius: 14,
-          padding: "18px 20px",
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>Insights Builder</div>
-        <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }}>
-          Pick filters for each group, optionally cross-join with another dataset by email, and compare the result. Every
-          number is clickable to see the leads it represents. Nothing is pre-baked — you can ask any question the data can
-          answer.
+      {/* Header — hero card with glass finish */}
+      <div className="insights-hero" style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="gradient-text" style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, letterSpacing: 0.02 }}>
+              Insights Builder
+            </div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4, lineHeight: 1.6, maxWidth: 720 }}>
+              Compare any two (or four) slices of your data. Use a preset below for one-click cohorts, or build custom
+              filters per group. Every number is clickable to see the actual leads.
+            </div>
+          </div>
+
+          {/* Explicit comparison-mode indicator */}
+          <div
+            style={{
+              padding: "8px 14px",
+              background: "var(--surface-2)",
+              border: `1px solid ${effectiveCrossEnabled ? "var(--green)" : "var(--line-strong)"}`,
+              borderRadius: 10,
+              fontSize: 11,
+              lineHeight: 1.4,
+              maxWidth: 260,
+            }}
+          >
+            <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.08, marginBottom: 4 }}>
+              You are comparing
+            </div>
+            {effectiveCrossEnabled ? (
+              <div style={{ color: "var(--text)", fontWeight: 500 }}>
+                Leads by email — matched into <span style={{ color: "var(--green)" }}>{crossDatasetLabel}</span>
+              </div>
+            ) : someGroupIsAggregate ? (
+              <div style={{ color: "var(--accent)" }}>
+                Aggregate rows only (Sales Activity has no email — email join disabled)
+              </div>
+            ) : (
+              <div style={{ color: "var(--text)", fontWeight: 500 }}>Raw row counts (no cross-join)</div>
+            )}
+          </div>
+        </div>
+
+        {/* Preset chip strip */}
+        <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.08, marginBottom: 8 }}>
+            Quick Presets — click to load into a group
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {COHORT_PRESETS.map((p) => (
+              <PresetChip
+                key={p.id}
+                preset={p}
+                groups={groups}
+                onApply={(gid) => applyPreset(gid, p)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -267,7 +346,7 @@ export default function InsightsBuilder({
               result={r}
               others={results.filter((_, i) => i !== idx)}
               datasets={datasets}
-              crossEnabled={crossEnabled}
+              crossEnabled={effectiveCrossEnabled}
               displayMode={displayMode}
               onDrilldown={(mode) =>
                 setDrilldown({
@@ -281,7 +360,7 @@ export default function InsightsBuilder({
         </div>
 
         {/* Comparison summary */}
-        {crossEnabled && results.length >= 2 && (
+        {effectiveCrossEnabled && results.length >= 2 && (
           <ComparisonSummary results={results} datasets={datasets} crossWith={cross.crossWith} />
         )}
       </div>
@@ -427,6 +506,100 @@ function ResultCard({
       <div style={{ color: "var(--muted)", fontSize: 9, marginTop: 12, textTransform: "uppercase", letterSpacing: 0.05, textAlign: "right" }}>
         Click any number to see leads →
       </div>
+    </div>
+  );
+}
+
+function PresetChip({
+  preset,
+  groups,
+  onApply,
+}: {
+  preset: CohortPreset;
+  groups: QueryGroup[];
+  onApply: (groupId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((x) => !x)}
+        style={{
+          background: "var(--surface-2)",
+          border: `1px solid ${preset.color}55`,
+          color: "var(--text)",
+          borderRadius: 20,
+          padding: "6px 12px",
+          fontSize: 11,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          transition: "all 0.15s ease",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = `${preset.color}22`;
+          e.currentTarget.style.borderColor = preset.color;
+          e.currentTarget.style.boxShadow = `0 4px 16px -6px ${preset.color}66, 0 1px 0 rgba(255,255,255,0.06) inset`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "var(--surface-2)";
+          e.currentTarget.style.borderColor = `${preset.color}55`;
+          e.currentTarget.style.boxShadow = "0 1px 0 rgba(255,255,255,0.03) inset";
+        }}
+      >
+        <span>{preset.emoji}</span>
+        <span style={{ fontWeight: 500 }}>{preset.label}</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            background: "var(--surface-2)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: 10,
+            padding: 6,
+            minWidth: 180,
+            zIndex: 30,
+            boxShadow: "0 12px 30px -12px rgba(0,0,0,0.6)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.06, padding: "4px 8px", marginBottom: 2 }}>
+            Load into group
+          </div>
+          {groups.map((g, idx) => (
+            <button
+              key={g.id}
+              onClick={() => {
+                onApply(g.id);
+                setOpen(false);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "7px 10px",
+                background: "transparent",
+                border: "none",
+                color: g.color,
+                fontSize: 12,
+                cursor: "pointer",
+                borderRadius: 6,
+                fontWeight: 500,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              → Group {idx + 1} {g.label && `(${g.label.slice(0, 24)})`}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
