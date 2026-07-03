@@ -126,15 +126,28 @@ export default function CohortFunnels({ cash, appointments, applications, challe
           gap: 16px;
         }
         .cohort-funnels-hero {
+          position: relative;
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           gap: 16px;
-          padding: 16px 18px;
-          background: var(--surface);
-          border: 1px solid var(--line);
-          border-radius: 4px;
+          padding: 18px 20px;
+          background: var(--glass-bg);
+          backdrop-filter: var(--glass-blur);
+          -webkit-backdrop-filter: var(--glass-blur);
+          border: 1px solid var(--chrome-hi);
+          border-radius: 10px;
+          box-shadow: var(--shadow-card);
           flex-wrap: wrap;
+        }
+        .cohort-funnels-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 1px;
+          background: var(--hairline);
+          pointer-events: none;
+          border-radius: 10px 10px 0 0;
         }
         .cohort-funnels-title {
           font-size: var(--fs-lg);
@@ -234,17 +247,30 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
 
       <style jsx>{`
         .funnel-card {
+          position: relative;
           background: var(--surface);
           border: 1px solid var(--line);
-          border-radius: 4px;
-          padding: 14px 16px;
+          border-radius: 8px;
+          padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 12px;
-          transition: border-color 0.12s ease;
+          box-shadow: var(--shadow-card);
+          transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.25s ease;
+        }
+        .funnel-card::before {
+          content: "";
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 1px;
+          background: var(--hairline);
+          pointer-events: none;
+          border-radius: 8px 8px 0 0;
         }
         .funnel-card:hover {
           border-color: var(--line-strong);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-elev);
         }
         .funnel-card-header {
           display: flex;
@@ -425,10 +451,21 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
 
       <style jsx>{`
         .comparison-wrap {
+          position: relative;
           background: var(--surface);
           border: 1px solid var(--line);
-          border-radius: 4px;
+          border-radius: 8px;
           padding: 16px;
+          box-shadow: var(--shadow-card);
+        }
+        .comparison-wrap::before {
+          content: "";
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 1px;
+          background: var(--hairline);
+          pointer-events: none;
+          border-radius: 8px 8px 0 0;
         }
         .comparison-header { margin-bottom: 12px; }
         .comparison-title {

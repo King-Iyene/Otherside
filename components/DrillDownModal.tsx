@@ -32,8 +32,9 @@ export default function DrillDownModal({ open, onClose, title, subtitle, childre
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(10, 14, 20, 0.75)",
-        backdropFilter: "blur(4px)",
+        background: "rgba(0, 0, 0, 0.55)",
+        backdropFilter: "blur(6px) saturate(140%)",
+        WebkitBackdropFilter: "blur(6px) saturate(140%)",
         zIndex: 100,
         display: "flex",
         alignItems: "center",
@@ -45,15 +46,18 @@ export default function DrillDownModal({ open, onClose, title, subtitle, childre
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--gradient-surface)",
-          border: "1px solid var(--line-strong)",
-          borderRadius: 14,
+          position: "relative",
+          background: "var(--glass-bg)",
+          backdropFilter: "var(--glass-blur)",
+          WebkitBackdropFilter: "var(--glass-blur)",
+          border: "1px solid var(--chrome-hi)",
+          borderRadius: 12,
           maxWidth: "min(1100px, 100%)",
           width: "100%",
           maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 40px 80px -20px rgba(0,0,0,0.6)",
+          boxShadow: "var(--shadow-lg)",
         }}
       >
         <div
