@@ -14,10 +14,25 @@ export interface HealthEntry {
 
 type FilterKind = "all" | HealthFlagKind;
 
+interface Contact {
+  key: string;
+  label: string;
+  sources: string[];
+  items: { source: string; flag: HealthFlag }[];
+}
+
 export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<FilterKind>("all");
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const { total, byKind, bySource } = useMemo(() => {
     const byKind = new Map<HealthFlagKind, number>();
@@ -48,6 +63,22 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
     }
     return out;
   }, [entries, filter, search]);
+
+  // Group every matching issue by the person/record it belongs to, so a lead
+  // with several problems shows once with a count — not scattered across rows.
+  // Grouped by name (case-insensitive); most-issues-first floats the worst
+  // offenders to the top.
+  const contacts: Contact[] = useMemo(() => {
+    const map = new Map<string, Contact>();
+    for (const { entry, flag } of filtered) {
+      const key = (entry.label || entry.id).trim().toLowerCase();
+      const g = map.get(key) || { key, label: entry.label || entry.id, sources: [], items: [] };
+      if (!g.sources.includes(entry.source)) g.sources.push(entry.source);
+      g.items.push({ source: entry.source, flag });
+      map.set(key, g);
+    }
+    return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
+  }, [filtered]);
 
   if (total === 0) {
     return (
@@ -131,44 +162,125 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
               style={{ width: "100%" }}
             />
           </div>
-          <div className="table-wrap" style={{ border: "none" }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th>Record</th>
-                  <th>Field</th>
-                  <th>Issue</th>
-                  <th>Details</th>
-                  <th>How to fix</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.slice(0, 500).map(({ entry, flag }, idx) => {
-                  const meta = HEALTH_LABELS[flag.kind];
-                  return (
-                    <tr key={`${entry.id}-${idx}`}>
-                      <td>{entry.source}</td>
-                      <td>{entry.label}</td>
-                      <td>{flag.field}</td>
-                      <td>
-                        <span className={`badge ${meta.tone}`}>{meta.label}</span>
-                      </td>
-                      <td className="mono" style={{ fontSize: 11 }}>{flag.raw || "—"}</td>
-                      <td style={{ fontSize: 11 }}>
-                        <HowToFixTip text={flag.hint || ""} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {filtered.length > 500 && (
+          <div style={{ color: "var(--muted)", fontSize: 11, marginBottom: 8 }}>
+            {contacts.length} record{contacts.length === 1 ? "" : "s"} with issues · click a name to see all its issues
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {contacts.slice(0, 300).map((c) => {
+              const isOpen = expanded.has(c.key);
+              const count = c.items.length;
+              const multi = count > 1;
+              return (
+                <div
+                  key={c.key}
+                  style={{
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "var(--surface)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(c.key)}
+                    style={{
+                      all: "unset",
+                      boxSizing: "border-box",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      cursor: "pointer",
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: 12,
+                        transform: isOpen ? "rotate(90deg)" : "none",
+                        transition: "transform 0.15s ease",
+                      }}
+                    >
+                      ▸
+                    </span>
+                    {/* red notification badge with the issue count */}
+                    <span
+                      title={`${count} issue${count === 1 ? "" : "s"}`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 20,
+                        height: 20,
+                        padding: "0 6px",
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-mono)",
+                        color: multi ? "#fff" : "var(--text)",
+                        background: multi ? "var(--red)" : "var(--surface-2)",
+                        border: multi ? "none" : "1px solid var(--line)",
+                      }}
+                    >
+                      {count}
+                    </span>
+                    <span style={{ fontWeight: 600, color: "var(--text)", flex: 1 }}>{c.label}</span>
+                    <span style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {Array.from(new Set(c.items.map((it) => it.flag.kind))).map((kind) => {
+                        const meta = HEALTH_LABELS[kind];
+                        return (
+                          <span key={kind} className={`badge ${meta.tone}`} style={{ fontSize: 9 }}>
+                            {meta.label}
+                          </span>
+                        );
+                      })}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ borderTop: "1px solid var(--line)", padding: "4px 0" }}>
+                      <div className="table-wrap" style={{ border: "none" }}>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Source</th>
+                              <th>Field</th>
+                              <th>Issue</th>
+                              <th>Details</th>
+                              <th>How to fix</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {c.items.map(({ source, flag }, idx) => {
+                              const meta = HEALTH_LABELS[flag.kind];
+                              return (
+                                <tr key={`${c.key}-${idx}`}>
+                                  <td>{source}</td>
+                                  <td>{flag.field}</td>
+                                  <td>
+                                    <span className={`badge ${meta.tone}`}>{meta.label}</span>
+                                  </td>
+                                  <td className="mono" style={{ fontSize: 11 }}>{flag.raw || "—"}</td>
+                                  <td style={{ fontSize: 11 }}>
+                                    <HowToFixTip text={flag.hint || ""} />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {contacts.length > 300 && (
               <div style={{ padding: 12, textAlign: "center", color: "var(--muted)", fontSize: 11 }}>
-                Showing first 500 of {filtered.length}. Refine your search to see more.
+                Showing first 300 of {contacts.length} records. Refine your search to see more.
               </div>
             )}
-            {filtered.length === 0 && (
+            {contacts.length === 0 && (
               <div style={{ padding: 20, textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
                 No issues match this filter.
               </div>
