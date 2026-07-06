@@ -13,7 +13,6 @@ import BreakdownChart from "../BreakdownChart";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
-import PaymentAnomalies from "../PaymentAnomalies";
 import CloserBars from "../CloserBars";
 
 /** Days between two dates, inclusive of start. */
@@ -354,15 +353,21 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         />
       </div>
 
-      {/* Per-coach breakdown */}
+      {/* Per-coach breakdown — includes a "No EM" bar for rows with no coach */}
       <div className="chart-grid">
         <CloserBars
           title="Enrolled Clients by Coach"
-          items={managers.map((m) => ({ name: m, value: countPeople(filtered.filter((r) => r.enrManager === m)) }))}
+          items={[
+            ...managers.map((m) => ({ name: m, value: countPeople(filtered.filter((r) => r.enrManager === m)) })),
+            { name: "No EM", value: countPeople(filtered.filter((r) => !(r.enrManager && r.enrManager.trim()))) },
+          ]}
         />
         <CloserBars
           title="Cash Collected by Coach"
-          items={managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.cashCollected)) }))}
+          items={[
+            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.cashCollected)) })),
+            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.cashCollected)) },
+          ]}
           valueFormatter={(v) => formatMoney(v)}
         />
       </div>
@@ -405,9 +410,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           </div>
         </div>
       )}
-
-      {/* Payment anomalies — cross-row, per-person */}
-      <PaymentAnomalies rows={rows} includeTest={includeTest} />
 
       {/* Cohort economics */}
       {cohortEconomics.length > 0 && (

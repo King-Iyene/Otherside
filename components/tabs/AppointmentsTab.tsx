@@ -172,18 +172,27 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         />
       </div>
 
-      {/* Per-coach breakdown */}
+      {/* Per-coach breakdown — includes a "No EM" bar for calls with no coach */}
       <div className="chart-grid">
         <CloserBars
           title="Appointments by Coach"
-          items={managers.map((m) => ({ name: m, value: filtered.filter((r) => r.enrManager === m).length }))}
+          items={[
+            ...managers.map((m) => ({ name: m, value: filtered.filter((r) => r.enrManager === m).length })),
+            { name: "No EM", value: filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).length },
+          ]}
         />
         <CloserBars
           title="Showed by Coach"
-          items={managers.map((m) => ({
-            name: m,
-            value: filtered.filter((r) => r.enrManager === m && r.status && SHOWED_STATUSES.has(r.status)).length,
-          }))}
+          items={[
+            ...managers.map((m) => ({
+              name: m,
+              value: filtered.filter((r) => r.enrManager === m && r.status && SHOWED_STATUSES.has(r.status)).length,
+            })),
+            {
+              name: "No EM",
+              value: filtered.filter((r) => !(r.enrManager && r.enrManager.trim()) && r.status && SHOWED_STATUSES.has(r.status)).length,
+            },
+          ]}
         />
       </div>
 
