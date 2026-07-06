@@ -107,10 +107,13 @@ export async function fetchChallengeSheet(): Promise<
   SourceResult<ChallengeRow> & { columns: string[]; gid: string; sheetUrl: string }
 > {
   const sheetId = process.env.CHALLENGE_SHEET_ID || "1mJ3DLye8otnjs2CbUganWGNQbciBssZFHEFusoGQFpc";
-  // The registrations live on the "1216509445" tab of the workbook, not the
-  // first tab (gid 0, which holds a separate tracking/test sheet). Override
-  // with CHALLENGE_SHEET_GID if your data moves.
-  const gid = process.env.CHALLENGE_SHEET_GID || "1216509445";
+  // The registrations live on the "1216509445" tab of the workbook. gid 0 is a
+  // separate tracking/test tab ("Launched LLA Test" columns) — NOT the data.
+  // A stale CHALLENGE_SHEET_GID=0 env var was silently pointing the dashboard
+  // at that wrong tab, so we treat unset-or-"0" as "use the registrations tab."
+  // Set CHALLENGE_SHEET_GID to any other gid to override.
+  const gidEnv = (process.env.CHALLENGE_SHEET_GID || "").trim();
+  const gid = !gidEnv || gidEnv === "0" ? "1216509445" : gidEnv;
   const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${gid}`;
   const text = await fetchCsvWithFallback(sheetId, gid);
 
