@@ -4,8 +4,9 @@ import {
   cashRowHealthChecks,
   appointmentRowHealthChecks,
   flagDuplicateCashEmails,
+  reconcileCrossSourceCohortFlags,
 } from "../lib/dataHealth";
-import type { CashRow } from "../lib/types";
+import type { CashRow, ChallengeRow } from "../lib/types";
 
 describe("classifyCohort", () => {
   it("accepts canonical names", () => {
@@ -172,6 +173,38 @@ describe("flagDuplicateCashEmails", () => {
     const rows = [makeCashRow(null), makeCashRow(null)];
     flagDuplicateCashEmails(rows);
     expect(rows[0].health.some((f) => f.kind === "duplicate_email_in_cash")).toBe(false);
+  });
+});
+
+describe("reconcileCrossSourceCohortFlags", () => {
+  it("drops inconsistent_cohort when the Challenge Sheet agrees with Notion's text", () => {
+    const cash = [makeCashRow("solo@example.com")];
+    cash[0].health = [{ field: "Cohort", kind: "inconsistent_cohort", raw: "Penetrate > Reborn Aug 2025" }];
+    const challenge: ChallengeRow[] = [
+      { id: "row-0", isTest: false, health: [], Email: "solo@example.com", Product: "Penetrate > Reborn Aug 2025" },
+    ];
+    reconcileCrossSourceCohortFlags(cash, challenge);
+    expect(cash[0].health.some((f) => f.kind === "inconsistent_cohort")).toBe(false);
+  });
+
+  it("keeps inconsistent_cohort when the Challenge Sheet disagrees", () => {
+    const cash = [makeCashRow("solo@example.com")];
+    cash[0].health = [{ field: "Cohort", kind: "inconsistent_cohort", raw: "Penetrate > Reborn Aug 2025" }];
+    const challenge: ChallengeRow[] = [
+      { id: "row-0", isTest: false, health: [], Email: "solo@example.com", Product: "Erupt 1" },
+    ];
+    reconcileCrossSourceCohortFlags(cash, challenge);
+    expect(cash[0].health.some((f) => f.kind === "inconsistent_cohort")).toBe(true);
+  });
+
+  it("keeps inconsistent_cohort when there is no matching Challenge Sheet row", () => {
+    const cash = [makeCashRow("nomatch@example.com")];
+    cash[0].health = [{ field: "Cohort", kind: "inconsistent_cohort", raw: "Penetrate > Reborn Aug 2025" }];
+    const challenge: ChallengeRow[] = [
+      { id: "row-0", isTest: false, health: [], Email: "someone-else@example.com", Product: "Penetrate" },
+    ];
+    reconcileCrossSourceCohortFlags(cash, challenge);
+    expect(cash[0].health.some((f) => f.kind === "inconsistent_cohort")).toBe(true);
   });
 });
 
