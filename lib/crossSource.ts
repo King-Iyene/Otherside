@@ -1,4 +1,5 @@
 import type { ApplicationRow, CashRow, ChallengeRow } from "./types";
+import { detectAmountColumn, parseAmount } from "./challengeColumns";
 
 function normalizeEmail(email: string | null | undefined): string {
   return (email || "").trim().toLowerCase();
@@ -70,6 +71,35 @@ export function indexAppsByEmail(applications: ApplicationRow[], includeTest = f
     if (!map.has(email)) map.set(email, r);
   }
   return map;
+}
+
+/**
+ * Total money and unique registrations from the Challenge (Google Sheet). The
+ * sheet's columns vary, so we pick the most money-like numeric column present
+ * (parsed upstream by the CSV loader) — preferring a "cash"/"amount"/"paid"
+ * header — and sum it. Kept separate from Reborn Cash Tracker totals on purpose
+ * so the two revenue streams are never silently blended.
+ */
+const CHALLENGE_META_KEYS = new Set(["id", "isTest", "health", "url"]);
+
+export function challengeCashStats(
+  challengeRows: ChallengeRow[],
+  includeTest = false
+): { cashCollected: number; registrations: number; columnUsed: string | null } {
+  const rows = challengeRows.filter((r) => includeTest || !r.isTest);
+  if (!rows.length) return { cashCollected: 0, registrations: 0, columnUsed: null };
+  // Derive the sheet's columns from the row keys, then find the money column by
+  // content (same detector the Challenge tab uses, so the two always agree).
+  const columns = Object.keys(rows[0]).filter((k) => !CHALLENGE_META_KEYS.has(k));
+  const amountCol = detectAmountColumn(columns, rows);
+  let cashCollected = 0;
+  const emails = new Set<string>();
+  for (const r of rows) {
+    if (amountCol) cashCollected += parseAmount(r[amountCol]) ?? 0;
+    const e = emailFromChallenge(r);
+    if (e) emails.add(e);
+  }
+  return { cashCollected, registrations: emails.size, columnUsed: amountCol };
 }
 
 // ─── Challenge → Reborn ─────────────────────────────────────────────

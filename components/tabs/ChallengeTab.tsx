@@ -10,34 +10,15 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
-
-/**
- * Resolves the canonical header for a semantic role by scanning available columns.
- * Google Sheets typos (CHALLANGE) and casing variance handled here.
- */
-function pick(cols: string[], patterns: RegExp[]): string | null {
-  for (const p of patterns) {
-    const hit = cols.find((c) => p.test(c));
-    if (hit) return hit;
-  }
-  return null;
-}
+import InfoTip from "../InfoTip";
+import { detectChallengeColumns, parseAmount } from "@/lib/challengeColumns";
 
 function valStr(v: any): string {
   if (v === null || v === undefined) return "";
   return String(v).trim();
 }
 
-function valNum(v: any): number | null {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const cleaned = v.replace(/[$€£₦,\s]/g, "");
-    if (cleaned === "") return null;
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
+const valNum = parseAmount;
 
 export default function ChallengeTab({ rows, columns }: { rows: ChallengeRow[]; columns: string[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
@@ -50,12 +31,16 @@ export default function ChallengeTab({ rows, columns }: { rows: ChallengeRow[]; 
   const [couponFilter, setCouponFilter] = useState("");
   const [utmFilter, setUtmFilter] = useState("");
 
-  const dateCol = useMemo(() => pick(columns, [/^date$/i, /date/i]), [columns]);
-  const amountCol = useMemo(() => pick(columns, [/^amount$/i, /amount/i, /revenue/i, /cash/i, /price/i]), [columns]);
-  const productCol = useMemo(() => pick(columns, [/^product$/i, /product/i]), [columns]);
-  const couponCol = useMemo(() => pick(columns, [/^coupon$/i, /coupon/i]), [columns]);
-  const challengeCol = useMemo(() => pick(columns, [/^challange$/i, /^challenge$/i, /challange/i, /challenge/i]), [columns]);
-  const utmCol = useMemo(() => pick(columns, [/utm.*medium/i, /^utm$/i, /medium/i, /source/i]), [columns]);
+  // Detect column roles by CONTENT + header hint, not header name alone — so the
+  // money/date columns are found even when they aren't literally called "amount"
+  // or "date". Uses all rows (pre-filter) so detection is stable.
+  const detected = useMemo(() => detectChallengeColumns(columns, rows), [columns, rows]);
+  const dateCol = detected.date;
+  const amountCol = detected.amount;
+  const productCol = detected.product;
+  const couponCol = detected.coupon;
+  const challengeCol = detected.challenge;
+  const utmCol = detected.utm;
 
   const challenges = useMemo(() => (challengeCol ? uniqueSorted(rows.map((r) => valStr(r[challengeCol]))) : []), [challengeCol, rows]);
   const products = useMemo(() => (productCol ? uniqueSorted(rows.map((r) => valStr(r[productCol]))) : []), [productCol, rows]);
@@ -217,6 +202,39 @@ export default function ChallengeTab({ rows, columns }: { rows: ChallengeRow[]; 
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
       />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10,
+          fontSize: 11,
+          color: "var(--muted)",
+          margin: "2px 2px 12px",
+        }}
+      >
+        <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>Detected columns</span>
+        {(
+          [
+            ["Money", amountCol],
+            ["Date", dateCol],
+            ["Product", productCol],
+            ["Coupon", couponCol],
+            ["Challenge", challengeCol],
+          ] as const
+        ).map(([role, col]) => (
+          <span key={role} style={{ display: "inline-flex", gap: 4 }}>
+            {role}:{" "}
+            <span style={{ color: col ? "var(--accent)" : "var(--red)", fontFamily: "var(--font-mono)" }}>{col || "not found"}</span>
+          </span>
+        ))}
+        <InfoTip
+          text={
+            "The dashboard figures out which sheet column holds the money, the date, etc. by looking at what's actually in each column — so it works even if your headers aren't named exactly \"Amount\" or \"Date\". If any of these picked the wrong column, tell me the exact header name from your sheet and I'll lock it in."
+          }
+        />
+      </div>
 
       <KpiGrid
         items={[

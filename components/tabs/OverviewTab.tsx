@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { AppointmentRow, ApplicationRow, CashRow, ChallengeRow, SalesActivityRow } from "@/lib/types";
-import { analyzeChallengeToReborn } from "@/lib/crossSource";
+import { analyzeChallengeToReborn, challengeCashStats } from "@/lib/crossSource";
 import { resolveRange, inRange, type RangePreset, bucketKey, parseDateOnly } from "@/lib/dates";
 import { sum } from "@/lib/filtering";
 import { comparisonRange, comparisonLabel, computeDelta, type CompareMode } from "@/lib/comparison";
@@ -216,13 +216,18 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
   // cash, every enrollment, all money still owed, how many launches are live.
   const allTime = useMemo(() => {
     const rows = cash.filter((r) => includeTest || !r.isTest);
+    const chal = challengeCashStats(challenge, includeTest);
+    const rebornCash = sum(rows.map((r) => r.cashCollected));
     return {
-      cash: sum(rows.map((r) => r.cashCollected)),
+      cash: rebornCash,
       revenue: sum(rows.map((r) => r.revenue)),
       outstanding: sum(rows.map((r) => r.balance)),
       enrollments: uniqueEnrollments(rows),
+      challengeCash: chal.cashCollected,
+      challengeRegs: chal.registrations,
+      combinedCash: rebornCash + chal.cashCollected,
     };
-  }, [cash, includeTest]);
+  }, [cash, challenge, includeTest]);
 
   return (
     <div>
@@ -243,6 +248,12 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       />
 
       {/* HERO ROW — 4 big cards with pace bars and sparklines */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 2px 8px", color: "var(--muted)", fontSize: 11 }}>
+        <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600, color: "var(--text-dim)" }}>
+          Reborn — main offer
+        </span>
+        <span>· these four cards are Reborn Cash Tracker only (Challenge shown separately below)</span>
+      </div>
       <div
         style={{
           display: "grid",
@@ -305,7 +316,10 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
 
       {/* ALL-TIME SNAPSHOT — ignores the date filter above on purpose */}
       <AllTimeBand
-        cash={allTime.cash}
+        rebornCash={allTime.cash}
+        challengeCash={allTime.challengeCash}
+        challengeRegs={allTime.challengeRegs}
+        combinedCash={allTime.combinedCash}
         enrollments={allTime.enrollments}
         outstanding={allTime.outstanding}
         revenue={allTime.revenue}
@@ -514,60 +528,82 @@ function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]
   );
 }
 
+function StreamCell({ label, value, color, strong }: { label: string; value: string; color: string; strong?: boolean }) {
+  return (
+    <div style={{ flex: "1 1 150px", padding: "10px 16px", borderLeft: "1px solid var(--line)" }}>
+      <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>{label}</div>
+      <div className="mono" style={{ fontSize: strong ? 20 : 18, fontWeight: strong ? 700 : 600, color, marginTop: 2 }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function AllTimeBand({
-  cash,
+  rebornCash,
+  challengeCash,
+  challengeRegs,
+  combinedCash,
   enrollments,
   outstanding,
   revenue,
 }: {
-  cash: number;
+  rebornCash: number;
+  challengeCash: number;
+  challengeRegs: number;
+  combinedCash: number;
   enrollments: number;
   outstanding: number;
   revenue: number;
 }) {
-  const items = [
-    { label: "Lifetime Cash Collected", value: formatMoney(cash), color: "var(--green)" },
-    { label: "Total Revenue Booked", value: formatMoney(revenue), color: "var(--blue)" },
-    { label: "Total Enrollments", value: formatNumber(enrollments), color: "var(--accent)" },
-    { label: "Outstanding (all AR)", value: formatMoney(outstanding), color: "var(--red)" },
-  ];
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 0,
-        alignItems: "stretch",
-        background: "var(--surface)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "4px 6px",
-        marginBottom: 18,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", color: "var(--muted)", fontSize: 11 }}>
-        <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>All-time</span>
-        <InfoTip
-          text={
-            "These four totals ignore the date filter above — they always show the running lifetime numbers across every record, so you have the big picture at a glance no matter which range is selected. Enrollments are unique buyers (deduped by email; blank rows excluded)."
-          }
-        />
-      </div>
-      {items.map((it, i) => (
-        <div
-          key={it.label}
-          style={{
-            flex: "1 1 160px",
-            padding: "10px 16px",
-            borderLeft: i === 0 ? "1px solid var(--line)" : "1px solid var(--line)",
-          }}
-        >
-          <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>{it.label}</div>
-          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: it.color, marginTop: 2 }}>
-            {it.value}
-          </div>
+    <div style={{ marginBottom: 18 }}>
+      {/* Revenue streams — Reborn vs Challenge kept explicitly separate */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "stretch",
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "4px 6px",
+          marginBottom: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", color: "var(--muted)", fontSize: 11 }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>All-time cash</span>
+          <InfoTip
+            text={
+              "Your two revenue streams, kept separate on purpose:\n\n• Reborn — the main coaching offer, from the Notion “Reborn Cash Tracker”.\n• Challenge — challenge sign-ups, from the Google Sheet.\n\nThe hero cards above (Cash Collected, Revenue, etc.) are Reborn only. Combined adds both. All of these ignore the date filter — they're lifetime totals."
+            }
+          />
         </div>
-      ))}
+        <StreamCell label="Reborn cash (main)" value={formatMoney(rebornCash)} color="var(--green)" />
+        <StreamCell label="Challenge cash" value={formatMoney(challengeCash)} color="var(--blue)" />
+        <StreamCell label="Combined total" value={formatMoney(combinedCash)} color="var(--accent)" strong />
+        <StreamCell label="Challenge sign-ups" value={formatNumber(challengeRegs)} color="var(--text)" />
+      </div>
+
+      {/* Reborn business totals */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "stretch",
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "4px 6px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", color: "var(--muted)", fontSize: 11 }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>All-time Reborn</span>
+        </div>
+        <StreamCell label="Revenue booked" value={formatMoney(revenue)} color="var(--blue)" />
+        <StreamCell label="Enrollments" value={formatNumber(enrollments)} color="var(--accent)" />
+        <StreamCell label="Outstanding (all AR)" value={formatMoney(outstanding)} color="var(--red)" />
+      </div>
     </div>
   );
 }
