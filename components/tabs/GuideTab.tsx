@@ -96,29 +96,109 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "streams",
+    icon: "💰",
+    title: "Two revenue streams — Reborn vs Challenge",
+    body: (
+      <>
+        <P>
+          The business makes money two different ways, and the dashboard keeps them <B>separate</B> so you always know which is
+          which:
+        </P>
+        <List>
+          <li>
+            <B>Reborn</B> — the main high-ticket coaching offer. Lives in the Notion <B>“Reborn Cash Tracker.”</B> This is what
+            the big Overview cards (Cash Collected, Revenue, Enrollments) are showing.
+          </li>
+          <li>
+            <B>Challenge</B> — the lower-priced challenge sign-ups. Lives in the <B>Google Sheet.</B> Shown on its own Challenge
+            tab, and as a separate “Challenge cash” figure on Overview.
+          </li>
+        </List>
+        <P>
+          On Overview you’ll see both, plus a <B>Combined total</B>. They’re never added together silently — if a number says
+          “Reborn,” it’s Reborn only.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "overview",
     icon: "📊",
     title: "Overview tab",
     body: (
       <>
         <P>
-          The big picture. The four <B>hero cards</B> (Cash Collected, Revenue Booked, Enrollments, Outstanding) are measured
-          over your selected date range, each with a pace bar toward the monthly target and a trend sparkline.
+          The big picture in one screen. The four large cards at the top — <B>Cash Collected, Revenue Booked, Enrollments,
+          Outstanding</B> — are the <B>Reborn</B> business over the date range you picked. Each has a small bar showing progress
+          toward the monthly target, and a mini trend line.
         </P>
         <P>
-          The <B>All-time</B> strip right below them deliberately <B>ignores the date filter</B> — it always shows lifetime
-          totals so you never lose the running picture while zoomed into a week.
+          Just below, the <B>All-time</B> strips ignore the date filter on purpose and always show lifetime totals (including
+          Challenge cash), so you never lose the running picture while zoomed into one week.
         </P>
         <List>
           <li>
-            <B>Cash Collected</B> = money actually received. <B>Revenue Booked</B> = full deal sizes sold (including future
-            installments).
+            <B>Cash Collected</B> = money actually in the door. <B>Revenue Booked</B> = the full deal sizes sold, including
+            payments still to come.
           </li>
           <li>
-            <B>Enrollments</B> = unique buyers (deduped by email; blank rows excluded), so it matches the Cohort Funnels count.
+            <B>Enrollments</B> = how many real, different people bought (same person paying twice counts once; blank rows don’t
+            count).
           </li>
-          <li>The diagnostic band flags big moves (cash down 20%+, show-rate drops) with a likely cause.</li>
+          <li>
+            <B>Outstanding</B> = money customers still owe you.
+          </li>
+          <li>The coloured band underneath flags big moves — cash down 20%+, show-rate drops — with a likely reason.</li>
         </List>
+      </>
+    ),
+  },
+  {
+    id: "detailtabs",
+    icon: "🗂️",
+    title: "The detail tabs — Cash, Appointments, Applications, Sales Activity",
+    body: (
+      <>
+        <P>Each of these zooms into one database. They share the same date buttons and comparison toggle as Overview.</P>
+        <List>
+          <li>
+            <B>Cash</B> — every Reborn sale: money collected, deal size, who closed it, and cohort economics (what each launch
+            brought in).
+          </li>
+          <li>
+            <B>Appointments</B> — booked calls and what happened on them. <B>Show Rate</B> = of the calls that were booked, how
+            many actually showed up.
+          </li>
+          <li>
+            <B>Applications</B> — people who applied. <B>App → Purchase</B> = of those who applied, how many went on to buy.
+          </li>
+          <li>
+            <B>Sales Activity</B> — the closers’ daily numbers: calls, offers, sales, cash on call, and a per-closer funnel.
+          </li>
+        </List>
+        <P>
+          Click a closer’s name anywhere you see it to open their <B>personal scorecard</B> — their numbers vs the team, with
+          coaching flags.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "targets",
+    icon: "🎯",
+    title: "The top bar, targets & pace bars",
+    body: (
+      <>
+        <P>
+          The <B>bar across the very top of the screen</B> (above the tabs) is your always-on pulse: total cash collected,
+          revenue booked, money outstanding, and how many data-quality issues need fixing. It’s there on every tab.
+        </P>
+        <P>
+          On the Overview cards, the thin bar under each number is a <B>pace bar</B>. It compares where you are now against the
+          monthly <B>target</B> and against where you “should” be this far into the month. Think of it as: “am I on track to hit
+          the goal?” Green/full = ahead, short = behind.
+        </P>
       </>
     ),
   },
@@ -159,6 +239,24 @@ const SECTIONS: Section[] = [
           It means more people reached this stage than were logged at the one before it — usually buyers who enrolled without a
           recorded “Showed” appointment. The count is right; the <B>upstream stage is under-recorded</B>. Hover the ⓘ next to
           any conversion for the exact math on that specific pair.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "challenge",
+    icon: "🏁",
+    title: "Challenge tab",
+    body: (
+      <>
+        <P>
+          Everything about the lower-priced Challenge sign-ups (from the Google Sheet): revenue, how many registered, how many
+          paid vs used a free coupon, which coupons and which ad channels performed.
+        </P>
+        <P>
+          Near the top you’ll see a small <B>“Detected columns”</B> line. Because the sheet’s column names can be anything, the
+          dashboard figures out which column holds the money, the date, etc. by looking at the actual values. If it ever picks
+          the wrong one, that line makes it obvious — just say which column is the real one and it gets locked in.
         </P>
       </>
     ),
