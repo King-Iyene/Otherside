@@ -99,7 +99,10 @@ export function challengeCashStats(
     const e = emailFromChallenge(r);
     if (e) emails.add(e);
   }
-  return { cashCollected, registrations: emails.size, columnUsed: amountCol };
+  // Prefer unique sign-ups by email; if the sheet has no email column, fall
+  // back to the row count so this never reads 0 when there are registrations.
+  const registrations = emails.size > 0 ? emails.size : rows.length;
+  return { cashCollected, registrations, columnUsed: amountCol };
 }
 
 // ─── Challenge → Reborn ─────────────────────────────────────────────

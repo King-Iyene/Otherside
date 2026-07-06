@@ -105,7 +105,10 @@ async function fetchCsvWithFallback(sheetId: string, gid: string): Promise<strin
 
 export async function fetchChallengeSheet(): Promise<SourceResult<ChallengeRow> & { columns: string[] }> {
   const sheetId = process.env.CHALLENGE_SHEET_ID || "1mJ3DLye8otnjs2CbUganWGNQbciBssZFHEFusoGQFpc";
-  const gid = process.env.CHALLENGE_SHEET_GID || "0";
+  // The registrations live on the "1216509445" tab of the workbook, not the
+  // first tab (gid 0, which holds a separate tracking/test sheet). Override
+  // with CHALLENGE_SHEET_GID if your data moves.
+  const gid = process.env.CHALLENGE_SHEET_GID || "1216509445";
   const text = await fetchCsvWithFallback(sheetId, gid);
 
   const table = parseCsv(text).filter((r) => r.some((cell) => cell.trim() !== ""));

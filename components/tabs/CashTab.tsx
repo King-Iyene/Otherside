@@ -13,6 +13,7 @@ import BreakdownChart from "../BreakdownChart";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
+import PaymentAnomalies from "../PaymentAnomalies";
 
 /** Days between two dates, inclusive of start. */
 function daysBetween(a: string | null, b: Date): number | null {
@@ -390,6 +391,9 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           </div>
         </div>
       )}
+
+      {/* Payment anomalies — cross-row, per-person */}
+      <PaymentAnomalies rows={rows} includeTest={includeTest} />
 
       {/* Cohort economics */}
       {cohortEconomics.length > 0 && (

@@ -250,13 +250,19 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <P>
-          Everything about the lower-priced Challenge sign-ups (from the Google Sheet): revenue, how many registered, how many
-          paid vs used a free coupon, which coupons and which ad channels performed.
+          Everything about the lower-priced Challenge sign-ups (from the Google Sheet): revenue, how many registered, and how
+          many paid vs used a free coupon.
+        </P>
+        <P>
+          Some panels appear <B>only if your sheet has the matching column</B>: coupon performance needs a Coupon column, and the
+          ad-channel / traffic-source breakdown (paid vs organic) needs a source/UTM column. If your sheet doesn’t have one,
+          that panel is hidden rather than showing blanks.
         </P>
         <P>
           Near the top you’ll see a small <B>“Detected columns”</B> line. Because the sheet’s column names can be anything, the
-          dashboard figures out which column holds the money, the date, etc. by looking at the actual values. If it ever picks
-          the wrong one, that line makes it obvious — just say which column is the real one and it gets locked in.
+          dashboard figures out which column holds the money, the date, the source, etc. by looking at the actual values. If it
+          ever says “not found” or points at the wrong column, that line makes it obvious — tell me the real column name and I’ll
+          lock it in.
         </P>
       </>
     ),

@@ -172,7 +172,7 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
 }
 
 export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [] }: Props) {
-  const [preset, setPreset] = useState<RangePreset>("30d");
+  const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [includeTest, setIncludeTest] = useState(false);

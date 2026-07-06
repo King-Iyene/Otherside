@@ -107,7 +107,19 @@ export function detectChallengeColumns(columns: string[], rows: Row[]): Challeng
     product: pickHeader(columns, [/^product$/i, /product/i, /offer/i, /package/i, /plan/i]),
     coupon: pickHeader(columns, [/^coupon$/i, /coupon/i, /promo/i, /discount/i, /code/i]),
     challenge: pickHeader(columns, [/^chall[ae]nge$/i, /chall[ae]nge/i, /cohort/i, /campaign/i]),
-    utm: pickHeader(columns, [/utm.*medium/i, /utm.*source/i, /^utm$/i, /medium/i, /source/i, /channel/i]),
+    utm: pickHeader(columns, [
+      /utm.*medium/i,
+      /utm.*source/i,
+      /^utm$/i,
+      /medium/i,
+      /lead.?source/i,
+      /traffic.?source/i,
+      /\bsource\b/i,
+      /channel/i,
+      /referr/i,
+      /how.*hear/i,
+      /acquisition/i,
+    ]),
     email: pickHeader(columns, [/email/i]),
   };
 }
