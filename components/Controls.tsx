@@ -2,6 +2,7 @@
 
 import type { RangePreset } from "@/lib/dates";
 import type { CompareMode } from "@/lib/comparison";
+import InfoTip from "./InfoTip";
 
 const PRESETS: { key: RangePreset; label: string }[] = [
   { key: "all", label: "All" },
@@ -107,13 +108,21 @@ export default function Controls({
       <div className="spacer" />
 
       {onCompareModeChange && compareMode !== undefined && (
-        <div className="control-group" title="Comparison baseline for deltas">
+        <div className="control-group" style={{ alignItems: "center" }}>
           <button className={`preset-btn ${compareMode === "prev" ? "active" : ""}`} onClick={() => onCompareModeChange("prev")}>
             vs Prev
           </button>
           <button className={`preset-btn ${compareMode === "yoy" ? "active" : ""}`} onClick={() => onCompareModeChange("yoy")}>
             vs YoY
           </button>
+          <InfoTip
+            text={
+              "The ▲/▼ % on each card compares your selected date range against a baseline. " +
+              "vs Prev = the equally-long period immediately before your range (pick 30D → it compares to the 30 days before that). " +
+              "vs YoY = the exact same dates shifted back 12 months (year-over-year). " +
+              "The number is (current − baseline) ÷ baseline. It shows “n/a” when the baseline period has no data — e.g. YoY before the business existed a year ago. Green/red follows whether up is good for that metric (up is bad for Outstanding)."
+            }
+          />
         </div>
       )}
 

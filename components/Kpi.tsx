@@ -18,10 +18,20 @@ export interface KpiItem {
   /** Optional supplementary line under the delta (e.g. "vs team avg 58%"). */
   hint?: string;
   hintColor?: "green" | "red" | "muted";
+  /** Label for the comparison baseline, e.g. "vs prev" / "vs year ago". */
+  compareLabel?: string;
 }
 
-function DeltaBadge({ delta, higherIsBetter = true }: { delta: Delta; higherIsBetter?: boolean }) {
-  if (delta.pct === null) return <span className="kpi-delta muted">vs prev n/a</span>;
+function DeltaBadge({
+  delta,
+  higherIsBetter = true,
+  compareLabel = "vs prev",
+}: {
+  delta: Delta;
+  higherIsBetter?: boolean;
+  compareLabel?: string;
+}) {
+  if (delta.pct === null) return <span className="kpi-delta muted">{compareLabel} n/a</span>;
   const isFlat = Math.abs(delta.pct) < 0.001;
   const isUp = delta.pct > 0;
   const isGood = isFlat ? null : isUp === higherIsBetter;
@@ -29,7 +39,7 @@ function DeltaBadge({ delta, higherIsBetter = true }: { delta: Delta; higherIsBe
   const arrow = isFlat ? "→" : isUp ? "▲" : "▼";
   return (
     <span className={`kpi-delta ${cls}`}>
-      {arrow} {Math.abs(delta.pct * 100).toFixed(1)}% vs prev
+      {arrow} {Math.abs(delta.pct * 100).toFixed(1)}% {compareLabel}
     </span>
   );
 }
@@ -84,7 +94,9 @@ export default function KpiGrid({ items }: { items: KpiItem[] }) {
                 <Sparkline values={item.sparkline} color={item.sparklineColor || "var(--accent)"} />
               )}
             </div>
-            {item.delta && <DeltaBadge delta={item.delta} higherIsBetter={item.higherIsBetter ?? true} />}
+            {item.delta && (
+              <DeltaBadge delta={item.delta} higherIsBetter={item.higherIsBetter ?? true} compareLabel={item.compareLabel} />
+            )}
             {item.hint && (
               <div className={`kpi-delta ${item.hintColor || "muted"}`} style={{ display: "block", marginTop: 2 }}>
                 {item.hint}
