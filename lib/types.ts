@@ -108,6 +108,6 @@ export interface DashboardPayload {
   appointments: SourceResult<AppointmentRow>;
   applications: SourceResult<ApplicationRow>;
   salesActivity: SourceResult<SalesActivityRow>;
-  challenge: SourceResult<ChallengeRow> & { columns: string[] };
+  challenge: SourceResult<ChallengeRow> & { columns: string[]; gid?: string; sheetUrl?: string };
   generatedAt: number;
 }

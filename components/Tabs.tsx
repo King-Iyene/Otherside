@@ -1,12 +1,13 @@
 "use client";
 
-export const TAB_KEYS = ["overview", "insights", "cash", "appointments", "applications", "sales", "challenge", "reconciliation", "guide"] as const;
+export const TAB_KEYS = ["overview", "insights", "cash", "payments", "appointments", "applications", "sales", "challenge", "reconciliation", "guide"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 const LABELS: Record<TabKey, string> = {
   overview: "Overview",
   insights: "Insights ✦",
   cash: "Cash",
+  payments: "Payments 🚩",
   appointments: "Appointments",
   applications: "Applications",
   sales: "Sales Activity",

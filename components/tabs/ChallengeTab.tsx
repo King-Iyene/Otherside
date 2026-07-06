@@ -20,7 +20,17 @@ function valStr(v: any): string {
 
 const valNum = parseAmount;
 
-export default function ChallengeTab({ rows, columns }: { rows: ChallengeRow[]; columns: string[] }) {
+export default function ChallengeTab({
+  rows,
+  columns,
+  gid,
+  sheetUrl,
+}: {
+  rows: ChallengeRow[];
+  columns: string[];
+  gid?: string;
+  sheetUrl?: string;
+}) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -214,6 +224,29 @@ export default function ChallengeTab({ rows, columns }: { rows: ChallengeRow[]; 
           margin: "2px 2px 12px",
         }}
       >
+        {gid !== undefined && (
+          <span style={{ width: "100%", marginBottom: 2 }}>
+            Reading sheet tab{" "}
+            <span style={{ color: gid === "1216509445" ? "var(--accent)" : "var(--red)", fontFamily: "var(--font-mono)" }}>
+              gid {gid}
+            </span>
+            {gid !== "1216509445" && (
+              <span style={{ color: "var(--red)" }}>
+                {" "}
+                — this looks like the wrong tab. Your registrations are on gid 1216509445. A CHALLENGE_SHEET_GID env var in Vercel
+                is overriding it; set it to 1216509445 or delete it.
+              </span>
+            )}
+            {sheetUrl && (
+              <>
+                {" · "}
+                <a href={sheetUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                  open this tab
+                </a>
+              </>
+            )}
+          </span>
+        )}
         <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>Detected columns</span>
         {(
           [

@@ -27,7 +27,7 @@ async function isolate<T>(loader: () => Promise<SourceResult<T>>): Promise<Sourc
   }
 }
 
-async function isolateChallenge(): Promise<SourceResult<ChallengeRow> & { columns: string[] }> {
+async function isolateChallenge(): Promise<SourceResult<ChallengeRow> & { columns: string[]; gid?: string; sheetUrl?: string }> {
   try {
     return await fetchChallengeSheet();
   } catch (err: any) {
