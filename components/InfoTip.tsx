@@ -77,6 +77,7 @@ export default function InfoTip({ text, label = "ⓘ" }: { text: string; label?:
               color: "var(--text)",
               backdropFilter: "blur(8px)",
               pointerEvents: "none",
+              whiteSpace: "pre-line",
             }}
           >
             {text}

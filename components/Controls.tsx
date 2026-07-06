@@ -117,10 +117,10 @@ export default function Controls({
           </button>
           <InfoTip
             text={
-              "The ▲/▼ % on each card compares your selected date range against a baseline. " +
-              "vs Prev = the equally-long period immediately before your range (pick 30D → it compares to the 30 days before that). " +
-              "vs YoY = the exact same dates shifted back 12 months (year-over-year). " +
-              "The number is (current − baseline) ÷ baseline. It shows “n/a” when the baseline period has no data — e.g. YoY before the business existed a year ago. Green/red follows whether up is good for that metric (up is bad for Outstanding)."
+              "The little green ▲ or red ▼ under each number tells you if it went up or down — and by how much — compared to an earlier time. Pick what to compare against:\n\n" +
+              "• vs Prev — compares to the period just before. If you're looking at the last 30 days, it compares to the 30 days before that.\n\n" +
+              "• vs YoY — compares to the same dates one year ago (\"year over year\").\n\n" +
+              "Green means it moved in a good direction, red means bad. (For money owed to you — Outstanding — going up is bad, so the colours flip.) If it says \"n/a\", there was nothing to compare against — for example, one year ago the business hadn't started yet."
             }
           />
         </div>
