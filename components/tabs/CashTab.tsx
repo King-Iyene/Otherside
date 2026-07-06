@@ -30,6 +30,50 @@ function agingBucket(days: number | null): "current" | "0-30" | "30-60" | "60+" 
   return "60+";
 }
 
+// ── Unique-people accounting ──────────────────────────────────────────────
+// The Cash Tracker is per-transaction: one buyer can have several rows
+// (installments/upgrades), and a blank stub row can carry only a cohort tag.
+// "Enrollments" must count unique real people so it matches the Overview tab
+// and Cohort Funnels — money still sums every row.
+function personKeyOf(r: CashRow): string | null {
+  const email = (r.email || "").trim().toLowerCase();
+  if (email) return email;
+  const name = (r.name || "").trim().toLowerCase();
+  return name ? `name:${name}` : null; // no email AND no name = blank stub → excluded
+}
+
+function countPeople(rows: CashRow[]): number {
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const k = personKeyOf(r);
+    if (k) seen.add(k);
+  }
+  return seen.size;
+}
+
+interface PersonAgg {
+  cash: number;
+  balance: number;
+  revenue: number;
+}
+
+/** Collapse rows to one entry per real person, summing their money. Lets us
+ *  classify payment status per buyer (a person is "paid in full" when their
+ *  TOTAL balance is cleared), not per invoice row. */
+function aggregatePeople(rows: CashRow[]): PersonAgg[] {
+  const map = new Map<string, PersonAgg>();
+  for (const r of rows) {
+    const k = personKeyOf(r);
+    if (!k) continue;
+    const e = map.get(k) || { cash: 0, balance: 0, revenue: 0 };
+    e.cash += r.cashCollected ?? 0;
+    e.balance += r.balance ?? 0;
+    e.revenue += r.revenue ?? 0;
+    map.set(k, e);
+  }
+  return Array.from(map.values());
+}
+
 export default function CashTab({ rows }: { rows: CashRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -83,12 +127,14 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const totalCash = sum(filtered.map((r) => r.cashCollected));
   const totalBalance = sum(filtered.map((r) => r.balance));
 
+  const enrollmentsCount = useMemo(() => countPeople(filtered), [filtered]);
+
   const prevTotals = prevFiltered
     ? {
         revenue: sum(prevFiltered.map((r) => r.revenue)),
         cash: sum(prevFiltered.map((r) => r.cashCollected)),
         balance: sum(prevFiltered.map((r) => r.balance)),
-        count: prevFiltered.length,
+        count: countPeople(prevFiltered),
       }
     : null;
 
@@ -124,16 +170,18 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         const revenue = sum(curRows.map((r) => r.revenue));
         const cash = sum(curRows.map((r) => r.cashCollected));
         const balance = sum(curRows.map((r) => r.balance));
-        const paidOff = curRows.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0).length;
-        const onPlan = curRows.filter((r) => (r.balance ?? 0) > 0).length;
+        const people = aggregatePeople(curRows);
+        const enrollments = people.length;
+        const paidOff = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
+        const onPlan = people.filter((p) => p.balance > 0).length;
         const prevCash = sum(prevRows.map((r) => r.cashCollected));
         return {
           cohort: c,
-          enrollments: curRows.length,
+          enrollments,
           revenue,
           cashCollected: cash,
           balance,
-          avgDeal: curRows.length ? sum(curRows.map((r) => r.cashCollected)) / curRows.length : null,
+          avgDeal: enrollments ? cash / enrollments : null,
           collectionRate: revenue > 0 ? cash / revenue : null,
           paidOff,
           onPlan,
@@ -145,10 +193,13 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       .sort((a, b) => b.cashCollected - a.cashCollected);
   }, [cohorts, filtered, prevFiltered]);
 
-  // Payment status distribution (derived from balance)
-  const paidInFullCount = filtered.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0).length;
-  const onPlanCount = filtered.filter((r) => (r.balance ?? 0) > 0).length;
-  const unpaidCount = filtered.filter((r) => (r.balance ?? 0) > 0 && (r.cashCollected ?? 0) === 0).length;
+  // Payment status distribution — per person (a buyer is "paid in full" when
+  // their TOTAL balance across all their rows is cleared), so these match the
+  // unique Enrollments count rather than counting invoice rows.
+  const people = useMemo(() => aggregatePeople(filtered), [filtered]);
+  const paidInFullCount = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
+  const onPlanCount = people.filter((p) => p.balance > 0).length;
+  const unpaidCount = people.filter((p) => p.balance > 0 && p.cash === 0).length;
 
   // Drill-down columns
   const columns: Column<CashRow>[] = [
@@ -248,15 +299,16 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           },
           {
             label: "Enrollments",
-            value: formatNumber(filtered.length),
-            delta: prevTotals && computeDelta(filtered.length, prevTotals.count),
-            onClick: () => openDrilldown("All Enrollments", undefined, filtered),
+            value: formatNumber(enrollmentsCount),
+            delta: prevTotals && computeDelta(enrollmentsCount, prevTotals.count),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Unique buyers (deduped by email; blank rows excluded)" },
+            onClick: () => openDrilldown("All Enrollments", `${enrollmentsCount} unique buyers · ${formatNumber(filtered.length)} rows`, filtered),
           },
           {
             label: "Paid In Full",
             value: formatNumber(paidInFullCount),
-            source: { source: "Derived", field: "Balance = 0 AND Cash Collected > 0" },
-            hint: `${filtered.length ? ((paidInFullCount / filtered.length) * 100).toFixed(0) : 0}% of enrollments`,
+            source: { source: "Derived", field: "People whose total Balance = 0 AND Cash Collected > 0" },
+            hint: `${enrollmentsCount ? ((paidInFullCount / enrollmentsCount) * 100).toFixed(0) : 0}% of enrollments`,
             onClick: () =>
               openDrilldown(
                 "Paid-in-Full Enrollments",
@@ -267,8 +319,8 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           {
             label: "On Payment Plan",
             value: formatNumber(onPlanCount),
-            source: { source: "Derived", field: "Balance > 0" },
-            hint: `${filtered.length ? ((onPlanCount / filtered.length) * 100).toFixed(0) : 0}% of enrollments`,
+            source: { source: "Derived", field: "People whose total Balance > 0" },
+            hint: `${enrollmentsCount ? ((onPlanCount / enrollmentsCount) * 100).toFixed(0) : 0}% of enrollments`,
             onClick: () => openDrilldown("On Payment Plan", undefined, filtered.filter((r) => (r.balance ?? 0) > 0)),
           },
           {
@@ -412,7 +464,9 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         }}
       >
         <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> enrollments match current filters
+          <strong style={{ color: "var(--text)" }}>{formatNumber(enrollmentsCount)}</strong> unique buyers
+          {" · "}
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> rows match current filters
         </div>
         <button className="link-btn" onClick={() => openDrilldown("All Filtered Enrollments", undefined, filtered)}>
           View records →
