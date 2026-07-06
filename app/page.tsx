@@ -15,6 +15,7 @@ import ApplicationsTab from "@/components/tabs/ApplicationsTab";
 import SalesActivityTab from "@/components/tabs/SalesActivityTab";
 import ChallengeTab from "@/components/tabs/ChallengeTab";
 import ReconciliationTab from "@/components/tabs/ReconciliationTab";
+import GuideTab from "@/components/tabs/GuideTab";
 
 const SOURCE_LABELS: Record<string, string> = {
   cash: "Reborn Cash Tracker",
@@ -141,8 +142,9 @@ export default function Home() {
             {activeTab === "sales" && <SalesActivityTab rows={data.salesActivity.rows} />}
             {activeTab === "challenge" && <ChallengeTab rows={data.challenge.rows} columns={data.challenge.columns} />}
             {activeTab === "reconciliation" && <ReconciliationTab />}
+            {activeTab === "guide" && <GuideTab />}
 
-            <HealthPanel entries={healthEntries} />
+            {activeTab !== "guide" && <HealthPanel entries={healthEntries} />}
           </>
         )}
       </div>

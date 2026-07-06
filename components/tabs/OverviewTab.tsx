@@ -5,7 +5,7 @@ import type { AppointmentRow, ApplicationRow, CashRow, ChallengeRow, SalesActivi
 import { analyzeChallengeToReborn } from "@/lib/crossSource";
 import { resolveRange, inRange, type RangePreset, bucketKey, parseDateOnly } from "@/lib/dates";
 import { sum } from "@/lib/filtering";
-import { comparisonRange, computeDelta, type CompareMode } from "@/lib/comparison";
+import { comparisonRange, comparisonLabel, computeDelta, type CompareMode } from "@/lib/comparison";
 import { getBenchmarks } from "@/lib/benchmarks";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
@@ -15,6 +15,7 @@ import BreakdownChart from "../BreakdownChart";
 import FunnelChart from "../FunnelChart";
 import BulletChart from "../BulletChart";
 import Sparkline from "../Sparkline";
+import InfoTip from "../InfoTip";
 
 interface Props {
   cash: CashRow[];
@@ -25,6 +26,30 @@ interface Props {
 }
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
+
+/** A cash row is a real enrollment only if it names a person (email or name).
+ *  Mirrors the funnel's isRealPerson so Overview's Enrollments count matches
+ *  Cohort Funnels — blank stub rows never inflate it. */
+function isRealPerson(r: CashRow): boolean {
+  return !!((r.email && r.email.trim()) || (r.name && r.name.trim()));
+}
+
+/** Unique enrolled buyers: real people, deduped by email (blank-email rows with
+ *  a name each count once). */
+function uniqueEnrollments(rows: CashRow[]): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const r of rows) {
+    if (!isRealPerson(r)) continue;
+    const e = (r.email || "").trim().toLowerCase();
+    if (e) {
+      if (seen.has(e)) continue;
+      seen.add(e);
+    }
+    count++;
+  }
+  return count;
+}
 
 function computeStats(
   cash: CashRow[],
@@ -51,6 +76,7 @@ function computeStats(
     cashCollected: sum(cashRows.map((r) => r.cashCollected)),
     revenue: sum(cashRows.map((r) => r.revenue)),
     balance: sum(cashRows.map((r) => r.balance)),
+    enrollments: uniqueEnrollments(cashRows),
     appointments: apptRows.length,
     showedCount,
     showRate: apptRows.length ? showedCount / apptRows.length : null,
@@ -183,6 +209,20 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
   const enrollmentPace = bench.monthlyEnrollments * paceRatio;
 
   const diagnostics = useMemo(() => generateDiagnostics(stats, prevStats), [stats, prevStats]);
+  const compareLabel = comparisonLabel(compareMode);
+
+  // All-time snapshot — deliberately ignores the date filter. An "overview"
+  // should surface the running totals that no single dated view shows: lifetime
+  // cash, every enrollment, all money still owed, how many launches are live.
+  const allTime = useMemo(() => {
+    const rows = cash.filter((r) => includeTest || !r.isTest);
+    return {
+      cash: sum(rows.map((r) => r.cashCollected)),
+      revenue: sum(rows.map((r) => r.revenue)),
+      outstanding: sum(rows.map((r) => r.balance)),
+      enrollments: uniqueEnrollments(rows),
+    };
+  }, [cash, includeTest]);
 
   return (
     <div>
@@ -221,6 +261,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           sparkline={sparkCash}
           color="var(--green)"
           delta={prevStats && computeDelta(stats.cashCollected, prevStats.cashCollected)}
+          compareLabel={compareLabel}
         />
         <HeroCard
           label="Revenue Booked"
@@ -232,17 +273,19 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           sparkline={sparkRevenue}
           color="var(--blue)"
           delta={prevStats && computeDelta(stats.revenue, prevStats.revenue)}
+          compareLabel={compareLabel}
         />
         <HeroCard
           label="Enrollments"
-          value={formatNumber(stats.cashRows.length)}
+          value={formatNumber(stats.enrollments)}
           target={bench.monthlyEnrollments}
-          current={stats.cashRows.length}
+          current={stats.enrollments}
           pace={enrollmentPace}
           formatter={(v) => formatNumber(v)}
-          sparkline={sparkCash.map((_, i) => 1)}
+          sparkline={sparkCash.map(() => 1)}
           color="var(--accent)"
-          delta={prevStats && computeDelta(stats.cashRows.length, prevStats.cashRows.length)}
+          delta={prevStats && computeDelta(stats.enrollments, prevStats.enrollments)}
+          compareLabel={compareLabel}
         />
         <HeroCard
           label="Outstanding"
@@ -256,8 +299,17 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           delta={prevStats && computeDelta(stats.balance, prevStats.balance)}
           higherIsBetter={false}
           hidePaceBar
+          compareLabel={compareLabel}
         />
       </div>
+
+      {/* ALL-TIME SNAPSHOT — ignores the date filter above on purpose */}
+      <AllTimeBand
+        cash={allTime.cash}
+        enrollments={allTime.enrollments}
+        outstanding={allTime.outstanding}
+        revenue={allTime.revenue}
+      />
 
       {/* DIAGNOSTIC BAND */}
       {diagnostics.length > 0 && (
@@ -462,6 +514,64 @@ function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]
   );
 }
 
+function AllTimeBand({
+  cash,
+  enrollments,
+  outstanding,
+  revenue,
+}: {
+  cash: number;
+  enrollments: number;
+  outstanding: number;
+  revenue: number;
+}) {
+  const items = [
+    { label: "Lifetime Cash Collected", value: formatMoney(cash), color: "var(--green)" },
+    { label: "Total Revenue Booked", value: formatMoney(revenue), color: "var(--blue)" },
+    { label: "Total Enrollments", value: formatNumber(enrollments), color: "var(--accent)" },
+    { label: "Outstanding (all AR)", value: formatMoney(outstanding), color: "var(--red)" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 0,
+        alignItems: "stretch",
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "4px 6px",
+        marginBottom: 18,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", color: "var(--muted)", fontSize: 11 }}>
+        <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600 }}>All-time</span>
+        <InfoTip
+          text={
+            "These four totals ignore the date filter above — they always show the running lifetime numbers across every record, so you have the big picture at a glance no matter which range is selected. Enrollments are unique buyers (deduped by email; blank rows excluded)."
+          }
+        />
+      </div>
+      {items.map((it, i) => (
+        <div
+          key={it.label}
+          style={{
+            flex: "1 1 160px",
+            padding: "10px 16px",
+            borderLeft: i === 0 ? "1px solid var(--line)" : "1px solid var(--line)",
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.08 }}>{it.label}</div>
+          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: it.color, marginTop: 2 }}>
+            {it.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface HeroCardProps {
   label: string;
   value: string;
@@ -474,9 +584,23 @@ interface HeroCardProps {
   delta: { pct: number | null; current: number; previous: number } | null;
   higherIsBetter?: boolean;
   hidePaceBar?: boolean;
+  compareLabel?: string;
 }
 
-function HeroCard({ label, value, target, current, pace, formatter, sparkline, color, delta, higherIsBetter = true, hidePaceBar }: HeroCardProps) {
+function HeroCard({
+  label,
+  value,
+  target,
+  current,
+  pace,
+  formatter,
+  sparkline,
+  color,
+  delta,
+  higherIsBetter = true,
+  hidePaceBar,
+  compareLabel = "vs prev",
+}: HeroCardProps) {
   const deltaText = delta?.pct === null || delta === null ? null : delta;
   const deltaGood = deltaText?.pct === null || deltaText === null || Math.abs(deltaText.pct) < 0.001 ? null : deltaText.pct > 0 === higherIsBetter;
   const deltaColor = deltaGood === null ? "var(--muted)" : deltaGood ? "var(--green)" : "var(--red)";
@@ -503,7 +627,7 @@ function HeroCard({ label, value, target, current, pace, formatter, sparkline, c
       </div>
       {deltaText && deltaText.pct !== null && (
         <div className="mono" style={{ fontSize: 11, marginTop: 4, color: deltaColor }}>
-          {deltaText.pct >= 0 ? "▲" : "▼"} {Math.abs(deltaText.pct * 100).toFixed(1)}% vs prev
+          {deltaText.pct >= 0 ? "▲" : "▼"} {Math.abs(deltaText.pct * 100).toFixed(1)}% {compareLabel}
         </div>
       )}
       {!hidePaceBar && target > 0 && (
