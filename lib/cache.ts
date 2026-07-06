@@ -1,4 +1,6 @@
-const TTL_MS = 2 * 60 * 1000;
+// Short TTL so edits in Notion / the Google Sheet show up quickly. The Refresh
+// button (fresh=1) always bypasses this for an instant pull.
+const TTL_MS = 30 * 1000;
 
 interface Entry<T> {
   value: T;
