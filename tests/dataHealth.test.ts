@@ -34,11 +34,17 @@ describe("classifyCohort", () => {
     if (r3.status === "inconsistent") expect(r3.suggestion).toBe("Penetrate");
   });
 
-  it("accepts contain-style names — Penetrate > Reborn Aug 2025", () => {
-    // Real user scenario: renamed Google Sheet Product column
-    expect(classifyCohort("Penetrate > Reborn Aug 2025").status).toBe("canonical");
-    expect(classifyCohort("Erupt 3 > Reborn Aug 2026").status).toBe("canonical");
-    expect(classifyCohort("REBORN Erupt 2 Lead").status).toBe("canonical");
+  it("flags compound cohort tags as inconsistent (strict on purpose)", () => {
+    // These flag intentionally — the Cohort column should be a clean single
+    // canonical value in Notion, so ops can eyeball whether the trailing
+    // marker actually matches (Javid's case: tagged Erupt 3, was really
+    // Erupt 2).
+    const r1 = classifyCohort("Erupt 3 > Reborn Aug 2026");
+    expect(r1.status).toBe("inconsistent");
+    if (r1.status === "inconsistent") expect(r1.suggestion).toBe("Erupt 3");
+    const r2 = classifyCohort("Penetrate > Reborn Aug 2025");
+    expect(r2.status).toBe("inconsistent");
+    if (r2.status === "inconsistent") expect(r2.suggestion).toBe("Penetrate");
   });
 
   it("suggests the right cohort when Erupt N appears with a co-occurring year", () => {
@@ -94,6 +100,26 @@ describe("cashRowHealthChecks", () => {
   it("catches missing closer", () => {
     const flags = cashRowHealthChecks({ ...base, enrManager: null });
     expect(flags.some((f) => f.kind === "missing_closer")).toBe(true);
+  });
+
+  it("flags cohort tag ≠ enrollment window (Javid case)", () => {
+    // Tagged Erupt 3, enrolled 2026-03-15 which is inside Erupt 2's window
+    const flags = cashRowHealthChecks({
+      ...base,
+      cohort: "Erupt 3",
+      enrollmentDate: "2026-03-15",
+    });
+    expect(flags.some((f) => f.kind === "cohort_window_mismatch")).toBe(true);
+  });
+
+  it("does NOT flag window mismatch when tag and date agree", () => {
+    // Tagged Erupt 2, enrolled 2026-03-15 (Erupt 2 window Feb–May 2026)
+    const flags = cashRowHealthChecks({
+      ...base,
+      cohort: "Erupt 2",
+      enrollmentDate: "2026-03-15",
+    });
+    expect(flags.some((f) => f.kind === "cohort_window_mismatch")).toBe(false);
   });
 });
 

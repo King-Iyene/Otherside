@@ -17,25 +17,25 @@ import type {
  */
 
 // ────────────────────────────────────────────────────────────────
-// Canonical cohort names — SINGLE source of truth is COHORTS in
-// lib/cohortFunnel.ts. Patterns are UNANCHORED so any string that
-// CONTAINS a canonical marker counts as canonical:
-//   "Erupt 3 > Reborn Aug 2026"      → canonical (contains "erupt 3")
-//   "Penetrate > Reborn Aug 2025"    → canonical (contains "penetrate")
-//   "Reborn Aug 2026"                → canonical (contains "aug 2026")
-//   "REBORN_ERUPT_1_LEAD"            → canonical (contains "erupt 1" after tokenizing)
+// Canonical cohort names — data-health uses STRICT matching on purpose.
+// A field labeled "Erupt 3 > Reborn Aug 2026" flags as inconsistent so
+// ops can eyeball whether the trailing marker matches the cohort tag
+// (Javid's case: tagged Erupt 3 but was really Erupt 2 — worth catching).
+//
+// Note: cohortFunnel.ts uses UNANCHORED containment matching for
+// attribution — that's about "who belongs to this cohort in the funnel"
+// which should be permissive. Data-health is about "is this row's own
+// cohort field a clean, single value" which should be strict.
 // ────────────────────────────────────────────────────────────────
 
 import { COHORTS } from "./cohortFunnel";
 
-/** Anchor-free contains match: normalize both sides by collapsing whitespace
- *  and non-alphanumeric to single spaces, then test the pattern. */
-function containsCohortMarker(value: string, patterns: RegExp[]): boolean {
-  const norm = value.trim();
-  // The COHORTS patterns are already unanchored (/erupt\s*3/i etc.), so this
-  // is a straightforward .test() — just tries each until one matches.
-  return patterns.some((p) => p.test(norm));
-}
+const CANONICAL_COHORTS = [
+  { canonical: "Erupt 1", match: /^erupt\s*1$|^reborn\s*dec\s*2025$|^dec\s*2025$/i },
+  { canonical: "Erupt 2", match: /^erupt\s*2$|^reborn\s*apr\s*2026$|^apr\s*2026$/i },
+  { canonical: "Erupt 3", match: /^erupt\s*3$|^reborn\s*aug\s*2026$|^aug\s*2026$/i },
+  { canonical: "Penetrate", match: /^penetrate$/i },
+];
 
 export function classifyCohort(value: string | null | undefined):
   | { status: "empty" }
@@ -44,10 +44,8 @@ export function classifyCohort(value: string | null | undefined):
   if (!value || !String(value).trim()) return { status: "empty" };
   const v = String(value).trim();
 
-  // First-match wins — cohorts are listed in a stable order, so a string
-  // containing "Penetrate" beats any co-occurring marker.
-  const match = COHORTS.find((c) => containsCohortMarker(v, c.patterns));
-  if (match) return { status: "canonical", name: match.label };
+  const match = CANONICAL_COHORTS.find((c) => c.match.test(v));
+  if (match) return { status: "canonical", name: match.canonical };
 
   // Fuzzy suggestion. Nothing matched canonically — look at the closest
   // marker in the raw value. Penetrate wins outright; otherwise if we see
@@ -87,6 +85,22 @@ export function classifyCohort(value: string | null | undefined):
 // Per-row check helpers — called from each source adapter
 // ────────────────────────────────────────────────────────────────
 
+// Which cohort does an enrollment date fall inside? Uses the COHORTS launch
+// windows already defined for the funnel. Returns null if the date is
+// outside every window (or missing).
+function cohortForDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const t = new Date(dateStr).getTime();
+  if (isNaN(t)) return null;
+  for (const c of COHORTS) {
+    if (!c.window) continue;
+    const s = new Date(c.window.start).getTime();
+    const e = new Date(c.window.end).getTime();
+    if (t >= s && t <= e) return c.label;
+  }
+  return null;
+}
+
 export function cashRowHealthChecks(row: {
   cohort: string | null;
   enrManager: string | null;
@@ -94,6 +108,7 @@ export function cashRowHealthChecks(row: {
   cashCollected: number | null;
   balance: number | null;
   nextPaymentDate: string | null;
+  enrollmentDate?: string | null;
 }): HealthFlag[] {
   const flags: HealthFlag[] = [];
 
@@ -114,6 +129,19 @@ export function cashRowHealthChecks(row: {
         ? `Rename to "${cohortStatus.suggestion}" so it matches the funnel.`
         : "Rename to one of: Erupt 1, Erupt 2, Erupt 3, Penetrate.",
     });
+  } else if (cohortStatus.status === "canonical" && row.enrollmentDate) {
+    // Cross-check: cohort tag is clean, BUT does the enrollment date fall in
+    // that cohort's launch window? Catches the Javid case — tagged Erupt 3
+    // but enrolled during Erupt 2's window (Feb–May 2026).
+    const expected = cohortForDate(row.enrollmentDate);
+    if (expected && expected !== cohortStatus.name) {
+      flags.push({
+        field: "Cohort",
+        kind: "cohort_window_mismatch",
+        raw: `Tagged ${cohortStatus.name}, enrolled ${row.enrollmentDate} (${expected} window)`,
+        hint: `Cohort tag says "${cohortStatus.name}" but the Enrollment Date sits inside the "${expected}" launch window. Verify whether this row should be re-tagged.`,
+      });
+    }
   }
 
   if (!row.enrManager || !row.enrManager.trim()) {
@@ -340,6 +368,7 @@ export const HEALTH_LABELS: Record<HealthFlagKind, { label: string; tone: "red" 
   duplicate_email_in_cash: { label: "DUPLICATE EMAIL", tone: "amber" },
   duplicate_application: { label: "DUPLICATE APPLICATION", tone: "amber" },
   duplicate_challenge_registration: { label: "DUPLICATE REGISTRATION", tone: "amber" },
+  cohort_window_mismatch: { label: "TAG ≠ WINDOW", tone: "amber" },
   zero_revenue_enrollment: { label: "$0 DEAL", tone: "red" },
   cash_gt_revenue: { label: "CASH > REVENUE", tone: "red" },
   outstanding_no_next_payment: { label: "OWES + NO DATE", tone: "amber" },
