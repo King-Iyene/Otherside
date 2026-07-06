@@ -43,6 +43,7 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
         cashCollected: cashCollected.value,
         balance: balance.value,
         nextPaymentDate,
+        enrollmentDate,
       })
     );
 

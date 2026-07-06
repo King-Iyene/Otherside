@@ -12,7 +12,8 @@ export type HealthFlagKind =
   | "cash_gt_revenue"
   | "outstanding_no_next_payment"
   | "showed_no_status"
-  | "missing_income_bracket";
+  | "missing_income_bracket"
+  | "cohort_window_mismatch";
 
 export type HealthFlag = {
   field: string;
