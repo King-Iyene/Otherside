@@ -14,6 +14,7 @@ import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
 import PaymentAnomalies from "../PaymentAnomalies";
+import CloserBars from "../CloserBars";
 
 /** Days between two dates, inclusive of start. */
 function daysBetween(a: string | null, b: Date): number | null {
@@ -349,6 +350,19 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         <BreakdownChart
           title="Cash Collected by Cohort"
           items={cohorts.map((c) => ({ key: c, value: sum(filtered.filter((r) => r.cohort === c).map((r) => r.cashCollected)) }))}
+          valueFormatter={(v) => formatMoney(v)}
+        />
+      </div>
+
+      {/* Per-coach breakdown */}
+      <div className="chart-grid">
+        <CloserBars
+          title="Enrolled Clients by Coach"
+          items={managers.map((m) => ({ name: m, value: countPeople(filtered.filter((r) => r.enrManager === m)) }))}
+        />
+        <CloserBars
+          title="Cash Collected by Coach"
+          items={managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.cashCollected)) }))}
           valueFormatter={(v) => formatMoney(v)}
         />
       </div>

@@ -10,6 +10,7 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
+import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
@@ -168,6 +169,21 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         <BreakdownChart
           title="Appointments by Status"
           items={statuses.map((s) => ({ key: s, value: filtered.filter((r) => r.status === s).length }))}
+        />
+      </div>
+
+      {/* Per-coach breakdown */}
+      <div className="chart-grid">
+        <CloserBars
+          title="Appointments by Coach"
+          items={managers.map((m) => ({ name: m, value: filtered.filter((r) => r.enrManager === m).length }))}
+        />
+        <CloserBars
+          title="Showed by Coach"
+          items={managers.map((m) => ({
+            name: m,
+            value: filtered.filter((r) => r.enrManager === m && r.status && SHOWED_STATUSES.has(r.status)).length,
+          }))}
         />
       </div>
 

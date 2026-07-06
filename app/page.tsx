@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DashboardPayload } from "@/lib/types";
 import { sum } from "@/lib/filtering";
+import { challengeCashStats } from "@/lib/crossSource";
 import PulseBar from "@/components/PulseBar";
 import Tabs, { type TabKey } from "@/components/Tabs";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
@@ -76,7 +77,12 @@ export default function Home() {
     return entries;
   }, [data]);
 
-  const cashCollected = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
+  const rebornCash = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
+  const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
+  // Top header is the all-time pulse — Cash Collected combines both revenue
+  // streams (Reborn + Challenge) so it's the true total. Revenue Booked and
+  // Outstanding are Reborn-only concepts.
+  const cashCollected = rebornCash + challengeCash;
   const revenueBooked = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.revenue)) : 0;
   const outstanding = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.balance)) : 0;
 
@@ -100,6 +106,7 @@ export default function Home() {
         loading={loading}
         onRefresh={() => load(true)}
         dataQualityIssues={healthEntries.reduce((s, e) => s + e.flags.length, 0)}
+        scopeNote="All-time · Cash Collected includes Challenge"
       />
       <div className="app-body">
         <Tabs active={activeTab} onChange={setActiveTab} />
