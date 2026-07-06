@@ -1,5 +1,5 @@
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "./types";
-import { subOfferOf } from "./launchNames";
+import { subOfferOf, extractLaunch, configuredLaunches, patternsForLaunch, colorForLaunch } from "./launchNames";
 
 /**
  * Cohort Funnel — the high-level "one-click" sales story.
@@ -43,44 +43,56 @@ export interface CohortDef {
   window?: { start: string; end: string };
 }
 
+/** Spare color slots handed to launches auto-detected from the data (e.g. a
+ *  future new series number nobody configured). Cycles so we never crash on an
+ *  unbounded number of new launches. */
+const AUTO_COLOR_CYCLE = ["var(--cat-6)", "var(--cat-7)", "var(--cat-8)", "var(--cat-4)"];
+
+function idFromLabel(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, "");
+}
+
 /**
- * Cohorts assigned to categorical slots from the Claude dataviz reference
- * palette in FIXED order (--cat-1..--cat-8 in globals.css). A new cohort
- * takes the next slot, never a rotated hue.
+ * The curated launches, derived from the single launch config in
+ * launchNames.ts (series + standalones, with their windows + stable colors).
+ * Any OTHER launch that shows up in the data — a new series number, or a
+ * differently-named launch — is picked up automatically; see detectExtraCohorts.
  */
-export const COHORTS: CohortDef[] = [
-  {
-    id: "penetrate",
-    label: "Penetrate",
-    emoji: "",
-    color: "var(--cat-1)",           // blue — slot 1
-    patterns: [/penetrate/i],
-  },
-  {
-    id: "erupt1",
-    label: "Erupt 1",
-    emoji: "",
-    color: "var(--cat-2)",           // aqua — slot 2
-    patterns: [/erupt\s*1/i, /reborn\s*dec\s*2025/i, /dec\s*2025/i],
-    window: { start: "2025-10-01", end: "2026-01-31" },
-  },
-  {
-    id: "erupt2",
-    label: "Erupt 2",
-    emoji: "",
-    color: "var(--cat-3)",           // yellow — slot 3
-    patterns: [/erupt\s*2/i, /reborn\s*apr\s*2026/i, /apr\s*2026/i],
-    window: { start: "2026-02-01", end: "2026-05-31" },
-  },
-  {
-    id: "erupt3",
-    label: "Erupt 3",
-    emoji: "",
-    color: "var(--cat-5)",           // violet — slot 5 (skip slot 4 green for CVD)
-    patterns: [/erupt\s*3/i, /reborn\s*aug\s*2026/i, /aug\s*2026/i],
-    window: { start: "2026-06-01", end: "2026-09-30" },
-  },
-];
+export const COHORTS: CohortDef[] = configuredLaunches().map((l, i) => ({
+  id: idFromLabel(l.label),
+  label: l.label,
+  emoji: "",
+  color: l.color || AUTO_COLOR_CYCLE[i % AUTO_COLOR_CYCLE.length],
+  patterns: patternsForLaunch(l.label),
+  window: l.window,
+}));
+
+/**
+ * Launches present in the data but not already in COHORTS — chiefly a future
+ * series number (or renamed series) that nobody configured. They get a cycling
+ * color and no window (attribution is by explicit tag only). This is what makes
+ * the Side-by-Side comparison auto-grow with zero code changes.
+ */
+function detectExtraCohorts(data: FunnelBundle): CohortDef[] {
+  const known = new Set(COHORTS.map((c) => c.label));
+  const found = new Set<string>();
+  const scan = (v: unknown) => {
+    const l = v === null || v === undefined ? null : extractLaunch(String(v));
+    if (l && !known.has(l)) found.add(l);
+  };
+  for (const c of data.cash) scan(c.cohort);
+  for (const a of data.appointments) scan(a.cohort);
+  for (const r of data.challenge) scan(challengeProductOf(r));
+  return Array.from(found)
+    .sort()
+    .map((label, i) => ({
+      id: idFromLabel(label),
+      label,
+      emoji: "",
+      color: colorForLaunch(label) || AUTO_COLOR_CYCLE[i % AUTO_COLOR_CYCLE.length],
+      patterns: patternsForLaunch(label),
+    }));
+}
 
 function inWindow(dateStr: string | null | undefined, window?: { start: string; end: string }): boolean {
   if (!window || !dateStr) return false;
@@ -328,9 +340,16 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   return { cohort, stages, totalCash, challengeRevenue };
 }
 
-/** Compute funnels for every configured cohort. */
+/** Compute funnels for every launch — the configured ones plus any extra
+ *  launch (new series number, renamed series, …) discovered in the data. */
 export function computeAllCohortFunnels(data: FunnelBundle, includeTest = false): CohortFunnel[] {
-  return COHORTS.map((c) => computeCohortFunnel(c, data, includeTest));
+  const all = [...COHORTS, ...detectExtraCohorts(data)];
+  return all.map((c) => computeCohortFunnel(c, data, includeTest));
+}
+
+/** All launches to break down on the Insights tab — configured + auto-detected. */
+export function allLaunchesForData(data: FunnelBundle): CohortDef[] {
+  return [...COHORTS, ...detectExtraCohorts(data)];
 }
 
 /** Percentage from previous stage. Null when previous is 0. */

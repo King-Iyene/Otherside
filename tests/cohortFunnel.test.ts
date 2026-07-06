@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   computeCohortFunnel,
+  computeAllCohortFunnels,
   computeSubOfferBreakdown,
   offerLabelFromProduct,
   COHORTS,
   stageToStageRate,
 } from "../lib/cohortFunnel";
+import { extractLaunch } from "../lib/launchNames";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "../lib/types";
 
 const erupt1 = COHORTS.find((c) => c.id === "erupt1")!;
@@ -144,6 +146,24 @@ describe("computeSubOfferBreakdown", () => {
   });
 });
 
+describe("extractLaunch — flexible, config-driven naming", () => {
+  it("auto-recognizes any number in the Erupt series with zero config", () => {
+    expect(extractLaunch("Erupt 1")).toBe("Erupt 1");
+    expect(extractLaunch("Erupt 4")).toBe("Erupt 4"); // never configured — still works
+    expect(extractLaunch("erupt  7 > Retreat")).toBe("Erupt 7");
+  });
+
+  it("resolves standalone launches and month/year aliases", () => {
+    expect(extractLaunch("Penetrate")).toBe("Penetrate");
+    expect(extractLaunch("Reborn Apr 2026")).toBe("Erupt 2");
+  });
+
+  it("returns null for text with no launch marker", () => {
+    expect(extractLaunch("Just some note")).toBeNull();
+    expect(extractLaunch(null)).toBeNull();
+  });
+});
+
 describe("offerLabelFromProduct", () => {
   it("collapses price/plan noise into clean offer buckets", () => {
     expect(offerLabelFromProduct("Reborn Core @ $5,000")).toBe("Reborn Core");
@@ -154,6 +174,20 @@ describe("offerLabelFromProduct", () => {
     expect(offerLabelFromProduct("Erupt 2 > Retreat")).toBe("Retreat");
     expect(offerLabelFromProduct(null)).toBeNull();
     expect(offerLabelFromProduct("")).toBeNull();
+  });
+});
+
+describe("computeAllCohortFunnels — auto-detects new launches", () => {
+  it("includes an Erupt 4 that was never configured, as soon as data has it", () => {
+    const funnels = computeAllCohortFunnels({
+      applications: [],
+      appointments: [],
+      challenge: [],
+      cash: [cashRow("late@x.com", "Erupt 4", 12000, 12000)],
+    });
+    const e4 = funnels.find((f) => f.cohort.label === "Erupt 4");
+    expect(e4).toBeTruthy();
+    expect(e4!.stages.find((s) => s.key === "enrolled")!.count).toBe(1);
   });
 });
 
