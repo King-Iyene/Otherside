@@ -30,6 +30,25 @@ describe("classifyCohort", () => {
 
     const r3 = classifyCohort("penetrating");
     expect(r3.status).toBe("inconsistent");
+    // "penetrat" prefix earns a "Penetrate" suggestion via the fuzzy pass
+    if (r3.status === "inconsistent") expect(r3.suggestion).toBe("Penetrate");
+  });
+
+  it("accepts contain-style names — Penetrate > Reborn Aug 2025", () => {
+    // Real user scenario: renamed Google Sheet Product column
+    expect(classifyCohort("Penetrate > Reborn Aug 2025").status).toBe("canonical");
+    expect(classifyCohort("Erupt 3 > Reborn Aug 2026").status).toBe("canonical");
+    expect(classifyCohort("REBORN Erupt 2 Lead").status).toBe("canonical");
+  });
+
+  it("suggests the right cohort when Erupt N appears with a co-occurring year", () => {
+    // The digit next to "erupt" is authoritative — not the digit inside a year.
+    // "Erupt 3 aug 2026" is Erupt 3, not Erupt 2 (which would be picked if we
+    // greedily matched the "2" in "2026").
+    const r = classifyCohort("erupt_3_something_2026");
+    if (r.status === "inconsistent") {
+      expect(r.suggestion).toBe("Erupt 3");
+    }
   });
 });
 
