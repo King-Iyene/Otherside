@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyCohort,
+  subOfferOf,
   cashRowHealthChecks,
   appointmentRowHealthChecks,
   flagDuplicateCashEmails,
@@ -35,17 +36,19 @@ describe("classifyCohort", () => {
     if (r3.status === "inconsistent") expect(r3.suggestion).toBe("Penetrate");
   });
 
-  it("flags compound cohort tags as inconsistent (strict on purpose)", () => {
-    // These flag intentionally — the Cohort column should be a clean single
-    // canonical value in Notion, so ops can eyeball whether the trailing
-    // marker actually matches (Javid's case: tagged Erupt 3, was really
-    // Erupt 2).
+  it("accepts compound cohort tags as belonging to the launch they name", () => {
+    // Compound values like "Erupt 2 > Retreat" or "Erupt 3 > Bonus" are real
+    // sub-offers tied to a standard launch, not typos — recognize the launch
+    // instead of flagging the whole value as broken. Mistagging (right
+    // keyword, wrong launch) is caught separately by cohort_window_mismatch,
+    // which compares the resolved launch against the row's own enrollment
+    // date (Javid's case: tagged Erupt 3, was really enrolled in Erupt 2).
     const r1 = classifyCohort("Erupt 3 > Reborn Aug 2026");
-    expect(r1.status).toBe("inconsistent");
-    if (r1.status === "inconsistent") expect(r1.suggestion).toBe("Erupt 3");
+    expect(r1.status).toBe("canonical");
+    if (r1.status === "canonical") expect(r1.name).toBe("Erupt 3");
     const r2 = classifyCohort("Penetrate > Reborn Aug 2025");
-    expect(r2.status).toBe("inconsistent");
-    if (r2.status === "inconsistent") expect(r2.suggestion).toBe("Penetrate");
+    expect(r2.status).toBe("canonical");
+    if (r2.status === "canonical") expect(r2.name).toBe("Penetrate");
   });
 
   it("suggests the right cohort when Erupt N appears with a co-occurring year", () => {
@@ -56,6 +59,25 @@ describe("classifyCohort", () => {
     if (r.status === "inconsistent") {
       expect(r.suggestion).toBe("Erupt 3");
     }
+  });
+});
+
+describe("subOfferOf", () => {
+  it("extracts the sub-offer label after a '>' delimiter", () => {
+    expect(subOfferOf("Erupt 2 > Retreat")).toBe("Retreat");
+    expect(subOfferOf("Erupt 2 > Reborn Core/Scholarship")).toBe("Reborn Core/Scholarship");
+    expect(subOfferOf("Erupt 3 > Bonus")).toBe("Bonus");
+  });
+
+  it("returns null for a plain standard launch name", () => {
+    expect(subOfferOf("Erupt 2")).toBeNull();
+    expect(subOfferOf("Penetrate")).toBeNull();
+    expect(subOfferOf("Reborn Aug 2026")).toBeNull();
+  });
+
+  it("returns null when there's no recognizable launch at all", () => {
+    expect(subOfferOf("Erupt_1")).toBeNull();
+    expect(subOfferOf(null)).toBeNull();
   });
 });
 

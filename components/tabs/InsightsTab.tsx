@@ -3,8 +3,10 @@
 import { useMemo, useState } from "react";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow, SalesActivityRow } from "@/lib/types";
 import { analyzeAppToPurchase, analyzeChallengeToReborn, analyzeCouponPurchase } from "@/lib/crossSource";
+import { COHORTS, computeSubOfferBreakdown } from "@/lib/cohortFunnel";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import DrillDownModal from "../DrillDownModal";
+import BreakdownChart from "../BreakdownChart";
 import type { Column } from "../DataTable";
 import DataTable from "../DataTable";
 
@@ -111,6 +113,11 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
 
 export default function InsightsTab({ cash, applications, appointments, salesActivity, challenge }: Props) {
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: any[]; columns: Column<any>[] } | null>(null);
+
+  const subOfferBreakdowns = useMemo(
+    () => COHORTS.map((cohort) => ({ cohort, items: computeSubOfferBreakdown(cash, cohort) })).filter((b) => b.items.length > 0),
+    [cash]
+  );
 
   const c2r = useMemo(() => analyzeChallengeToReborn(challenge, cash), [challenge, cash]);
   const a2p = useMemo(() => analyzeAppToPurchase(applications, cash), [applications, cash]);
@@ -405,6 +412,26 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           </tbody>
         </table>
       </div>
+
+      {/* SUB-OFFERS WITHIN EACH LAUNCH */}
+      {subOfferBreakdowns.length > 0 && (
+        <>
+          <SectionHeader
+            title="Sub-Offers Within Each Launch"
+            sub='Enrolled buyers in each launch, split by the sub-offer on their Cohort field — e.g. "Erupt 2 > Retreat" vs. the standard launch. Every bar still counts toward that launch’s total in Cohort Funnels; this just shows which offer they came in on.'
+          />
+          <div className="kpi-grid">
+            {subOfferBreakdowns.map(({ cohort, items }) => (
+              <BreakdownChart
+                key={cohort.id}
+                title={`${cohort.label} — by sub-offer`}
+                items={items.map((i) => ({ key: i.key, value: i.value }))}
+                valueFormatter={(v) => `${v} buyer${v === 1 ? "" : "s"}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* CALLS PER DAY PER CLOSER */}
       <SectionHeader title="Calls Per Day — Per Closer" sub="Average daily call volume for each closer over their active days." />

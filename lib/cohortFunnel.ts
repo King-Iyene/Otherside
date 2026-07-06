@@ -1,4 +1,5 @@
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "./types";
+import { subOfferOf } from "./launchNames";
 
 /**
  * Cohort Funnel — the high-level "one-click" sales story.
@@ -333,4 +334,41 @@ export function stageToStageRate(prev: number, curr: number): number | null {
 export function stageOfTotalRate(top: number, curr: number): number | null {
   if (top <= 0) return null;
   return curr / top;
+}
+
+export interface SubOfferBreakdownItem {
+  key: string;
+  value: number;
+  cashCollected: number;
+}
+
+/** Within one launch (Erupt 2, Penetrate, ...), split enrolled buyers by the
+ *  sub-offer tacked onto their Cohort field — "Erupt 2 > Retreat" vs. "Erupt 2
+ *  > Reborn Core/Scholarship" vs. the plain standard launch. Every row still
+ *  rolls up into the launch's total via computeCohortFunnel; this is a lens
+ *  on top of the same Enrolled set, not a separate count. */
+export function computeSubOfferBreakdown(
+  cash: CashRow[],
+  cohort: CohortDef,
+  includeTest = false
+): SubOfferBreakdownItem[] {
+  const rows = (includeTest ? cash : cash.filter((c) => !c.isTest)).filter((c) => {
+    if (matchesCohort(c.cohort, cohort)) return true;
+    if (cohort.window && !c.cohort && inWindow(c.enrollmentDate, cohort.window)) return true;
+    return false;
+  });
+  const deduped = dedupeByEmail(rows, (r) => norm(r.email));
+
+  const groups = new Map<string, { count: number; cash: number }>();
+  for (const r of deduped) {
+    const key = subOfferOf(r.cohort) || `${cohort.label} (standard)`;
+    const g = groups.get(key) ?? { count: 0, cash: 0 };
+    g.count += 1;
+    g.cash += r.cashCollected ?? 0;
+    groups.set(key, g);
+  }
+
+  return Array.from(groups.entries())
+    .map(([key, v]) => ({ key, value: v.count, cashCollected: v.cash }))
+    .sort((a, b) => b.value - a.value);
 }

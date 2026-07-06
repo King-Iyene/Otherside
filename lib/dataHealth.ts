@@ -17,48 +17,53 @@ import type {
  */
 
 // ────────────────────────────────────────────────────────────────
-// Canonical cohort names — data-health uses STRICT matching on purpose.
-// A field labeled "Erupt 3 > Reborn Aug 2026" flags as inconsistent so
-// ops can eyeball whether the trailing marker matches the cohort tag
-// (Javid's case: tagged Erupt 3 but was really Erupt 2 — worth catching).
+// Canonical cohort names — data-health recognizes any text that CONTAINS
+// one of the 4 launch names as belonging to that launch, because real Cohort
+// values are often compound: "Erupt 2 > Reborn Core/Scholarship", "Erupt 2 >
+// Retreat", "Erupt 3 > Bonus" are legitimate sub-offers tied to a standard
+// launch, not typos. The launch name extracted here (e.g. "Erupt 2") is what
+// totals/funnels roll up to; the original raw text is preserved separately
+// so sub-offer breakdowns can still see "Retreat" vs "Core/Scholarship".
 //
-// Note: cohortFunnel.ts uses UNANCHORED containment matching for
-// attribution — that's about "who belongs to this cohort in the funnel"
-// which should be permissive. Data-health is about "is this row's own
-// cohort field a clean, single value" which should be strict.
+// This is intentionally more permissive than pure typo detection: genuinely
+// unrecognized text (no launch keyword at all, or a mangled one like
+// "Erupt_1" / "penetrating") still flags as inconsistent with a suggestion.
+// Mistagging (right launch keyword, wrong launch) is NOT caught here — that's
+// what cohort_window_mismatch is for (tag vs. this row's own enrollment
+// date), so a compound tag like "Erupt 3 > Reborn Aug 2026" resolving
+// cleanly to "Erupt 3" doesn't slip through if the enrollment date actually
+// sits in Erupt 2's window (Javid's case).
+//
+// Note: cohortFunnel.ts uses similar unanchored containment matching for
+// attribution — that's about "who belongs to this cohort in the funnel."
+// Both are now permissive on purpose; window-mismatch is the strict net.
 // ────────────────────────────────────────────────────────────────
 
 import { COHORTS } from "./cohortFunnel";
+import { extractLaunch, subOfferOf } from "./launchNames";
 
-const CANONICAL_COHORTS = [
-  { canonical: "Erupt 1", match: /^erupt\s*1$|^reborn\s*dec\s*2025$|^dec\s*2025$/i },
-  { canonical: "Erupt 2", match: /^erupt\s*2$|^reborn\s*apr\s*2026$|^apr\s*2026$/i },
-  { canonical: "Erupt 3", match: /^erupt\s*3$|^reborn\s*aug\s*2026$|^aug\s*2026$/i },
-  { canonical: "Penetrate", match: /^penetrate$/i },
-];
+export { subOfferOf };
 
 export function classifyCohort(value: string | null | undefined):
   | { status: "empty" }
-  | { status: "canonical"; name: string }
+  | { status: "canonical"; name: string; raw: string }
   | { status: "inconsistent"; raw: string; suggestion: string | null } {
   if (!value || !String(value).trim()) return { status: "empty" };
   const v = String(value).trim();
 
-  const match = CANONICAL_COHORTS.find((c) => c.match.test(v));
-  if (match) return { status: "canonical", name: match.canonical };
+  const launch = extractLaunch(v);
+  if (launch) return { status: "canonical", name: launch, raw: v };
 
-  // Fuzzy suggestion. Nothing matched canonically — look at the closest
-  // marker in the raw value. Penetrate wins outright; otherwise if we see
-  // "erupt", disambiguate by digit / word / month year. Order matters —
-  // "erupt 3 > reborn aug 2026" must resolve to Erupt 3, not Erupt 2 just
-  // because "2" appears in "2026". So Erupt N (from "eruptN") is checked
-  // BEFORE month/year hints.
+  // Nothing recognizable — fuzzy suggestion for a typo'd or malformed tag.
+  // Penetrate wins outright; otherwise if we see "erupt", disambiguate by
+  // digit / word / month year. Order matters — "erupt_3_something_2026"
+  // must resolve to Erupt 3, not Erupt 2 just because "2" appears in "2026".
+  // So Erupt N (from "eruptN") is checked BEFORE month/year hints.
   const lc = v.toLowerCase();
   let suggestion: string | null = null;
   if (/penetrat/.test(lc)) {
     suggestion = "Penetrate";
   } else if (/erupt/.test(lc)) {
-    // The digit adjacent to "erupt" is the authoritative signal
     const digitAdj = lc.match(/erupt[_\s-]*([123]|one|two|three)/);
     if (digitAdj) {
       const d = digitAdj[1];
@@ -66,14 +71,12 @@ export function classifyCohort(value: string | null | undefined):
       else if (d === "2" || d === "two") suggestion = "Erupt 2";
       else if (d === "3" || d === "three") suggestion = "Erupt 3";
     }
-    // Fall back to month/year if the number was missing
     if (!suggestion) {
       if (/aug\s*2026/.test(lc)) suggestion = "Erupt 3";
       else if (/apr\s*2026/.test(lc)) suggestion = "Erupt 2";
       else if (/dec\s*2025/.test(lc)) suggestion = "Erupt 1";
     }
   } else {
-    // No "erupt" or "penetrat" — try the month/year alone
     if (/aug\s*2026/.test(lc)) suggestion = "Erupt 3";
     else if (/apr\s*2026/.test(lc)) suggestion = "Erupt 2";
     else if (/dec\s*2025/.test(lc)) suggestion = "Erupt 1";
