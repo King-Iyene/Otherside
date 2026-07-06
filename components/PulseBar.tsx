@@ -13,6 +13,8 @@ interface Props {
   /** Number of data-quality issues detected. Shown as a clickable chip that scrolls to the panel.
    *  Omit to hide the chip (e.g. on the closer scorecard page where there's no health panel). */
   dataQualityIssues?: number;
+  /** Small caption clarifying the scope of these totals (e.g. "All-time · incl. Challenge"). */
+  scopeNote?: string;
 }
 
 export default function PulseBar({
@@ -23,6 +25,7 @@ export default function PulseBar({
   loading,
   onRefresh,
   dataQualityIssues,
+  scopeNote,
 }: Props) {
   const scrollToHealth = () => {
     const el = document.querySelector(".health-panel");
@@ -40,6 +43,15 @@ export default function PulseBar({
         OTHERSIDE
       </div>
       <div className="pulse-metrics">
+        {scopeNote && (
+          <span
+            className="pulse-scope-note"
+            style={{ fontSize: 9, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.06, alignSelf: "center", marginRight: 4 }}
+            title="Cash Collected here is the all-time total across Reborn + Challenge. Revenue Booked and Outstanding are Reborn only."
+          >
+            {scopeNote}
+          </span>
+        )}
         <div className="pulse-metric">
           <span className="pulse-metric-label">Cash Collected</span>
           <span className="pulse-metric-value green mono">{formatMoney(cashCollected)}</span>
