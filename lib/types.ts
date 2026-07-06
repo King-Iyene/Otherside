@@ -13,7 +13,8 @@ export type HealthFlagKind =
   | "outstanding_no_next_payment"
   | "showed_no_status"
   | "missing_income_bracket"
-  | "cohort_window_mismatch";
+  | "cohort_window_mismatch"
+  | "empty_enrollment_row";
 
 export type HealthFlag = {
   field: string;

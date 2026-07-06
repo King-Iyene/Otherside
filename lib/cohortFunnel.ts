@@ -167,6 +167,15 @@ export interface FunnelBundle {
   challenge: ChallengeRow[];
 }
 
+/** A cash row is a real enrollment only if it identifies a person — an email
+ *  OR a name. Blank Notion rows that carry nothing but a Cohort tag (no email,
+ *  no name) are data-entry stubs, not buyers. Because dedupeByEmail can't
+ *  merge rows with no email, two such blanks would each count as a separate
+ *  "unique person" and inflate the funnel (the 82-vs-80 Erupt 2 case). */
+function isRealPerson(r: CashRow): boolean {
+  return !!(norm(r.email) || norm(r.name));
+}
+
 function dedupeByEmail<T>(rows: T[], getEmail: (r: T) => string): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
@@ -203,9 +212,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   // this cohort. Every earlier stage can then retro-attribute (i.e. "of
   // the eventual buyers, how many applied") which surfaces people who
   // came in via untagged paths.
-  const enrolledByCohort = cash.filter((c) => matchesCohort(c.cohort, cohort));
+  const enrolledByCohort = cash.filter((c) => isRealPerson(c) && matchesCohort(c.cohort, cohort));
   const enrolledByWindow = cohort.window
-    ? cash.filter((c) => !c.cohort && inWindow(c.enrollmentDate, cohort.window))
+    ? cash.filter((c) => isRealPerson(c) && !c.cohort && inWindow(c.enrollmentDate, cohort.window))
     : [];
   const enrolled = Array.from(new Set([...enrolledByCohort, ...enrolledByWindow]));
   const enrolledDedup = dedupeByEmail(enrolled, (r) => norm(r.email));
@@ -342,17 +351,40 @@ export interface SubOfferBreakdownItem {
   cashCollected: number;
 }
 
-/** Within one launch (Erupt 2, Penetrate, ...), split enrolled buyers by the
- *  sub-offer tacked onto their Cohort field — "Erupt 2 > Retreat" vs. "Erupt 2
- *  > Reborn Core/Scholarship" vs. the plain standard launch. Every row still
- *  rolls up into the launch's total via computeCohortFunnel; this is a lens
- *  on top of the same Enrolled set, not a separate count. */
+/** Collapse a messy Product string into a clean offer bucket. The Cash
+ *  Tracker's Product column mixes offer names with pricing/payment-plan noise
+ *  ("Reborn Core @ $5,000", "Reborn Core payment plan @ $2,750x2", "Payment
+ *  Plan - $6,000 today + $3,000..."). We key off the offer keyword the user
+ *  actually cares about so all the price variants land in one bar. */
+export function offerLabelFromProduct(product: string | null | undefined): string | null {
+  if (!product) return null;
+  const p = String(product).trim();
+  if (!p) return null;
+  const lc = p.toLowerCase();
+  if (/retreat/.test(lc)) return "Retreat";
+  if (/scholarship/.test(lc)) return "Scholarship";
+  if (/core/.test(lc)) return "Reborn Core";
+  if (/reborn/.test(lc)) return "Reborn (main)";
+  if (/penetrate/.test(lc)) return "Penetrate";
+  if (/payment\s*plan/.test(lc)) return "Reborn (main)"; // bare "Payment Plan - $6,000…" is the main offer on a plan
+  // Fallback: the segment before the first price/@/-/plan marker.
+  const seg = p.split(/[-@(]|\bplan\b/i)[0].trim();
+  return seg || p;
+}
+
+/** Within one launch (Erupt 2, Penetrate, ...), split enrolled buyers by which
+ *  offer they came in on. Preference order: (1) a sub-offer explicitly written
+ *  into the Cohort field ("Erupt 2 > Retreat"), else (2) the offer inferred
+ *  from the Product column, else (3) the plain standard launch. Every row still
+ *  rolls up into the launch's total via computeCohortFunnel; this is a lens on
+ *  top of the same Enrolled set, not a separate count. */
 export function computeSubOfferBreakdown(
   cash: CashRow[],
   cohort: CohortDef,
   includeTest = false
 ): SubOfferBreakdownItem[] {
   const rows = (includeTest ? cash : cash.filter((c) => !c.isTest)).filter((c) => {
+    if (!isRealPerson(c)) return false;
     if (matchesCohort(c.cohort, cohort)) return true;
     if (cohort.window && !c.cohort && inWindow(c.enrollmentDate, cohort.window)) return true;
     return false;
@@ -361,7 +393,7 @@ export function computeSubOfferBreakdown(
 
   const groups = new Map<string, { count: number; cash: number }>();
   for (const r of deduped) {
-    const key = subOfferOf(r.cohort) || `${cohort.label} (standard)`;
+    const key = subOfferOf(r.cohort) || offerLabelFromProduct(r.product) || `${cohort.label} (standard)`;
     const g = groups.get(key) ?? { count: 0, cash: 0 };
     g.count += 1;
     g.cash += r.cashCollected ?? 0;

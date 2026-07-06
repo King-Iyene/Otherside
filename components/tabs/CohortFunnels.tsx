@@ -10,6 +10,7 @@ import {
 } from "@/lib/cohortFunnel";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import DrillDownModal from "../DrillDownModal";
+import InfoTip from "../InfoTip";
 import LeadTable, {
   CHALLENGE_COLS,
   APPLICATION_COLS,
@@ -210,9 +211,24 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
 
       <div className="funnel-stages">
         {funnel.stages.map((stage, idx) => {
-          const prevCount = idx > 0 ? funnel.stages[idx - 1].count : null;
+          const prevStage = idx > 0 ? funnel.stages[idx - 1] : null;
+          const prevCount = prevStage ? prevStage.count : null;
           const stageRate = idx > 0 ? stageToStageRate(prevCount!, stage.count) : null;
           const barWidth = (stage.count / maxCount) * 100;
+          const overflows = stageRate !== null && stageRate > 1;
+
+          const tipText =
+            prevStage && prevCount !== null
+              ? overflows
+                ? `${formatNumber(stage.count)} ${stage.label.toLowerCase()} ÷ ${formatNumber(prevCount)} ${prevStage.label.toLowerCase()} = ${formatPercent(
+                    stageRate!
+                  )}. A funnel step can't truly exceed 100% — this means ${formatNumber(
+                    stage.count - prevCount!
+                  )} people reached "${stage.label}" without being logged at "${prevStage.label}". Usually they enrolled without a recorded ${prevStage.label.toLowerCase()} (e.g. bought without a "Showed" appointment on file). The count itself is right; the upstream stage is under-recorded.`
+                : `${formatNumber(stage.count)} ${stage.label.toLowerCase()} ÷ ${formatNumber(
+                    prevCount
+                  )} ${prevStage.label.toLowerCase()} = ${formatPercent(stageRate!)}. This is the share of the previous stage that made it to this one.`
+              : "";
 
           return (
             <button
@@ -234,10 +250,22 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
               </div>
               {idx > 0 && (
                 <div className="funnel-stage-conv">
-                  <span className="funnel-stage-conv-primary">
-                    {stageRate !== null ? formatPercent(stageRate) : "—"}
+                  {overflows ? (
+                    <>
+                      <span className="funnel-stage-conv-primary" style={{ color: "var(--amber-ui, #f59e0b)" }}>
+                        100%+
+                      </span>
+                      <span className="funnel-stage-conv-secondary">more than previous — upstream under-logged</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="funnel-stage-conv-primary">{stageRate !== null ? formatPercent(stageRate) : "—"}</span>
+                      <span className="funnel-stage-conv-secondary">from previous stage</span>
+                    </>
+                  )}
+                  <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+                    <InfoTip text={tipText} />
                   </span>
-                  <span className="funnel-stage-conv-secondary">from previous stage</span>
                 </div>
               )}
             </button>
@@ -375,6 +403,7 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
   const kpis: {
     key: string;
     label: string;
+    tip: string;
     getValue: (f: CohortFunnel) => number;
     format: (v: number) => string;
     higherIsBetter: boolean;
@@ -382,6 +411,7 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
     {
       key: "enrolled",
       label: "Enrolled",
+      tip: "Unique buyers in the Cash Tracker for this launch (deduped by email). This is ground truth — the actual people who paid.",
       getValue: (f) => f.stages.find((s) => s.key === "enrolled")!.count,
       format: formatNumber,
       higherIsBetter: true,
@@ -389,6 +419,7 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
     {
       key: "conv",
       label: "Registered → Enrolled",
+      tip: "Enrolled ÷ Challenge Registered for this launch. It answers: of everyone who registered for the challenge, what share became paying buyers? It can read above 100% when more people enrolled than were logged as registered — i.e. buyers who came in without a challenge registration on file.",
       getValue: (f) => {
         const reg = f.stages[0].count;
         const enr = f.stages.find((s) => s.key === "enrolled")!.count;
@@ -400,6 +431,7 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
     {
       key: "cash",
       label: "Cash Collected",
+      tip: "Sum of Cash Collected across every Cash Tracker row for this launch (includes every installment/payment, not deduped — this is money, not people).",
       getValue: (f) => f.totalCash,
       format: formatMoney,
       higherIsBetter: true,
@@ -431,7 +463,10 @@ function SideBySideComparison({ funnels }: { funnels: CohortFunnel[] }) {
               const best = kpi.higherIsBetter ? Math.max(...values) : Math.min(...values);
               return (
                 <tr key={kpi.key}>
-                  <td style={{ fontWeight: 500 }}>{kpi.label}</td>
+                  <td style={{ fontWeight: 500 }}>
+                    {kpi.label}
+                    <InfoTip text={kpi.tip} />
+                  </td>
                   {funnels.map((f, i) => {
                     const v = values[i];
                     const isBest = v === best && v > 0;

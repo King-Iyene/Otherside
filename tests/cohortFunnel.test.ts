@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeCohortFunnel, computeSubOfferBreakdown, COHORTS, stageToStageRate } from "../lib/cohortFunnel";
+import {
+  computeCohortFunnel,
+  computeSubOfferBreakdown,
+  offerLabelFromProduct,
+  COHORTS,
+  stageToStageRate,
+} from "../lib/cohortFunnel";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "../lib/types";
 
 const erupt1 = COHORTS.find((c) => c.id === "erupt1")!;
@@ -111,6 +117,43 @@ describe("computeSubOfferBreakdown", () => {
   it("returns nothing for a launch with no enrolled buyers", () => {
     const items = computeSubOfferBreakdown([cashRow("a@x.com", "Erupt 1", 8000, 8000)], COHORTS.find((c) => c.id === "erupt2")!);
     expect(items).toEqual([]);
+  });
+
+  it("falls back to the Product column when the Cohort field has no sub-offer", () => {
+    const rows: CashRow[] = [
+      { ...cashRow("a@x.com", "Erupt 2", 5000, 5000), product: "Reborn Core @ $5,000" },
+      { ...cashRow("b@x.com", "Erupt 2", 5500, 5500), product: "Reborn Core payment plan @ $2,750x2" },
+      { ...cashRow("c@x.com", "Erupt 2", 10000, 10000), product: "Reborn @ $10,000" },
+    ];
+    const items = computeSubOfferBreakdown(rows, COHORTS.find((c) => c.id === "erupt2")!);
+    const byKey = new Map(items.map((i) => [i.key, i]));
+    // Both Reborn Core price variants collapse into one bar
+    expect(byKey.get("Reborn Core")?.value).toBe(2);
+    expect(byKey.get("Reborn (main)")?.value).toBe(1);
+  });
+
+  it("does NOT count blank stub rows (no name, no email) as buyers", () => {
+    const rows: CashRow[] = [
+      cashRow("real@x.com", "Erupt 2", 8000, 8000),
+      { ...cashRow(null, "Erupt 2", 0, 0), name: "" },
+      { ...cashRow(null, "Erupt 2", 0, 0), name: "" },
+    ];
+    const items = computeSubOfferBreakdown(rows, COHORTS.find((c) => c.id === "erupt2")!);
+    const total = items.reduce((s, i) => s + i.value, 0);
+    expect(total).toBe(1); // just the real person, not the 2 blanks
+  });
+});
+
+describe("offerLabelFromProduct", () => {
+  it("collapses price/plan noise into clean offer buckets", () => {
+    expect(offerLabelFromProduct("Reborn Core @ $5,000")).toBe("Reborn Core");
+    expect(offerLabelFromProduct("Reborn Core payment plan @ $2,750x2")).toBe("Reborn Core");
+    expect(offerLabelFromProduct("Reborn @ $10,000")).toBe("Reborn (main)");
+    expect(offerLabelFromProduct("REBORN @ $10,000")).toBe("Reborn (main)");
+    expect(offerLabelFromProduct("Payment Plan - $6,000 today + $3,000 per month")).toBe("Reborn (main)");
+    expect(offerLabelFromProduct("Erupt 2 > Retreat")).toBe("Retreat");
+    expect(offerLabelFromProduct(null)).toBeNull();
+    expect(offerLabelFromProduct("")).toBeNull();
   });
 });
 

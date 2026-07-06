@@ -418,7 +418,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
         <>
           <SectionHeader
             title="Sub-Offers Within Each Launch"
-            sub='Enrolled buyers in each launch, split by the sub-offer on their Cohort field — e.g. "Erupt 2 > Retreat" vs. the standard launch. Every bar still counts toward that launch’s total in Cohort Funnels; this just shows which offer they came in on.'
+            sub="Enrolled buyers in each launch, split by which offer they bought (Reborn, Reborn Core, Retreat, Scholarship…). Taken from a sub-offer on the Cohort field if present (e.g. “Erupt 2 > Retreat”), otherwise inferred from the Product column. Every bar still counts toward that launch’s total in Cohort Funnels — this just shows the offer mix."
           />
           <div className="kpi-grid">
             {subOfferBreakdowns.map(({ cohort, items }) => (
