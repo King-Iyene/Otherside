@@ -12,6 +12,7 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import ComboChart from "../ComboChart";
+import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import MoneyCell from "../MoneyCell";
@@ -222,6 +223,32 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
           points={filtered.map((r) => ({ date: r.date, offers: r.offersMade ?? 0, sales: r.salesMade ?? 0 }))}
         />
       </div>
+
+      {/* Per-coach bar charts — the closer leaderboard, visualized */}
+      {perCloser.length > 0 && (
+        <>
+          <div className="chart-grid">
+            <CloserBars title="Calls by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} />
+            <CloserBars title="Showed by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} />
+          </div>
+          <div className="chart-grid">
+            <CloserBars title="Offers Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} />
+            <CloserBars title="Sales Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} />
+          </div>
+          <div className="chart-grid">
+            <CloserBars
+              title="Cash on Call by Coach"
+              items={perCloser.map((c) => ({ name: c.manager, value: c.cashOnCall }))}
+              valueFormatter={(v) => formatMoney(v)}
+            />
+            <CloserBars
+              title="Sales Revenue by Coach"
+              items={perCloser.map((c) => ({ name: c.manager, value: c.salesRevenue }))}
+              valueFormatter={(v) => formatMoney(v)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Per-Closer Funnel — Oliver's spec */}
       {perCloser.length > 0 && (

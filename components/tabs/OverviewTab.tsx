@@ -229,12 +229,6 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       />
 
       {/* HERO ROW — 4 big cards with pace bars and sparklines */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 2px 8px", color: "var(--muted)", fontSize: 11 }}>
-        <span style={{ textTransform: "uppercase", letterSpacing: 0.08, fontWeight: 600, color: "var(--text-dim)" }}>
-          Reborn — main offer
-        </span>
-        <span>· these four cards are Reborn Cash Tracker only (Challenge shown separately below)</span>
-      </div>
       <div
         style={{
           display: "grid",
