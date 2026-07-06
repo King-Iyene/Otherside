@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { HealthFlag, HealthFlagKind } from "@/lib/types";
 import { HEALTH_LABELS } from "@/lib/dataHealth";
+import HowToFixTip from "@/components/HowToFixTip";
 
 export interface HealthEntry {
   source: string;
@@ -154,7 +155,9 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
                         <span className={`badge ${meta.tone}`}>{meta.label}</span>
                       </td>
                       <td className="mono" style={{ fontSize: 11 }}>{flag.raw || "—"}</td>
-                      <td style={{ color: "var(--muted)", fontSize: 11, maxWidth: 320 }}>{flag.hint || ""}</td>
+                      <td style={{ fontSize: 11 }}>
+                        <HowToFixTip text={flag.hint || ""} />
+                      </td>
                     </tr>
                   );
                 })}

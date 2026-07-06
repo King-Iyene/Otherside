@@ -118,15 +118,15 @@ export function cashRowHealthChecks(row: {
       field: "Cohort",
       kind: "missing_cohort",
       raw: "",
-      hint: `Open Notion → "Reborn Cash Tracker" → find this row (search by the Name column) → set the Cohort field to one of: Erupt 1, Erupt 2, Erupt 3, or Penetrate. Every enrollment needs a cohort tag or it won't show up in the correct funnel.`,
+      hint: `This person doesn't have a Cohort (launch) set in Notion. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this person → set Cohort to whichever launch they enrolled in: Erupt 1, Erupt 2, Erupt 3, or Penetrate.`,
     });
   } else if (cohortStatus.status === "inconsistent") {
-    const suggested = cohortStatus.suggestion || "Erupt 1 / Erupt 2 / Erupt 3 / Penetrate";
+    const suggested = cohortStatus.suggestion || "Erupt 1, Erupt 2, Erupt 3, or Penetrate";
     flags.push({
       field: "Cohort",
       kind: "inconsistent_cohort",
       raw: cohortStatus.raw,
-      hint: `The Cohort field currently reads "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this record → change the Cohort field to "${suggested}". (If this person also appears in the Google Sheet "Challenge Master Cash Tracker" with the exact same text in Product/Challenge, this flag won't appear — both sides already agree, so it's treated as consistent even though it's not canonical.)`,
+      hint: `In Notion, this person's Cohort says "${cohortStatus.raw}" — that's not one of the 4 launch names our reports look for (Erupt 1, Erupt 2, Erupt 3, Penetrate), so they may not get counted correctly. Best guess based on the text: ${suggested}. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this person → double-check which launch they're actually in, then set Cohort to that exact name.`,
     });
   } else if (cohortStatus.status === "canonical" && row.enrollmentDate) {
     // Cross-check: cohort tag is clean, BUT does the enrollment date fall in
@@ -138,7 +138,7 @@ export function cashRowHealthChecks(row: {
         field: "Cohort",
         kind: "cohort_window_mismatch",
         raw: `Tagged ${cohortStatus.name}, enrolled ${row.enrollmentDate} (${expected} window)`,
-        hint: `Tag says "${cohortStatus.name}" but Enrollment Date ${row.enrollmentDate} sits inside "${expected}"'s launch window. FIX: Open Notion → "Reborn Cash Tracker" → search Name for this record. Then either (a) change Cohort to "${expected}" if the enrollment date is right, OR (b) change the Enrollment Date if the cohort tag is right.`,
+        hint: `In Notion, this person's Cohort is set to "${cohortStatus.name}" — but their Enrollment Date (${row.enrollmentDate}) actually falls inside the "${expected}" launch's date range, not "${cohortStatus.name}"'s. One of the two is wrong. FIX: Open Notion → "Reborn Cash Tracker" → search Name for this person → check with them which launch they were actually in, then either change Cohort to "${expected}" (if the date is right) or fix the Enrollment Date (if the Cohort tag is right).`,
       });
     }
   }
@@ -208,15 +208,15 @@ export function appointmentRowHealthChecks(row: {
       field: "Cohort",
       kind: "missing_cohort",
       raw: "",
-      hint: `Open Notion → "Appointments Tracker" → find this call (search Name column) → set the Cohort field to one of: Erupt 1, Erupt 2, Erupt 3, Penetrate. Without a cohort tag the call won't roll up in the correct funnel.`,
+      hint: `This call doesn't have a Cohort (launch) set in Notion. FIX: Open Notion → "Appointments Tracker" → search the Name column for this call → set Cohort to whichever launch it belongs to: Erupt 1, Erupt 2, Erupt 3, or Penetrate.`,
     });
   } else if (cohortStatus.status === "inconsistent") {
-    const suggested = cohortStatus.suggestion || "Erupt 1 / Erupt 2 / Erupt 3 / Penetrate";
+    const suggested = cohortStatus.suggestion || "Erupt 1, Erupt 2, Erupt 3, or Penetrate";
     flags.push({
       field: "Cohort",
       kind: "inconsistent_cohort",
       raw: cohortStatus.raw,
-      hint: `Cohort field is "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Appointments Tracker" → search Name for this record → change Cohort to "${suggested}".`,
+      hint: `In Notion, this call's Cohort says "${cohortStatus.raw}" — that's not one of the 4 launch names our reports look for. Best guess: ${suggested}. FIX: Open Notion → "Appointments Tracker" → search Name for this record → set Cohort to the correct exact launch name.`,
     });
   }
 
@@ -368,12 +368,22 @@ export function reconcileCrossSourceCohortFlags(cash: CashRow[], challenge: Chal
     if (!e) continue;
     const sheetTexts = sheetTextsByEmail.get(e);
     if (!sheetTexts || !sheetTexts.length) continue;
-    row.health = row.health.filter((f) => {
-      if (f.kind !== "inconsistent_cohort") return true;
-      const notionRaw = norm(f.raw);
-      const agreesWithSheet = sheetTexts.some((v) => norm(v) === notionRaw);
-      return !agreesWithSheet;
-    });
+    row.health = row.health
+      .filter((f) => {
+        if (f.kind !== "inconsistent_cohort") return true;
+        const notionRaw = norm(f.raw);
+        const agreesWithSheet = sheetTexts.some((v) => norm(v) === notionRaw);
+        return !agreesWithSheet;
+      })
+      .map((f) => {
+        if (f.kind !== "inconsistent_cohort") return f;
+        // Both sources have data for this person but they disagree — say so
+        // plainly instead of pretending the Google Sheet doesn't exist.
+        return {
+          ...f,
+          hint: `Notion ("Reborn Cash Tracker") says this person's Cohort is "${f.raw}". The Google Sheet ("Challenge Master Cash Tracker") has a different value for the same email: "${sheetTexts[0]}". These don't match — find out which one is actually correct, then fix the other one to match.`,
+        };
+      });
   }
 }
 
