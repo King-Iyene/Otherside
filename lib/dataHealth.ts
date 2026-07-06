@@ -118,16 +118,15 @@ export function cashRowHealthChecks(row: {
       field: "Cohort",
       kind: "missing_cohort",
       raw: "",
-      hint: "Every enrollment should be tagged with Erupt 1 / Erupt 2 / Erupt 3 / Penetrate.",
+      hint: `Open Notion → "Reborn Cash Tracker" → find this row (search by the Name column) → set the Cohort field to one of: Erupt 1, Erupt 2, Erupt 3, or Penetrate. Every enrollment needs a cohort tag or it won't show up in the correct funnel.`,
     });
   } else if (cohortStatus.status === "inconsistent") {
+    const suggested = cohortStatus.suggestion || "Erupt 1 / Erupt 2 / Erupt 3 / Penetrate";
     flags.push({
       field: "Cohort",
       kind: "inconsistent_cohort",
       raw: cohortStatus.raw,
-      hint: cohortStatus.suggestion
-        ? `Rename to "${cohortStatus.suggestion}" so it matches the funnel.`
-        : "Rename to one of: Erupt 1, Erupt 2, Erupt 3, Penetrate.",
+      hint: `The Cohort field currently reads "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this record → change the Cohort field to "${suggested}". Nothing needs to change on the Google Sheet — the flag is on Notion, not the sheet.`,
     });
   } else if (cohortStatus.status === "canonical" && row.enrollmentDate) {
     // Cross-check: cohort tag is clean, BUT does the enrollment date fall in
@@ -139,7 +138,7 @@ export function cashRowHealthChecks(row: {
         field: "Cohort",
         kind: "cohort_window_mismatch",
         raw: `Tagged ${cohortStatus.name}, enrolled ${row.enrollmentDate} (${expected} window)`,
-        hint: `Cohort tag says "${cohortStatus.name}" but the Enrollment Date sits inside the "${expected}" launch window. Verify whether this row should be re-tagged.`,
+        hint: `Tag says "${cohortStatus.name}" but Enrollment Date ${row.enrollmentDate} sits inside "${expected}"'s launch window. FIX: Open Notion → "Reborn Cash Tracker" → search Name for this record. Then either (a) change Cohort to "${expected}" if the enrollment date is right, OR (b) change the Enrollment Date if the cohort tag is right.`,
       });
     }
   }
@@ -149,7 +148,7 @@ export function cashRowHealthChecks(row: {
       field: "Enr Manager",
       kind: "missing_closer",
       raw: "",
-      hint: "Set which closer owns this deal so it shows up on their scorecard.",
+      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record → set the "Enr Manager" field to the closer who owned this deal. Without it, the deal doesn't roll up on their scorecard.`,
     });
   }
 
@@ -161,14 +160,14 @@ export function cashRowHealthChecks(row: {
       field: "Revenue",
       kind: "zero_revenue_enrollment",
       raw: "(blank)",
-      hint: `Cash was collected ($${row.cashCollected}) but the Revenue / deal size field is blank. Enter the deal amount so cohort economics are accurate.`,
+      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. Cash Collected shows $${row.cashCollected} but the Revenue (deal size) column is blank. Enter the full deal amount so cohort economics are accurate.`,
     });
   } else if (row.revenue === 0 && (row.cashCollected ?? 0) > 0) {
     flags.push({
       field: "Revenue",
       kind: "zero_revenue_enrollment",
       raw: "$0",
-      hint: `Deal size is $0 but $${row.cashCollected} was collected — either fix the Revenue field, or note this is a comp so it isn't miscounted.`,
+      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. Revenue = $0 but $${row.cashCollected} was collected. Either fix the Revenue column to the real deal size, OR add a note like "comp" so it isn't miscounted.`,
     });
   }
 
@@ -178,7 +177,7 @@ export function cashRowHealthChecks(row: {
       field: "Cash Collected",
       kind: "cash_gt_revenue",
       raw: `Cash $${row.cashCollected} > Revenue $${row.revenue}`,
-      hint: "Cash Collected cannot exceed Revenue — one of the two numbers is wrong.",
+      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. Cash Collected ($${row.cashCollected}) is bigger than Revenue ($${row.revenue}) — arithmetically impossible. One of the two numbers is wrong.`,
     });
   }
 
@@ -188,7 +187,7 @@ export function cashRowHealthChecks(row: {
       field: "Date of Next Payment",
       kind: "outstanding_no_next_payment",
       raw: `Balance $${row.balance}`,
-      hint: "This buyer owes money but has no Next Payment Date — set one so collections doesn't miss it.",
+      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. They owe $${row.balance} but "Date of Next Payment" is blank. Set the next collection date so accounts receivable doesn't lose track.`,
     });
   }
 
@@ -209,16 +208,15 @@ export function appointmentRowHealthChecks(row: {
       field: "Cohort",
       kind: "missing_cohort",
       raw: "",
-      hint: "Tag the call with which launch it's for (Erupt 1/2/3/Penetrate).",
+      hint: `Open Notion → "Appointments Tracker" → find this call (search Name column) → set the Cohort field to one of: Erupt 1, Erupt 2, Erupt 3, Penetrate. Without a cohort tag the call won't roll up in the correct funnel.`,
     });
   } else if (cohortStatus.status === "inconsistent") {
+    const suggested = cohortStatus.suggestion || "Erupt 1 / Erupt 2 / Erupt 3 / Penetrate";
     flags.push({
       field: "Cohort",
       kind: "inconsistent_cohort",
       raw: cohortStatus.raw,
-      hint: cohortStatus.suggestion
-        ? `Rename to "${cohortStatus.suggestion}".`
-        : "Rename to one of: Erupt 1, Erupt 2, Erupt 3, Penetrate.",
+      hint: `Cohort field is "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Appointments Tracker" → search Name for this record → change Cohort to "${suggested}".`,
     });
   }
 
@@ -227,7 +225,7 @@ export function appointmentRowHealthChecks(row: {
       field: "Enr Manager",
       kind: "missing_closer",
       raw: "",
-      hint: "Assign a closer so the call shows on their scorecard.",
+      hint: `Open Notion → "Appointments Tracker" → search Name for this record → set the "Enr Manager" field to whichever closer took the call. Without it the call doesn't count on their scorecard.`,
     });
   }
 
@@ -239,7 +237,7 @@ export function appointmentRowHealthChecks(row: {
         field: "Appointment Status",
         kind: "showed_no_status",
         raw: "(blank)",
-        hint: "Call time has passed but status is blank — mark it Showed / No show / Rescheduled.",
+        hint: `Open Notion → "Appointments Tracker" → search Name for this record. The call time ${row.appointmentTime} has passed but the "Appointment Status" field is still blank. Mark it as Showed, No show, Cancelled, or Rescheduled so the funnel counts it correctly.`,
       });
     }
   }
@@ -256,7 +254,7 @@ export function applicationRowHealthChecks(row: {
       field: "Annual Earnings",
       kind: "missing_income_bracket",
       raw: "",
-      hint: "Income bracket drives lead scoring — capture it on every application.",
+      hint: `Open Notion → "REBORN Application Tracker" → find this application (search First Name / Email) → fill in the "Annual Earnings" field. The income bracket drives lead scoring — without it, this application won't show up in bracket-filtered views.`,
     });
   }
   return flags;
@@ -287,7 +285,7 @@ export function flagDuplicateApplications(apps: ApplicationRow[]): void {
         field: "Email",
         kind: "duplicate_application",
         raw: `${e} applied ${count}× times`,
-        hint: "Same email appears on multiple applications — verify whether this is a re-application or a duplicate submission.",
+        hint: `Open Notion → "REBORN Application Tracker" → search Email for "${e}" — you'll see ${count} applications. Verify whether this is a legitimate re-application (fine) or a duplicate submission that should be merged/deleted.`,
       });
     }
   }
@@ -326,7 +324,7 @@ export function flagDuplicateChallengeRegistrations(challenge: ChallengeRow[]): 
         field: "Email",
         kind: "duplicate_challenge_registration",
         raw: `${e} registered ${count}× for the same product`,
-        hint: "Same email + same challenge product on multiple rows. Different products are fine; same product twice is likely a duplicate.",
+        hint: `Open the Google Sheet "Challenge Master Cash Tracker" → filter Email = "${e}" → they registered ${count} times for the same Product. Different products for the same email are fine (Penetrate then Erupt is a real sequence); same product twice is usually a duplicate to delete.`,
       });
     }
   }
@@ -348,7 +346,7 @@ export function flagDuplicateCashEmails(cash: CashRow[]): void {
         field: "Email",
         kind: "duplicate_email_in_cash",
         raw: `${e} appears ${count}×`,
-        hint: "Same buyer on multiple Cash rows — probably an activation + upgrade pair. Verify these aren't accidental duplicates.",
+        hint: `Open Notion → "Reborn Cash Tracker" → search Email for "${e}" — you'll see ${count} rows. If it's an intentional activation + upgrade (or installment plan), leave it. If it's a truly duplicated record, delete the extras.`,
       });
     }
   }

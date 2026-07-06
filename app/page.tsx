@@ -52,21 +52,24 @@ export default function Home() {
   const healthEntries: HealthEntry[] = useMemo(() => {
     if (!data) return [];
     const entries: HealthEntry[] = [];
+    // Source labels spell out the actual system + database name so a non-technical
+    // reader can go straight to the right place. "Cash" alone doesn't tell you it
+    // lives in Notion under "Reborn Cash Tracker".
     for (const r of data.cash.rows) {
-      if (r.health.length) entries.push({ source: "Cash", id: r.id, label: r.name || r.id, flags: r.health });
+      if (r.health.length) entries.push({ source: "Notion · Reborn Cash Tracker", id: r.id, label: r.name || r.id, flags: r.health });
     }
     for (const r of data.appointments.rows) {
-      if (r.health.length) entries.push({ source: "Appointments", id: r.id, label: r.name || r.id, flags: r.health });
+      if (r.health.length) entries.push({ source: "Notion · Appointments Tracker", id: r.id, label: r.name || r.id, flags: r.health });
     }
     for (const r of data.applications.rows) {
       if (r.health.length)
-        entries.push({ source: "Applications", id: r.id, label: r.firstName || r.id, flags: r.health });
+        entries.push({ source: "Notion · REBORN Application Tracker", id: r.id, label: r.firstName || r.id, flags: r.health });
     }
     for (const r of data.salesActivity.rows) {
-      if (r.health.length) entries.push({ source: "Sales Activity", id: r.id, label: r.entry || r.id, flags: r.health });
+      if (r.health.length) entries.push({ source: "Notion · Sales Activity Tracker", id: r.id, label: r.entry || r.id, flags: r.health });
     }
     for (const r of data.challenge.rows) {
-      if (r.health.length) entries.push({ source: "Challenge", id: r.id, label: r.id, flags: r.health });
+      if (r.health.length) entries.push({ source: "Google Sheet · Challenge Master Cash Tracker", id: r.id, label: r.id, flags: r.health });
     }
     return entries;
   }, [data]);
