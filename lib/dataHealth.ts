@@ -17,15 +17,25 @@ import type {
  */
 
 // ────────────────────────────────────────────────────────────────
-// Canonical cohort names — everything else is flagged as inconsistent
+// Canonical cohort names — SINGLE source of truth is COHORTS in
+// lib/cohortFunnel.ts. Patterns are UNANCHORED so any string that
+// CONTAINS a canonical marker counts as canonical:
+//   "Erupt 3 > Reborn Aug 2026"      → canonical (contains "erupt 3")
+//   "Penetrate > Reborn Aug 2025"    → canonical (contains "penetrate")
+//   "Reborn Aug 2026"                → canonical (contains "aug 2026")
+//   "REBORN_ERUPT_1_LEAD"            → canonical (contains "erupt 1" after tokenizing)
 // ────────────────────────────────────────────────────────────────
 
-const CANONICAL_COHORTS = [
-  { canonical: "Erupt 1", match: /^erupt\s*1$|^reborn\s*dec\s*2025$|^dec\s*2025$/i },
-  { canonical: "Erupt 2", match: /^erupt\s*2$|^reborn\s*apr\s*2026$|^apr\s*2026$/i },
-  { canonical: "Erupt 3", match: /^erupt\s*3$|^reborn\s*aug\s*2026$|^aug\s*2026$/i },
-  { canonical: "Penetrate", match: /^penetrate$/i },
-];
+import { COHORTS } from "./cohortFunnel";
+
+/** Anchor-free contains match: normalize both sides by collapsing whitespace
+ *  and non-alphanumeric to single spaces, then test the pattern. */
+function containsCohortMarker(value: string, patterns: RegExp[]): boolean {
+  const norm = value.trim();
+  // The COHORTS patterns are already unanchored (/erupt\s*3/i etc.), so this
+  // is a straightforward .test() — just tries each until one matches.
+  return patterns.some((p) => p.test(norm));
+}
 
 export function classifyCohort(value: string | null | undefined):
   | { status: "empty" }
@@ -33,18 +43,42 @@ export function classifyCohort(value: string | null | undefined):
   | { status: "inconsistent"; raw: string; suggestion: string | null } {
   if (!value || !String(value).trim()) return { status: "empty" };
   const v = String(value).trim();
-  const match = CANONICAL_COHORTS.find((c) => c.match.test(v));
-  if (match) return { status: "canonical", name: match.canonical };
 
-  // Try a fuzzy suggestion
+  // First-match wins — cohorts are listed in a stable order, so a string
+  // containing "Penetrate" beats any co-occurring marker.
+  const match = COHORTS.find((c) => containsCohortMarker(v, c.patterns));
+  if (match) return { status: "canonical", name: match.label };
+
+  // Fuzzy suggestion. Nothing matched canonically — look at the closest
+  // marker in the raw value. Penetrate wins outright; otherwise if we see
+  // "erupt", disambiguate by digit / word / month year. Order matters —
+  // "erupt 3 > reborn aug 2026" must resolve to Erupt 3, not Erupt 2 just
+  // because "2" appears in "2026". So Erupt N (from "eruptN") is checked
+  // BEFORE month/year hints.
   const lc = v.toLowerCase();
   let suggestion: string | null = null;
-  if (/erupt/i.test(lc)) {
-    if (/1|one|dec/.test(lc)) suggestion = "Erupt 1";
-    else if (/2|two|apr/.test(lc)) suggestion = "Erupt 2";
-    else if (/3|three|aug/.test(lc)) suggestion = "Erupt 3";
-  } else if (/penetrat/.test(lc)) {
+  if (/penetrat/.test(lc)) {
     suggestion = "Penetrate";
+  } else if (/erupt/.test(lc)) {
+    // The digit adjacent to "erupt" is the authoritative signal
+    const digitAdj = lc.match(/erupt[_\s-]*([123]|one|two|three)/);
+    if (digitAdj) {
+      const d = digitAdj[1];
+      if (d === "1" || d === "one") suggestion = "Erupt 1";
+      else if (d === "2" || d === "two") suggestion = "Erupt 2";
+      else if (d === "3" || d === "three") suggestion = "Erupt 3";
+    }
+    // Fall back to month/year if the number was missing
+    if (!suggestion) {
+      if (/aug\s*2026/.test(lc)) suggestion = "Erupt 3";
+      else if (/apr\s*2026/.test(lc)) suggestion = "Erupt 2";
+      else if (/dec\s*2025/.test(lc)) suggestion = "Erupt 1";
+    }
+  } else {
+    // No "erupt" or "penetrat" — try the month/year alone
+    if (/aug\s*2026/.test(lc)) suggestion = "Erupt 3";
+    else if (/apr\s*2026/.test(lc)) suggestion = "Erupt 2";
+    else if (/dec\s*2025/.test(lc)) suggestion = "Erupt 1";
   }
   return { status: "inconsistent", raw: v, suggestion };
 }
