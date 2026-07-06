@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCohortFunnel, COHORTS, stageToStageRate } from "../lib/cohortFunnel";
+import { computeCohortFunnel, computeSubOfferBreakdown, COHORTS, stageToStageRate } from "../lib/cohortFunnel";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "../lib/types";
 
 const erupt1 = COHORTS.find((c) => c.id === "erupt1")!;
@@ -87,6 +87,30 @@ describe("computeCohortFunnel", () => {
       challenge: [],
     }, true);
     expect(inclusive.stages.find((s) => s.key === "enrolled")!.count).toBe(2);
+  });
+});
+
+describe("computeSubOfferBreakdown", () => {
+  it("groups enrolled buyers by their sub-offer, all still under one launch", () => {
+    const items = computeSubOfferBreakdown(
+      [
+        cashRow("a@x.com", "Erupt 2", 8000, 8000),
+        cashRow("b@x.com", "Erupt 2 > Retreat", 9000, 9000),
+        cashRow("c@x.com", "Erupt 2 > Reborn Core/Scholarship", 500, 500),
+        cashRow("d@x.com", "Erupt 2 > Retreat", 9000, 9000),
+      ],
+      COHORTS.find((c) => c.id === "erupt2")!
+    );
+    const byKey = new Map(items.map((i) => [i.key, i]));
+    expect(byKey.get("Erupt 2 (standard)")?.value).toBe(1);
+    expect(byKey.get("Retreat")?.value).toBe(2);
+    expect(byKey.get("Retreat")?.cashCollected).toBe(18000);
+    expect(byKey.get("Reborn Core/Scholarship")?.value).toBe(1);
+  });
+
+  it("returns nothing for a launch with no enrolled buyers", () => {
+    const items = computeSubOfferBreakdown([cashRow("a@x.com", "Erupt 1", 8000, 8000)], COHORTS.find((c) => c.id === "erupt2")!);
+    expect(items).toEqual([]);
   });
 });
 
