@@ -10,7 +10,11 @@ import { resolveTokenFromRequest } from "@/lib/notionAuth";
 // the Cash Tracker is intentionally per-transaction so duplicates there are
 // expected (installments/upgrades), but a duplicate application or same-person
 // registering twice for the same challenge is a real ops issue.
-import { flagDuplicateApplications, flagDuplicateChallengeRegistrations } from "@/lib/dataHealth";
+import {
+  flagDuplicateApplications,
+  flagDuplicateChallengeRegistrations,
+  reconcileCrossSourceCohortFlags,
+} from "@/lib/dataHealth";
 import type { ChallengeRow, SourceResult } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +60,11 @@ async function buildPayload(token: string | null, authMode: string) {
   // registrations (same email + same product). Cash duplicates are intentional.
   if (applications.rows.length) flagDuplicateApplications(applications.rows);
   if (challenge.rows.length) flagDuplicateChallengeRegistrations(challenge.rows);
+  // Cross-source cohort reconciliation: if a Cash Tracker row's Cohort field
+  // isn't canonical but a matching Challenge Sheet row (same email) has the
+  // exact same text, both systems already agree — drop the flag instead of
+  // treating Notion in isolation.
+  if (cash.rows.length && challenge.rows.length) reconcileCrossSourceCohortFlags(cash.rows, challenge.rows);
 
   return {
     cash,

@@ -126,7 +126,7 @@ export function cashRowHealthChecks(row: {
       field: "Cohort",
       kind: "inconsistent_cohort",
       raw: cohortStatus.raw,
-      hint: `The Cohort field currently reads "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this record → change the Cohort field to "${suggested}". Nothing needs to change on the Google Sheet — the flag is on Notion, not the sheet.`,
+      hint: `The Cohort field currently reads "${cohortStatus.raw}" but the funnel expects a single canonical name. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this record → change the Cohort field to "${suggested}". (If this person also appears in the Google Sheet "Challenge Master Cash Tracker" with the exact same text in Product/Challenge, this flag won't appear — both sides already agree, so it's treated as consistent even though it's not canonical.)`,
     });
   } else if (cohortStatus.status === "canonical" && row.enrollmentDate) {
     // Cross-check: cohort tag is clean, BUT does the enrollment date fall in
@@ -327,6 +327,53 @@ export function flagDuplicateChallengeRegistrations(challenge: ChallengeRow[]): 
         hint: `Open the Google Sheet "Challenge Master Cash Tracker" → filter Email = "${e}" → they registered ${count} times for the same Product. Different products for the same email are fine (Penetrate then Erupt is a real sequence); same product twice is usually a duplicate to delete.`,
       });
     }
+  }
+}
+
+/** Cross-source reconciliation: an `inconsistent_cohort` flag on a Cash Tracker
+ *  row means the Notion Cohort field, taken alone, isn't one of the 4 clean
+ *  canonical names. But if the Challenge Master Cash Tracker (Google Sheet)
+ *  has a matching person (same email) whose Product/Challenge column reads
+ *  the exact same text, that's not a data-entry mistake — both systems agree,
+ *  it's just not canonical. Drop the flag in that case. If there's no
+ *  matching sheet row, or the sheet disagrees, the flag stays: strict when
+ *  there's nothing to cross-check against, flexible when both sides align. */
+function challengeEmailOf(r: ChallengeRow): string {
+  for (const k of Object.keys(r)) if (k.toLowerCase().includes("email")) return norm(r[k]);
+  return "";
+}
+function challengeCohortTextOf(r: ChallengeRow): string {
+  for (const k of Object.keys(r)) {
+    const lk = k.toLowerCase();
+    if (lk === "product" || lk === "challange" || lk === "challenge" || lk.includes("cohort")) {
+      return String(r[k] ?? "").trim();
+    }
+  }
+  return "";
+}
+
+export function reconcileCrossSourceCohortFlags(cash: CashRow[], challenge: ChallengeRow[]): void {
+  if (!cash.length || !challenge.length) return;
+  const sheetTextsByEmail = new Map<string, string[]>();
+  for (const r of challenge) {
+    const e = challengeEmailOf(r);
+    const p = challengeCohortTextOf(r);
+    if (!e || !p) continue;
+    const list = sheetTextsByEmail.get(e) ?? [];
+    list.push(p);
+    sheetTextsByEmail.set(e, list);
+  }
+  for (const row of cash) {
+    const e = norm(row.email);
+    if (!e) continue;
+    const sheetTexts = sheetTextsByEmail.get(e);
+    if (!sheetTexts || !sheetTexts.length) continue;
+    row.health = row.health.filter((f) => {
+      if (f.kind !== "inconsistent_cohort") return true;
+      const notionRaw = norm(f.raw);
+      const agreesWithSheet = sheetTexts.some((v) => norm(v) === notionRaw);
+      return !agreesWithSheet;
+    });
   }
 }
 
