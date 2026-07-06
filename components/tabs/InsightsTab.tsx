@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow, SalesActivityRow } from "@/lib/types";
 import { analyzeAppToPurchase, analyzeChallengeToReborn, analyzeCouponPurchase } from "@/lib/crossSource";
-import { COHORTS, computeSubOfferBreakdown } from "@/lib/cohortFunnel";
+import { allLaunchesForData, computeSubOfferBreakdown } from "@/lib/cohortFunnel";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import DrillDownModal from "../DrillDownModal";
 import BreakdownChart from "../BreakdownChart";
@@ -115,8 +115,11 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: any[]; columns: Column<any>[] } | null>(null);
 
   const subOfferBreakdowns = useMemo(
-    () => COHORTS.map((cohort) => ({ cohort, items: computeSubOfferBreakdown(cash, cohort) })).filter((b) => b.items.length > 0),
-    [cash]
+    () =>
+      allLaunchesForData({ cash, appointments, applications, challenge })
+        .map((cohort) => ({ cohort, items: computeSubOfferBreakdown(cash, cohort) }))
+        .filter((b) => b.items.length > 0),
+    [cash, appointments, applications, challenge]
   );
 
   const c2r = useMemo(() => analyzeChallengeToReborn(challenge, cash), [challenge, cash]);
@@ -418,7 +421,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
         <>
           <SectionHeader
             title="Sub-Offers Within Each Launch"
-            sub='Enrolled buyers in each launch, split by the sub-offer on their Cohort field — e.g. "Erupt 2 > Retreat" vs. the standard launch. Every bar still counts toward that launch’s total in Cohort Funnels; this just shows which offer they came in on.'
+            sub="Enrolled buyers in each launch, split by which offer they bought (Reborn, Reborn Core, Retreat, Scholarship…). Taken from a sub-offer on the Cohort field if present (e.g. “Erupt 2 > Retreat”), otherwise inferred from the Product column. Every bar still counts toward that launch’s total in Cohort Funnels — this just shows the offer mix."
           />
           <div className="kpi-grid">
             {subOfferBreakdowns.map(({ cohort, items }) => (

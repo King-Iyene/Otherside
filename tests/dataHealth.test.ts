@@ -85,6 +85,8 @@ describe("cashRowHealthChecks", () => {
   const base = {
     cohort: "Erupt 1",
     enrManager: "Oliver",
+    name: "Jane Buyer",
+    email: "jane@example.com",
     revenue: 8000,
     cashCollected: 4000,
     balance: 4000,
@@ -93,6 +95,16 @@ describe("cashRowHealthChecks", () => {
 
   it("clean row has no flags", () => {
     expect(cashRowHealthChecks(base)).toEqual([]);
+  });
+
+  it("flags a cohort-tagged row with no name and no email as an empty stub", () => {
+    const flags = cashRowHealthChecks({ ...base, name: "", email: null });
+    expect(flags.some((f) => f.kind === "empty_enrollment_row")).toBe(true);
+  });
+
+  it("does NOT flag empty stub when there IS a name but no email", () => {
+    const flags = cashRowHealthChecks({ ...base, name: "Jane Buyer", email: null });
+    expect(flags.some((f) => f.kind === "empty_enrollment_row")).toBe(false);
   });
 
   it("catches cash > revenue as impossible", () => {

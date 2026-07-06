@@ -112,8 +112,27 @@ export function cashRowHealthChecks(row: {
   balance: number | null;
   nextPaymentDate: string | null;
   enrollmentDate?: string | null;
+  name?: string | null;
+  email?: string | null;
 }): HealthFlag[] {
   const flags: HealthFlag[] = [];
+
+  // Empty stub row: a Cohort tag was set but there's no person attached (no
+  // name AND no email). These are blank Notion rows that silently inflate
+  // unique-people counts in the funnel. Flag them so they get deleted or
+  // filled in. Only fires when a cohort tag exists — a fully blank row is
+  // just noise, but a cohort-tagged blank is a real stub someone half-created.
+  const hasName = !!(row.name && row.name.trim());
+  const hasEmail = !!(row.email && row.email.trim());
+  const hasCohortTag = !!(row.cohort && row.cohort.trim());
+  if (hasCohortTag && !hasName && !hasEmail) {
+    flags.push({
+      field: "Name / Email",
+      kind: "empty_enrollment_row",
+      raw: `Cohort "${row.cohort}" but no name or email`,
+      hint: `In Notion ("Reborn Cash Tracker") this row has a Cohort of "${row.cohort}" but no Name and no Email — it's a blank/half-created row. It gets counted as a person in the "${row.cohort}" funnel even though there's nobody attached. FIX: Open Notion → "Reborn Cash Tracker" → find the row tagged "${row.cohort}" with an empty Name → either fill in who this enrollment belongs to, or delete the row.`,
+    });
+  }
 
   const cohortStatus = classifyCohort(row.cohort);
   if (cohortStatus.status === "empty") {
@@ -427,6 +446,7 @@ export const HEALTH_LABELS: Record<HealthFlagKind, { label: string; tone: "red" 
   duplicate_application: { label: "DUPLICATE APPLICATION", tone: "amber" },
   duplicate_challenge_registration: { label: "DUPLICATE REGISTRATION", tone: "amber" },
   cohort_window_mismatch: { label: "TAG ≠ WINDOW", tone: "amber" },
+  empty_enrollment_row: { label: "EMPTY ROW", tone: "red" },
   zero_revenue_enrollment: { label: "$0 DEAL", tone: "red" },
   cash_gt_revenue: { label: "CASH > REVENUE", tone: "red" },
   outstanding_no_next_payment: { label: "OWES + NO DATE", tone: "amber" },

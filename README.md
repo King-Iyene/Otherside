@@ -98,6 +98,17 @@ npm run dev
 - Notion pagination pauses 350ms between pages and retries up to 5 times on 429/529, honoring `Retry-After` when present.
 - Week bucketing uses the Monday of the ISO week.
 
+## Launches / cohorts (flexible naming)
+
+All launch recognition lives in one file: `lib/launchNames.ts`. Nothing is hardwired to the word "Erupt" — launches are pure config, so the dashboard bends to whatever naming you adopt:
+
+- **New number in an existing series** (`Erupt 5`, `Strong 7`, …): **do nothing.** Any `"<series> <number>"` is recognized automatically and shows up in the funnels, the Side-by-Side comparison, and Data Health the moment a record is tagged with it.
+- **A brand-new series** with its own numbering (you start `Advance 1`, `Strong 1`, …): add one line to `SERIES`, e.g. `{ name: "Advance" }`. Add a `numbers` entry only if you want per-launch date windows or colors.
+- **A one-off, non-numbered launch** (`Penetrate`, `VIP Day`): add one entry to `STANDALONE_LAUNCHES` with its `label` and the `keywords` that appear in the Cohort/Product field.
+- **Renaming a series later** (`Erupt` → `Blaze`): change that series' `name`; if old records still say the old name, add it to that series' `legacyNames` so history keeps resolving.
+
+Compound values like `"Erupt 2 > Retreat"` resolve to their launch (`Erupt 2`) for all totals, and the trailing part (`Retreat`) is shown as a sub-offer in the "Sub-Offers Within Each Launch" charts on the Insights tab.
+
 ## Optional password gate
 
 Set `DASHBOARD_PASSWORD` to require a password before viewing the dashboard. Leave it unset to disable auth entirely (no login page, no redirect). The password is never stored — the server hashes it with SHA-256 and compares that hash against a cookie set on successful login.

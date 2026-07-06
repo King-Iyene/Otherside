@@ -1,5 +1,5 @@
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow } from "./types";
-import { subOfferOf } from "./launchNames";
+import { subOfferOf, extractLaunch, configuredLaunches, patternsForLaunch, colorForLaunch } from "./launchNames";
 
 /**
  * Cohort Funnel — the high-level "one-click" sales story.
@@ -43,44 +43,56 @@ export interface CohortDef {
   window?: { start: string; end: string };
 }
 
+/** Spare color slots handed to launches auto-detected from the data (e.g. a
+ *  future new series number nobody configured). Cycles so we never crash on an
+ *  unbounded number of new launches. */
+const AUTO_COLOR_CYCLE = ["var(--cat-6)", "var(--cat-7)", "var(--cat-8)", "var(--cat-4)"];
+
+function idFromLabel(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, "");
+}
+
 /**
- * Cohorts assigned to categorical slots from the Claude dataviz reference
- * palette in FIXED order (--cat-1..--cat-8 in globals.css). A new cohort
- * takes the next slot, never a rotated hue.
+ * The curated launches, derived from the single launch config in
+ * launchNames.ts (series + standalones, with their windows + stable colors).
+ * Any OTHER launch that shows up in the data — a new series number, or a
+ * differently-named launch — is picked up automatically; see detectExtraCohorts.
  */
-export const COHORTS: CohortDef[] = [
-  {
-    id: "penetrate",
-    label: "Penetrate",
-    emoji: "",
-    color: "var(--cat-1)",           // blue — slot 1
-    patterns: [/penetrate/i],
-  },
-  {
-    id: "erupt1",
-    label: "Erupt 1",
-    emoji: "",
-    color: "var(--cat-2)",           // aqua — slot 2
-    patterns: [/erupt\s*1/i, /reborn\s*dec\s*2025/i, /dec\s*2025/i],
-    window: { start: "2025-10-01", end: "2026-01-31" },
-  },
-  {
-    id: "erupt2",
-    label: "Erupt 2",
-    emoji: "",
-    color: "var(--cat-3)",           // yellow — slot 3
-    patterns: [/erupt\s*2/i, /reborn\s*apr\s*2026/i, /apr\s*2026/i],
-    window: { start: "2026-02-01", end: "2026-05-31" },
-  },
-  {
-    id: "erupt3",
-    label: "Erupt 3",
-    emoji: "",
-    color: "var(--cat-5)",           // violet — slot 5 (skip slot 4 green for CVD)
-    patterns: [/erupt\s*3/i, /reborn\s*aug\s*2026/i, /aug\s*2026/i],
-    window: { start: "2026-06-01", end: "2026-09-30" },
-  },
-];
+export const COHORTS: CohortDef[] = configuredLaunches().map((l, i) => ({
+  id: idFromLabel(l.label),
+  label: l.label,
+  emoji: "",
+  color: l.color || AUTO_COLOR_CYCLE[i % AUTO_COLOR_CYCLE.length],
+  patterns: patternsForLaunch(l.label),
+  window: l.window,
+}));
+
+/**
+ * Launches present in the data but not already in COHORTS — chiefly a future
+ * series number (or renamed series) that nobody configured. They get a cycling
+ * color and no window (attribution is by explicit tag only). This is what makes
+ * the Side-by-Side comparison auto-grow with zero code changes.
+ */
+function detectExtraCohorts(data: FunnelBundle): CohortDef[] {
+  const known = new Set(COHORTS.map((c) => c.label));
+  const found = new Set<string>();
+  const scan = (v: unknown) => {
+    const l = v === null || v === undefined ? null : extractLaunch(String(v));
+    if (l && !known.has(l)) found.add(l);
+  };
+  for (const c of data.cash) scan(c.cohort);
+  for (const a of data.appointments) scan(a.cohort);
+  for (const r of data.challenge) scan(challengeProductOf(r));
+  return Array.from(found)
+    .sort()
+    .map((label, i) => ({
+      id: idFromLabel(label),
+      label,
+      emoji: "",
+      color: colorForLaunch(label) || AUTO_COLOR_CYCLE[i % AUTO_COLOR_CYCLE.length],
+      patterns: patternsForLaunch(label),
+    }));
+}
 
 function inWindow(dateStr: string | null | undefined, window?: { start: string; end: string }): boolean {
   if (!window || !dateStr) return false;
@@ -167,6 +179,15 @@ export interface FunnelBundle {
   challenge: ChallengeRow[];
 }
 
+/** A cash row is a real enrollment only if it identifies a person — an email
+ *  OR a name. Blank Notion rows that carry nothing but a Cohort tag (no email,
+ *  no name) are data-entry stubs, not buyers. Because dedupeByEmail can't
+ *  merge rows with no email, two such blanks would each count as a separate
+ *  "unique person" and inflate the funnel (the 82-vs-80 Erupt 2 case). */
+function isRealPerson(r: CashRow): boolean {
+  return !!(norm(r.email) || norm(r.name));
+}
+
 function dedupeByEmail<T>(rows: T[], getEmail: (r: T) => string): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
@@ -203,9 +224,9 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   // this cohort. Every earlier stage can then retro-attribute (i.e. "of
   // the eventual buyers, how many applied") which surfaces people who
   // came in via untagged paths.
-  const enrolledByCohort = cash.filter((c) => matchesCohort(c.cohort, cohort));
+  const enrolledByCohort = cash.filter((c) => isRealPerson(c) && matchesCohort(c.cohort, cohort));
   const enrolledByWindow = cohort.window
-    ? cash.filter((c) => !c.cohort && inWindow(c.enrollmentDate, cohort.window))
+    ? cash.filter((c) => isRealPerson(c) && !c.cohort && inWindow(c.enrollmentDate, cohort.window))
     : [];
   const enrolled = Array.from(new Set([...enrolledByCohort, ...enrolledByWindow]));
   const enrolledDedup = dedupeByEmail(enrolled, (r) => norm(r.email));
@@ -319,9 +340,16 @@ export function computeCohortFunnel(cohort: CohortDef, data: FunnelBundle, inclu
   return { cohort, stages, totalCash, challengeRevenue };
 }
 
-/** Compute funnels for every configured cohort. */
+/** Compute funnels for every launch — the configured ones plus any extra
+ *  launch (new series number, renamed series, …) discovered in the data. */
 export function computeAllCohortFunnels(data: FunnelBundle, includeTest = false): CohortFunnel[] {
-  return COHORTS.map((c) => computeCohortFunnel(c, data, includeTest));
+  const all = [...COHORTS, ...detectExtraCohorts(data)];
+  return all.map((c) => computeCohortFunnel(c, data, includeTest));
+}
+
+/** All launches to break down on the Insights tab — configured + auto-detected. */
+export function allLaunchesForData(data: FunnelBundle): CohortDef[] {
+  return [...COHORTS, ...detectExtraCohorts(data)];
 }
 
 /** Percentage from previous stage. Null when previous is 0. */
@@ -342,17 +370,40 @@ export interface SubOfferBreakdownItem {
   cashCollected: number;
 }
 
-/** Within one launch (Erupt 2, Penetrate, ...), split enrolled buyers by the
- *  sub-offer tacked onto their Cohort field — "Erupt 2 > Retreat" vs. "Erupt 2
- *  > Reborn Core/Scholarship" vs. the plain standard launch. Every row still
- *  rolls up into the launch's total via computeCohortFunnel; this is a lens
- *  on top of the same Enrolled set, not a separate count. */
+/** Collapse a messy Product string into a clean offer bucket. The Cash
+ *  Tracker's Product column mixes offer names with pricing/payment-plan noise
+ *  ("Reborn Core @ $5,000", "Reborn Core payment plan @ $2,750x2", "Payment
+ *  Plan - $6,000 today + $3,000..."). We key off the offer keyword the user
+ *  actually cares about so all the price variants land in one bar. */
+export function offerLabelFromProduct(product: string | null | undefined): string | null {
+  if (!product) return null;
+  const p = String(product).trim();
+  if (!p) return null;
+  const lc = p.toLowerCase();
+  if (/retreat/.test(lc)) return "Retreat";
+  if (/scholarship/.test(lc)) return "Scholarship";
+  if (/core/.test(lc)) return "Reborn Core";
+  if (/reborn/.test(lc)) return "Reborn (main)";
+  if (/penetrate/.test(lc)) return "Penetrate";
+  if (/payment\s*plan/.test(lc)) return "Reborn (main)"; // bare "Payment Plan - $6,000…" is the main offer on a plan
+  // Fallback: the segment before the first price/@/-/plan marker.
+  const seg = p.split(/[-@(]|\bplan\b/i)[0].trim();
+  return seg || p;
+}
+
+/** Within one launch (Erupt 2, Penetrate, ...), split enrolled buyers by which
+ *  offer they came in on. Preference order: (1) a sub-offer explicitly written
+ *  into the Cohort field ("Erupt 2 > Retreat"), else (2) the offer inferred
+ *  from the Product column, else (3) the plain standard launch. Every row still
+ *  rolls up into the launch's total via computeCohortFunnel; this is a lens on
+ *  top of the same Enrolled set, not a separate count. */
 export function computeSubOfferBreakdown(
   cash: CashRow[],
   cohort: CohortDef,
   includeTest = false
 ): SubOfferBreakdownItem[] {
   const rows = (includeTest ? cash : cash.filter((c) => !c.isTest)).filter((c) => {
+    if (!isRealPerson(c)) return false;
     if (matchesCohort(c.cohort, cohort)) return true;
     if (cohort.window && !c.cohort && inWindow(c.enrollmentDate, cohort.window)) return true;
     return false;
@@ -361,7 +412,7 @@ export function computeSubOfferBreakdown(
 
   const groups = new Map<string, { count: number; cash: number }>();
   for (const r of deduped) {
-    const key = subOfferOf(r.cohort) || `${cohort.label} (standard)`;
+    const key = subOfferOf(r.cohort) || offerLabelFromProduct(r.product) || `${cohort.label} (standard)`;
     const g = groups.get(key) ?? { count: 0, cash: 0 };
     g.count += 1;
     g.cash += r.cashCollected ?? 0;
