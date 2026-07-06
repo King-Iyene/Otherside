@@ -372,6 +372,25 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         />
       </div>
 
+      <div className="chart-grid">
+        <CloserBars
+          title="Revenue Booked by Coach"
+          items={[
+            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.revenue)) })),
+            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.revenue)) },
+          ]}
+          valueFormatter={(v) => formatMoney(v)}
+        />
+        <CloserBars
+          title="Outstanding by Coach"
+          items={[
+            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.balance)) })),
+            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.balance)) },
+          ]}
+          valueFormatter={(v) => formatMoney(v)}
+        />
+      </div>
+
       {/* Outstanding balance aging */}
       {outstandingRows.length > 0 && (
         <div className="panel" style={{ marginBottom: 20 }}>
