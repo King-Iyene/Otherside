@@ -7,6 +7,7 @@ import { challengeCashStats } from "@/lib/crossSource";
 import PulseBar from "@/components/PulseBar";
 import Tabs, { type TabKey } from "@/components/Tabs";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
+import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import CohortFunnels from "@/components/tabs/CohortFunnels";
@@ -82,6 +83,9 @@ export default function Home() {
     }
     return entries;
   }, [data, includeChallengeDupes]);
+
+  // Schema safety net: catch a whole column reading empty (renamed/removed source column).
+  const columnWarnings = useMemo(() => (data ? detectColumnHealth(data) : []), [data]);
 
   const rebornCash = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
   const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
@@ -170,6 +174,7 @@ export default function Home() {
                 entries={healthEntries}
                 includeChallengeDupes={includeChallengeDupes}
                 onToggleChallengeDupes={setIncludeChallengeDupes}
+                columnWarnings={columnWarnings}
               />
             )}
           </>
