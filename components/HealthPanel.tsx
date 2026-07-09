@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { HealthFlag, HealthFlagKind } from "@/lib/types";
 import { HEALTH_LABELS } from "@/lib/dataHealth";
+import { urlForSource } from "@/lib/sourceLinks";
 import HowToFixTip from "@/components/HowToFixTip";
 
 export interface HealthEntry {
@@ -253,9 +254,18 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
                           <tbody>
                             {c.items.map(({ source, flag }, idx) => {
                               const meta = HEALTH_LABELS[flag.kind];
+                              const link = urlForSource(source);
                               return (
                                 <tr key={`${c.key}-${idx}`}>
-                                  <td>{source}</td>
+                                  <td>
+                                    {link ? (
+                                      <a href={link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "none" }}>
+                                        {source} ↗
+                                      </a>
+                                    ) : (
+                                      source
+                                    )}
+                                  </td>
                                   <td>{flag.field}</td>
                                   <td>
                                     <span className={`badge ${meta.tone}`}>{meta.label}</span>

@@ -236,7 +236,6 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
               type="button"
               className="funnel-stage-btn"
               onClick={() => onClickStage(stage)}
-              title={`See the ${formatNumber(stage.count)} ${stage.label.toLowerCase()}`}
             >
               <div className="funnel-stage-row">
                 <div className="funnel-stage-label">{stage.label}</div>
@@ -255,12 +254,12 @@ function FunnelCard({ funnel, onClickStage }: { funnel: CohortFunnel; onClickSta
                       <span className="funnel-stage-conv-primary" style={{ color: "var(--amber-ui, #f59e0b)" }}>
                         100%+
                       </span>
-                      <span className="funnel-stage-conv-secondary">more than previous — upstream under-logged</span>
+                      <span className="funnel-stage-conv-secondary">more than the step before (data gap)</span>
                     </>
                   ) : (
                     <>
                       <span className="funnel-stage-conv-primary">{stageRate !== null ? formatPercent(stageRate) : "—"}</span>
-                      <span className="funnel-stage-conv-secondary">from previous stage</span>
+                      <span className="funnel-stage-conv-secondary">of the step before</span>
                     </>
                   )}
                   <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>

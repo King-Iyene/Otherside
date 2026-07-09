@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import type { CashRow } from "@/lib/types";
 import { detectPaymentAnomalies, PAYMENT_ANOMALY_LABELS, type PaymentAnomaly } from "@/lib/paymentAnomalies";
 import { formatMoney } from "@/lib/money";
+import { REBORN_CASH_URL } from "@/lib/sourceLinks";
 import InfoTip from "./InfoTip";
+import CopyEmail from "./CopyEmail";
 
 /**
  * Payment Anomalies — cross-row, per-person checks the row-level Data Health
@@ -135,9 +137,13 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                 >
                   {count}
                 </span>
-                <span style={{ fontWeight: 600, color: "var(--text)", flex: 1 }}>
+                <span style={{ fontWeight: 600, color: "var(--text)", flex: 1, display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {p.person}
-                  {p.email && <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 11 }}> · {p.email}</span>}
+                  {p.email && (
+                    <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+                      <CopyEmail email={p.email} size={11} />
+                    </span>
+                  )}
                 </span>
                 <span style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {Array.from(new Set(p.items.map((it) => it.kind))).map((kind) => {
@@ -152,6 +158,15 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
               </button>
               {isOpen && (
                 <div style={{ borderTop: "1px solid var(--line)", padding: "10px 14px 12px 40px", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <a
+                    href={REBORN_CASH_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+                  >
+                    Open “Reborn Cash Tracker” in Notion ↗
+                  </a>
                   {p.items.map((a, i) => {
                     const meta = PAYMENT_ANOMALY_LABELS[a.kind];
                     return (

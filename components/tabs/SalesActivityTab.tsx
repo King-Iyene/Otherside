@@ -83,7 +83,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       }
     >();
     for (const r of filtered) {
-      const key = r.enrManager || "(unassigned)";
+      const key = r.enrManager || "No EM assigned";
       const existing = byManager.get(key) || {
         newCalls: 0,
         showed: 0,
@@ -284,7 +284,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
                     <span className="rank-pill">{idx + 1}</span>
                   </td>
                   <td>
-                    {row.manager === "(unassigned)" ? (
+                    {row.manager === "No EM assigned" ? (
                       row.manager
                     ) : (
                       <Link

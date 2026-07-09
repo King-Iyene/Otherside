@@ -22,6 +22,7 @@ interface Props {
   applications: ApplicationRow[];
   salesActivity: SalesActivityRow[];
   challenge?: ChallengeRow[];
+  onNavigate?: (tab: string) => void;
 }
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
@@ -170,7 +171,7 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
   return signals;
 }
 
-export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [] }: Props) {
+export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [], onNavigate }: Props) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -383,10 +384,24 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
-        <BreakdownChart
-          title="Appointments by Status"
-          items={statuses.map((s) => ({ key: s, value: stats.apptRows.filter((r) => r.status === s).length }))}
-        />
+        <div
+          role={onNavigate ? "button" : undefined}
+          tabIndex={onNavigate ? 0 : undefined}
+          onClick={() => onNavigate?.("appointments")}
+          onKeyDown={(e) => {
+            if (onNavigate && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              onNavigate("appointments");
+            }
+          }}
+          style={{ cursor: onNavigate ? "pointer" : "default" }}
+          title={onNavigate ? "Open the Appointments tab" : undefined}
+        >
+          <BreakdownChart
+            title="Appointments by Status ↗"
+            items={statuses.map((s) => ({ key: s, value: stats.apptRows.filter((r) => r.status === s).length }))}
+          />
+        </div>
       </div>
 
       <div style={{ marginBottom: 8 }}>
@@ -549,7 +564,11 @@ function HeroCard({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
         <div>
           <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.1 }}>{label}</div>
-          {sublabel && <div style={{ color: "var(--text-dim)", fontSize: 9, marginTop: 1 }}>{sublabel}</div>}
+          {sublabel && (
+            <div style={{ color: "var(--accent, #10b981)", fontSize: 9.5, fontWeight: 700, marginTop: 1, letterSpacing: 0.03 }}>
+              {sublabel}
+            </div>
+          )}
         </div>
         {sparkline.length > 1 && <Sparkline values={sparkline} color={color} width={70} height={22} />}
       </div>

@@ -199,8 +199,8 @@ export function cashRowHealthChecks(row: {
     flags.push({
       field: "Cash Collected",
       kind: "cash_gt_revenue",
-      raw: `Collected $${row.cashCollected} but deal size is only $${row.revenue}`,
-      hint: `This person has PAID more than the deal was sold for: Cash Collected = $${row.cashCollected}, but the deal size (Revenue) = $${row.revenue}. You can't collect more than the price — so one number is a typo. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this person → correct either the Cash Collected or the Revenue so Cash is not bigger than Revenue.`,
+      raw: `Paid $${row.cashCollected} — that's $${row.cashCollected - row.revenue} more than the $${row.revenue} price`,
+      hint: `They paid more than the price they were sold at: paid $${row.cashCollected}, but the price (Revenue) is $${row.revenue}. Nobody pays more than the price, so one of these two numbers is a typo. FIX: Open Notion → "Reborn Cash Tracker" → find this person by Name → check the "Cash Collected" and "Revenue" columns and correct whichever is wrong.`,
     });
   }
 
