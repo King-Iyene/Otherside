@@ -15,22 +15,6 @@ import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
 import CloserBars from "../CloserBars";
 
-/** Days between two dates, inclusive of start. */
-function daysBetween(a: string | null, b: Date): number | null {
-  if (!a) return null;
-  const d = new Date(a);
-  if (Number.isNaN(d.getTime())) return null;
-  return Math.floor((b.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
-}
-
-/** Aging bucket for outstanding balance rows. */
-function agingBucket(days: number | null): "current" | "0-30" | "30-60" | "60+" {
-  if (days === null || days < 0) return "current";
-  if (days <= 30) return "0-30";
-  if (days <= 60) return "30-60";
-  return "60+";
-}
-
 // ── Unique-people accounting ──────────────────────────────────────────────
 // The Cash Tracker is per-transaction: one buyer can have several rows
 // (installments/upgrades), and a blank stub row can carry only a cohort tag.
@@ -126,7 +110,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
 
   const totalRevenue = sum(filtered.map((r) => r.revenue));
   const totalCash = sum(filtered.map((r) => r.cashCollected));
-  const totalBalance = sum(filtered.map((r) => r.balance));
 
   const enrollmentsCount = useMemo(() => countPeople(filtered), [filtered]);
 
@@ -134,33 +117,11 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
     ? {
         revenue: sum(prevFiltered.map((r) => r.revenue)),
         cash: sum(prevFiltered.map((r) => r.cashCollected)),
-        balance: sum(prevFiltered.map((r) => r.balance)),
         count: countPeople(prevFiltered),
       }
     : null;
 
-  const now = new Date();
-
   const collectionRate = totalRevenue > 0 ? totalCash / totalRevenue : null;
-
-  // Aging analysis — for rows with outstanding balance > 0
-  const outstandingRows = useMemo(() => filtered.filter((r) => (r.balance ?? 0) > 0), [filtered]);
-  const aging = useMemo(() => {
-    const buckets: Record<string, { count: number; balance: number; rows: CashRow[] }> = {
-      current: { count: 0, balance: 0, rows: [] },
-      "0-30": { count: 0, balance: 0, rows: [] },
-      "30-60": { count: 0, balance: 0, rows: [] },
-      "60+": { count: 0, balance: 0, rows: [] },
-    };
-    for (const r of outstandingRows) {
-      const days = daysBetween(r.enrollmentDate, now);
-      const b = agingBucket(days);
-      buckets[b].count += 1;
-      buckets[b].balance += r.balance ?? 0;
-      buckets[b].rows.push(r);
-    }
-    return buckets;
-  }, [outstandingRows, now]);
 
   // Cohort economics
   const cohortEconomics = useMemo(() => {
@@ -170,7 +131,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         const prevRows = prevFiltered ? prevFiltered.filter((r) => r.cohort === c) : [];
         const revenue = sum(curRows.map((r) => r.revenue));
         const cash = sum(curRows.map((r) => r.cashCollected));
-        const balance = sum(curRows.map((r) => r.balance));
         const people = aggregatePeople(curRows);
         const enrollments = people.length;
         const paidOff = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
@@ -181,7 +141,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           enrollments,
           revenue,
           cashCollected: cash,
-          balance,
           avgDeal: enrollments ? cash / enrollments : null,
           collectionRate: revenue > 0 ? cash / revenue : null,
           paidOff,
@@ -225,12 +184,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       label: "Cash Collected",
       render: (r) => <MoneyCell value={r.cashCollected} field="Cash Collected" health={r.health} />,
       sortValue: (r) => r.cashCollected,
-    },
-    {
-      key: "balance",
-      label: "Balance",
-      render: (r) => <MoneyCell value={r.balance} field="Balance" health={r.health} />,
-      sortValue: (r) => r.balance,
     },
     { key: "paymentMethod", label: "Payment Method", render: (r) => r.paymentMethod || "—" },
     {
@@ -289,14 +242,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             source: { source: "Derived", field: "Cash Collected ÷ Revenue", formula: "Total collected out of total booked" },
             hint: collectionRate === null ? undefined : collectionRate >= 0.9 ? "excellent" : collectionRate >= 0.7 ? "healthy" : "needs attention",
             hintColor: collectionRate === null ? "muted" : collectionRate >= 0.9 ? "green" : collectionRate >= 0.7 ? "muted" : "red",
-          },
-          {
-            label: "Outstanding Balance",
-            value: formatMoney(totalBalance),
-            delta: prevTotals && computeDelta(totalBalance, prevTotals.balance),
-            higherIsBetter: false,
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Balance", formula: "SUM(Balance formula)" },
-            onClick: () => openDrilldown("Outstanding Balances", `${outstandingRows.length} enrollments with balance > 0`, outstandingRows),
           },
           {
             label: "Enrollments",
@@ -381,54 +326,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           ]}
           valueFormatter={(v) => formatMoney(v)}
         />
-        <CloserBars
-          title="Outstanding by Coach"
-          items={[
-            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.balance)) })),
-            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.balance)) },
-          ]}
-          valueFormatter={(v) => formatMoney(v)}
-        />
       </div>
-
-      {/* Outstanding balance aging */}
-      {outstandingRows.length > 0 && (
-        <div className="panel" style={{ marginBottom: 20 }}>
-          <div className="panel-header">
-            <div className="panel-title">Outstanding Balance Aging</div>
-            <span style={{ color: "var(--muted)", fontSize: 11 }}>Days since enrollment</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-            {(["current", "0-30", "30-60", "60+"] as const).map((bucket) => {
-              const b = aging[bucket];
-              const color = bucket === "60+" ? "var(--red)" : bucket === "30-60" ? "var(--accent)" : bucket === "0-30" ? "var(--blue)" : "var(--muted)";
-              return (
-                <button
-                  key={bucket}
-                  onClick={() => openDrilldown(`Aging: ${bucket}`, `${b.count} enrollments, ${formatMoney(b.balance)} outstanding`, b.rows)}
-                  style={{
-                    background: "var(--surface-2)",
-                    border: `1px solid ${color}`,
-                    borderRadius: 10,
-                    padding: 14,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    color: "var(--text)",
-                  }}
-                >
-                  <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.06 }}>
-                    {bucket === "current" ? "≤ 0 days" : `${bucket} days`}
-                  </div>
-                  <div className="mono" style={{ fontSize: 20, fontWeight: 600, color, marginTop: 4 }}>
-                    {formatMoney(b.balance)}
-                  </div>
-                  <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>{b.count} enrollments</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Cohort economics */}
       {cohortEconomics.length > 0 && (
@@ -444,7 +342,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
                 <th>Enrollments</th>
                 <th>Revenue</th>
                 <th>Cash Collected</th>
-                <th>Outstanding</th>
                 <th>Collection %</th>
                 <th>Avg Deal</th>
                 <th>PIF / Plan</th>
@@ -464,9 +361,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
                   <td className="mono">{formatNumber(c.enrollments)}</td>
                   <td className="mono">{formatMoney(c.revenue)}</td>
                   <td className="mono">{formatMoney(c.cashCollected)}</td>
-                  <td className="mono" style={{ color: c.balance > 0 ? "var(--red)" : "var(--muted)" }}>
-                    {formatMoney(c.balance)}
-                  </td>
                   <td className="mono" style={{ color: c.collectionRate !== null && c.collectionRate >= 0.9 ? "var(--green)" : "var(--text)" }}>
                     {formatPercent(c.collectionRate)}
                   </td>

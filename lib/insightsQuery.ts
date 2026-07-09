@@ -100,7 +100,6 @@ const CASH: DatasetDef = {
     { key: "couponCode", label: "Used Coupon?", type: "text", filterable: true, get: (r: CashRow) => r.couponCode },
     { key: "revenue", label: "Deal Size ($)", type: "number", filterable: true, get: (r: CashRow) => r.revenue },
     { key: "cashCollected", label: "Cash Collected ($)", type: "number", filterable: true, get: (r: CashRow) => r.cashCollected },
-    { key: "balance", label: "Outstanding Balance ($)", type: "number", filterable: true, get: (r: CashRow) => r.balance },
     { key: "enrollmentDate", label: "Enrollment Date", type: "date", filterable: true, get: (r: CashRow) => r.enrollmentDate },
     { key: "name", label: "Name", type: "text", filterable: false, get: (r: CashRow) => r.name },
     { key: "email", label: "Email", type: "text", filterable: false, get: (r: CashRow) => r.email, emailField: true },

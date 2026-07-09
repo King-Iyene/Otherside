@@ -185,7 +185,6 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                                   <th>Product</th>
                                   <th>Revenue</th>
                                   <th>Cash</th>
-                                  <th>Balance</th>
                                   <th>Next Payment</th>
                                 </tr>
                               </thead>
@@ -197,7 +196,6 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                                     <td style={{ fontSize: 11, maxWidth: 260 }}>{r.product || "—"}</td>
                                     <td className="mono">{formatMoney(r.revenue)}</td>
                                     <td className="mono">{formatMoney(r.cashCollected)}</td>
-                                    <td className="mono">{formatMoney(r.balance)}</td>
                                     <td>{r.nextPaymentDate || "—"}</td>
                                   </tr>
                                 ))}

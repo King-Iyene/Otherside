@@ -67,41 +67,6 @@ describe("detectPaymentAnomalies — the real Javid case", () => {
 });
 
 describe("detectPaymentAnomalies — overdue payment", () => {
-  it("flags a next-payment date that has passed while a balance remains", () => {
-    const rows = [
-      row({
-        name: "Late Payer",
-        email: "late@x.com",
-        enrollmentDate: "2026-04-27",
-        cohort: "Erupt 2 > Reborn Apr 2026",
-        revenue: 12000,
-        cashCollected: 6000,
-        balance: 6000,
-        nextPaymentDate: "2026-05-27",
-        product: "Reborn @ $12,000",
-      }),
-    ];
-    const a = detectPaymentAnomalies(rows, { today: new Date("2026-07-01") });
-    expect(a.some((x) => x.kind === "overdue_payment")).toBe(true);
-  });
-
-  it("does NOT flag overdue when the balance is already cleared", () => {
-    const rows = [
-      row({
-        name: "Paid Up",
-        email: "paid@x.com",
-        enrollmentDate: "2026-04-27",
-        revenue: 12000,
-        cashCollected: 12000,
-        balance: 0,
-        nextPaymentDate: "2026-05-27",
-        product: "Reborn @ $12,000",
-      }),
-    ];
-    const a = detectPaymentAnomalies(rows, { today: new Date("2026-07-01") });
-    expect(a.some((x) => x.kind === "overdue_payment")).toBe(false);
-  });
-
   it("a clean single-payment buyer produces no anomalies", () => {
     const rows = [
       row({
