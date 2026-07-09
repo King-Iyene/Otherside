@@ -22,7 +22,15 @@ interface Contact {
   items: { source: string; flag: HealthFlag }[];
 }
 
-export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
+export default function HealthPanel({
+  entries,
+  includeChallengeDupes,
+  onToggleChallengeDupes,
+}: {
+  entries: HealthEntry[];
+  includeChallengeDupes?: boolean;
+  onToggleChallengeDupes?: (v: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<FilterKind>("all");
   const [search, setSearch] = useState("");
@@ -81,10 +89,36 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
     return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
   }, [filtered]);
 
+  const challengeToggle = onToggleChallengeDupes ? (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        fontSize: 11,
+        color: "var(--muted)",
+        cursor: "pointer",
+        userSelect: "none",
+        whiteSpace: "nowrap",
+      }}
+      title="Challenge-sheet duplicate registrations are ignored by default because the same person often re-registers across challenges. Turn this on to include them."
+    >
+      <input
+        type="checkbox"
+        checked={!!includeChallengeDupes}
+        onChange={(e) => onToggleChallengeDupes(e.target.checked)}
+      />
+      Include Challenge duplicates
+    </label>
+  ) : null;
+
   if (total === 0) {
     return (
       <div className="panel health-panel">
-        <div className="panel-title">Data Health</div>
+        <div className="panel-header">
+          <div className="panel-title">Data Health</div>
+          {challengeToggle}
+        </div>
         <p style={{ color: "var(--muted)", marginTop: 8 }}>All checks pass — no data quality issues detected.</p>
       </div>
     );
@@ -98,9 +132,12 @@ export default function HealthPanel({ entries }: { entries: HealthEntry[] }) {
         <div className="panel-title">
           Data Health — <span className="health-count">{total}</span> issue{total === 1 ? "" : "s"}
         </div>
-        <button className="link-btn" onClick={() => setOpen((o) => !o)}>
-          {open ? "Hide" : "Show"} details
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {challengeToggle}
+          <button className="link-btn" onClick={() => setOpen((o) => !o)}>
+            {open ? "Hide" : "Show"} details
+          </button>
+        </div>
       </div>
 
       {/* Category summary — visible even when details are collapsed */}

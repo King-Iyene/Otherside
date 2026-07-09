@@ -32,6 +32,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  // Challenge-sheet duplicate registrations are noisy and often expected, so they
+  // are ignored by default. A toggle in the Data Health panel brings them back.
+  const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
 
   const load = useCallback(async (fresh: boolean) => {
     setLoading(true);
@@ -72,10 +75,13 @@ export default function Home() {
       if (r.health.length) entries.push({ source: "Notion · Sales Activity Tracker", id: r.id, label: r.entry || r.id, flags: r.health });
     }
     for (const r of data.challenge.rows) {
-      if (r.health.length) entries.push({ source: "Google Sheet · Challenge Master Cash Tracker", id: r.id, label: r.id, flags: r.health });
+      const flags = includeChallengeDupes
+        ? r.health
+        : r.health.filter((f) => f.kind !== "duplicate_challenge_registration");
+      if (flags.length) entries.push({ source: "Google Sheet · Challenge Master Cash Tracker", id: r.id, label: r.id, flags });
     }
     return entries;
-  }, [data]);
+  }, [data, includeChallengeDupes]);
 
   const rebornCash = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
   const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
@@ -159,7 +165,13 @@ export default function Home() {
             {activeTab === "reconciliation" && <ReconciliationTab />}
             {activeTab === "guide" && <GuideTab />}
 
-            {activeTab !== "guide" && <HealthPanel entries={healthEntries} />}
+            {activeTab !== "guide" && (
+              <HealthPanel
+                entries={healthEntries}
+                includeChallengeDupes={includeChallengeDupes}
+                onToggleChallengeDupes={setIncludeChallengeDupes}
+              />
+            )}
           </>
         )}
       </div>
