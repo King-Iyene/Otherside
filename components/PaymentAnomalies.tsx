@@ -180,7 +180,7 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                             <table>
                               <thead>
                                 <tr>
-                                  <th>Enrollment Date</th>
+                                  <th>Payment Date</th>
                                   <th>Cohort</th>
                                   <th>Product</th>
                                   <th>Revenue</th>

@@ -123,13 +123,13 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
     {
       key: "cashCollectedOnCall",
       label: "Cash on Call",
-      render: (r) => <MoneyCell value={r.cashCollectedOnCall} field="Cash Collected on Call ($)" health={r.health} />,
+      render: (r) => <MoneyCell value={r.cashCollectedOnCall} field="Cash Collected on Call" health={r.health} />,
       sortValue: (r) => r.cashCollectedOnCall,
     },
     {
       key: "salesRevenue",
       label: "Sales Revenue",
-      render: (r) => <MoneyCell value={r.salesRevenue} field="Sales in Revenue ($)" health={r.health} />,
+      render: (r) => <MoneyCell value={r.salesRevenue} field="Sales in Revenue" health={r.health} />,
       sortValue: (r) => r.salesRevenue,
     },
   ];

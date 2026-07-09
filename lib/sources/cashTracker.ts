@@ -14,12 +14,16 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
 
     const name = getTitle(props, "Name");
     const email = getEmail(props, "Email");
-    const enrollmentDate = getDate(props, "Enrollment Date");
+    // The Reborn Cash Tracker has no "Enrollment Date" column — the transaction
+    // date lives in "Payment Date". This is what every time-series chart and
+    // date filter keys on, so read the real column (falling back to created time
+    // downstream via `createdDate`).
+    const enrollmentDate = getDate(props, "Payment Date");
     const revenue = getMoney(props, "Revenue");
     const cashCollected = getMoney(props, "Cash Collected");
     const balance = getMoney(props, "Balance");
 
-    if (!enrollmentDate) health.push({ field: "Enrollment Date", kind: "missing_date", raw: "" });
+    if (!enrollmentDate) health.push({ field: "Payment Date", kind: "missing_date", raw: "" });
     if (revenue.raw && revenue.value === null) {
       health.push({ field: "Revenue", kind: "unparseable_money", raw: revenue.raw });
     }

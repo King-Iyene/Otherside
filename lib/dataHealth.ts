@@ -160,8 +160,8 @@ export function cashRowHealthChecks(row: {
       flags.push({
         field: "Cohort",
         kind: "cohort_window_mismatch",
-        raw: `Tagged ${cohortStatus.name}, enrolled ${row.enrollmentDate} (${expected} window)`,
-        hint: `In Notion, this person's Cohort is set to "${cohortStatus.name}" — but their Enrollment Date (${row.enrollmentDate}) actually falls inside the "${expected}" launch's date range, not "${cohortStatus.name}"'s. One of the two is wrong. FIX: Open Notion → "Reborn Cash Tracker" → search Name for this person → check with them which launch they were actually in, then either change Cohort to "${expected}" (if the date is right) or fix the Enrollment Date (if the Cohort tag is right).`,
+        raw: `Tagged ${cohortStatus.name}, paid ${row.enrollmentDate} (${expected} window)`,
+        hint: `In Notion, this person's Cohort is set to "${cohortStatus.name}" — but their Payment Date (${row.enrollmentDate}) actually falls inside the "${expected}" launch's date range, not "${cohortStatus.name}"'s. One of the two is wrong. FIX: Open Notion → "Reborn Cash Tracker" → search Name for this person → check with them which launch they were actually in, then either change Cohort to "${expected}" (if the date is right) or fix the Payment Date (if the Cohort tag is right).`,
       });
     }
   }
