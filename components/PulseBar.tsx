@@ -50,12 +50,12 @@ export default function PulseBar({
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
-              fontSize: 10,
-              fontWeight: 700,
-              color: "#04241b",
-              background: "linear-gradient(135deg, #34e0a1, #10b981 55%, #06b6d4)",
+              fontSize: 10.5,
+              fontWeight: 800,
+              color: "#1a1400",
+              background: "linear-gradient(135deg, #ffe066, #ffc400 55%, #ffab00)",
               textTransform: "uppercase",
-              letterSpacing: 0.04,
+              letterSpacing: 0.03,
               alignSelf: "center",
               marginRight: 6,
               padding: "4px 10px",
@@ -64,8 +64,8 @@ export default function PulseBar({
             }}
             title="Cash Collected in this top bar is the all-time total across BOTH revenue streams — Reborn + Challenge. Revenue Booked and Outstanding are Reborn only."
           >
-            <span aria-hidden="true">✦</span>
             {scopeNote}
+            <span aria-hidden="true" style={{ fontSize: 12, fontWeight: 900 }}>→</span>
           </span>
         )}
         <div className="pulse-metric">
@@ -78,7 +78,9 @@ export default function PulseBar({
         </div>
         <div className="pulse-metric">
           <span className="pulse-metric-label">Outstanding</span>
-          <span className="pulse-metric-value red mono">{formatMoney(outstanding)}</span>
+          <span className="pulse-metric-value mono" style={{ color: "#ff8a3d" }}>
+            {formatMoney(outstanding)}
+          </span>
         </div>
         {dataQualityIssues !== undefined && (
           <button

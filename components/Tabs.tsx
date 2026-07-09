@@ -6,7 +6,7 @@ export type TabKey = (typeof TAB_KEYS)[number];
 const LABELS: Record<TabKey, string> = {
   overview: "Overview",
   insights: "Insights ✦",
-  cash: "Cash",
+  cash: "Reborn Cash",
   payments: "Payments 🚩",
   appointments: "Appointments",
   applications: "Applications",
