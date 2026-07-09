@@ -37,6 +37,9 @@ export interface CashRow extends BaseRow {
   product: string | null;
   cohort: string | null;
   enrollmentDate: string | null;
+  /** Notion page created time — a reliable date fallback for time charts when
+   *  Enrollment Date is blank. */
+  createdDate?: string | null;
   revenue: number | null;
   cashCollected: number | null;
   balance: number | null;

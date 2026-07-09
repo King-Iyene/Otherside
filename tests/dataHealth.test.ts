@@ -5,8 +5,10 @@ import {
   cashRowHealthChecks,
   appointmentRowHealthChecks,
   flagDuplicateCashEmails,
+  flagDuplicateChallengeRegistrations,
   reconcileCrossSourceCohortFlags,
 } from "../lib/dataHealth";
+import type { ChallengeRow as ChallengeRowType } from "../lib/types";
 import type { CashRow, ChallengeRow } from "../lib/types";
 
 describe("classifyCohort", () => {
@@ -239,6 +241,38 @@ describe("reconcileCrossSourceCohortFlags", () => {
     ];
     reconcileCrossSourceCohortFlags(cash, challenge);
     expect(cash[0].health.some((f) => f.kind === "inconsistent_cohort")).toBe(true);
+  });
+});
+
+describe("flagDuplicateChallengeRegistrations", () => {
+  const mk = (email: string, challenge: string, product: string, amount: number): ChallengeRowType =>
+    ({ id: Math.random().toString(), isTest: false, health: [], Email: email, Challenge: challenge, Product: product, Amount: amount } as any);
+
+  it("does NOT flag the same email in two different challenges (Erupt 1 vs Erupt 2)", () => {
+    const rows = [
+      mk("raazik@x.com", "Erupt 1", "Activation", 97),
+      mk("raazik@x.com", "Erupt 2", "Activation", 97),
+    ];
+    flagDuplicateChallengeRegistrations(rows);
+    expect(rows.some((r) => r.health.some((f) => f.kind === "duplicate_challenge_registration"))).toBe(false);
+  });
+
+  it("does NOT flag different products/amounts (Activation $97 vs VIP $197)", () => {
+    const rows = [
+      mk("someone@x.com", "Erupt 3", "ERUPT Activation", 97),
+      mk("someone@x.com", "Erupt 3", "ERUPT VIP Upgrade", 197),
+    ];
+    flagDuplicateChallengeRegistrations(rows);
+    expect(rows.some((r) => r.health.some((f) => f.kind === "duplicate_challenge_registration"))).toBe(false);
+  });
+
+  it("DOES flag a truly identical repeat (same challenge, product, amount)", () => {
+    const rows = [
+      mk("dup@x.com", "Erupt 3", "ERUPT Activation", 97),
+      mk("dup@x.com", "Erupt 3", "ERUPT Activation", 97),
+    ];
+    flagDuplicateChallengeRegistrations(rows);
+    expect(rows.every((r) => r.health.some((f) => f.kind === "duplicate_challenge_registration"))).toBe(true);
   });
 });
 

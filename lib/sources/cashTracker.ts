@@ -59,6 +59,7 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
       product: getRichText(props, "Product"),
       cohort,
       enrollmentDate,
+      createdDate: (page as any).created_time ?? null,
       revenue: revenue.value,
       cashCollected: cashCollected.value,
       balance: balance.value,

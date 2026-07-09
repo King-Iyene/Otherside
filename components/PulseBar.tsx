@@ -46,9 +46,25 @@ export default function PulseBar({
         {scopeNote && (
           <span
             className="pulse-scope-note"
-            style={{ fontSize: 9, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.06, alignSelf: "center", marginRight: 4 }}
-            title="Cash Collected here is the all-time total across Reborn + Challenge. Revenue Booked and Outstanding are Reborn only."
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#04241b",
+              background: "linear-gradient(135deg, #34e0a1, #10b981 55%, #06b6d4)",
+              textTransform: "uppercase",
+              letterSpacing: 0.04,
+              alignSelf: "center",
+              marginRight: 6,
+              padding: "4px 10px",
+              borderRadius: 999,
+              whiteSpace: "nowrap",
+            }}
+            title="Cash Collected in this top bar is the all-time total across BOTH revenue streams — Reborn + Challenge. Revenue Booked and Outstanding are Reborn only."
           >
+            <span aria-hidden="true">✦</span>
             {scopeNote}
           </span>
         )}
