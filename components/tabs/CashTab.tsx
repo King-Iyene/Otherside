@@ -169,8 +169,8 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
     { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
     {
       key: "enrollmentDate",
-      label: "Enrollment Date",
-      render: (r) => <DateCell value={r.enrollmentDate} field="Enrollment Date" health={r.health} />,
+      label: "Payment Date",
+      render: (r) => <DateCell value={r.enrollmentDate} field="Payment Date" health={r.health} />,
       sortValue: (r) => r.enrollmentDate,
     },
     {
@@ -233,7 +233,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             label: "Revenue",
             value: formatMoney(totalRevenue),
             delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Enrollment Date in period" },
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Payment Date in period" },
             onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", filtered),
           },
           {

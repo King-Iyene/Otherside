@@ -12,15 +12,15 @@ export async function fetchSalesActivity(token: string): Promise<SourceResult<Sa
 
     const entry = getTitle(props, "Entry");
     const date = getDate(props, "Date");
-    const cashCollectedOnCall = getMoney(props, "Cash Collected on Call ($)");
-    const salesRevenue = getMoney(props, "Sales in Revenue ($)");
+    const cashCollectedOnCall = getMoney(props, "Cash Collected on Call");
+    const salesRevenue = getMoney(props, "Sales in Revenue");
 
     if (!date) health.push({ field: "Date", kind: "missing_date", raw: "" });
     if (cashCollectedOnCall.raw && cashCollectedOnCall.value === null) {
-      health.push({ field: "Cash Collected on Call ($)", kind: "unparseable_money", raw: cashCollectedOnCall.raw });
+      health.push({ field: "Cash Collected on Call", kind: "unparseable_money", raw: cashCollectedOnCall.raw });
     }
     if (salesRevenue.raw && salesRevenue.value === null) {
-      health.push({ field: "Sales in Revenue ($)", kind: "unparseable_money", raw: salesRevenue.raw });
+      health.push({ field: "Sales in Revenue", kind: "unparseable_money", raw: salesRevenue.raw });
     }
 
     return {
