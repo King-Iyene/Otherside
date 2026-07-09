@@ -41,6 +41,7 @@ import type {
 
 import { COHORTS } from "./cohortFunnel";
 import { extractLaunch, subOfferOf } from "./launchNames";
+import { detectChallengeColumns, parseAmount } from "./challengeColumns";
 
 export { subOfferOf };
 
@@ -198,8 +199,8 @@ export function cashRowHealthChecks(row: {
     flags.push({
       field: "Cash Collected",
       kind: "cash_gt_revenue",
-      raw: `Cash $${row.cashCollected} > Revenue $${row.revenue}`,
-      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. Cash Collected ($${row.cashCollected}) is bigger than Revenue ($${row.revenue}) — arithmetically impossible. One of the two numbers is wrong.`,
+      raw: `Collected $${row.cashCollected} but deal size is only $${row.revenue}`,
+      hint: `This person has PAID more than the deal was sold for: Cash Collected = $${row.cashCollected}, but the deal size (Revenue) = $${row.revenue}. You can't collect more than the price — so one number is a typo. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this person → correct either the Cash Collected or the Revenue so Cash is not bigger than Revenue.`,
     });
   }
 
@@ -317,36 +318,47 @@ export function flagDuplicateApplications(apps: ApplicationRow[]): void {
  *  once. Same email on multiple different products is fine (they took
  *  Penetrate then Erupt), same email on the same product is a dupe. */
 export function flagDuplicateChallengeRegistrations(challenge: ChallengeRow[]): void {
-  const counts = new Map<string, number>();
+  if (!challenge.length) return;
+  const cols = Object.keys(challenge[0]).filter((k) => !["id", "isTest", "health", "url"].includes(k));
+  const roles = detectChallengeColumns(cols, challenge);
+
   const emailOf = (r: ChallengeRow) => {
+    if (roles.email) return norm(r[roles.email]);
     for (const k of Object.keys(r)) if (k.toLowerCase().includes("email")) return norm(r[k]);
     return "";
   };
-  const productOf = (r: ChallengeRow) => {
-    for (const k of Object.keys(r)) {
-      const lk = k.toLowerCase();
-      if (lk === "product" || lk === "challange" || lk === "challenge") return String(r[k] ?? "").toLowerCase();
-    }
-    return "";
+  // A real duplicate is the SAME person + SAME challenge + SAME product + SAME
+  // amount. Different challenges (Erupt 1 vs Erupt 2) or different products /
+  // amounts (Activation $97 vs VIP $197) are separate, legitimate purchases —
+  // NOT duplicates. So the signature keys on all three, not one blended field.
+  const sig = (r: ChallengeRow) => ({
+    challenge: roles.challenge ? norm(r[roles.challenge]) : "",
+    product: roles.product ? norm(r[roles.product]) : "",
+    amount: roles.amount ? String(parseAmount(r[roles.amount]) ?? "") : "",
+  });
+  const keyOf = (r: ChallengeRow) => {
+    const s = sig(r);
+    return `${emailOf(r)}||${s.challenge}||${s.product}||${s.amount}`;
   };
+
+  const counts = new Map<string, number>();
   for (const r of challenge) {
-    const e = emailOf(r);
-    const p = productOf(r);
-    if (!e || !p) continue;
-    const key = `${e}||${p}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (!emailOf(r)) continue;
+    const k = keyOf(r);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   for (const r of challenge) {
     const e = emailOf(r);
-    const p = productOf(r);
-    if (!e || !p) continue;
-    const count = counts.get(`${e}||${p}`) ?? 0;
+    if (!e) continue;
+    const count = counts.get(keyOf(r)) ?? 0;
     if (count > 1) {
+      const s = sig(r);
+      const what = [s.product, s.challenge, s.amount ? `$${s.amount}` : ""].filter(Boolean).join(" · ") || "the same registration";
       r.health.push({
         field: "Email",
         kind: "duplicate_challenge_registration",
-        raw: `${e} registered ${count}× for the same product`,
-        hint: `Open the Google Sheet "Challenge Master Cash Tracker" → filter Email = "${e}" → they registered ${count} times for the same Product. Different products for the same email are fine (Penetrate then Erupt is a real sequence); same product twice is usually a duplicate to delete.`,
+        raw: `${e} appears ${count}× for the exact same thing (${what})`,
+        hint: `Open the Google Sheet "Challenge Master Cash Tracker" → filter Email = "${e}". This person has ${count} rows that are identical — same challenge, same product, AND same amount (${what}) — so it's a true duplicate to delete. (Signing up for a different challenge, e.g. Erupt 1 then Erupt 2, or a different offer, e.g. Activation $97 then VIP $197, is NOT flagged — those are separate real purchases.)`,
       });
     }
   }
@@ -448,7 +460,7 @@ export const HEALTH_LABELS: Record<HealthFlagKind, { label: string; tone: "red" 
   cohort_window_mismatch: { label: "TAG ≠ WINDOW", tone: "amber" },
   empty_enrollment_row: { label: "EMPTY ROW", tone: "red" },
   zero_revenue_enrollment: { label: "$0 DEAL", tone: "red" },
-  cash_gt_revenue: { label: "CASH > REVENUE", tone: "red" },
+  cash_gt_revenue: { label: "PAID > PRICE", tone: "red" },
   outstanding_no_next_payment: { label: "OWES + NO DATE", tone: "amber" },
   showed_no_status: { label: "CALL NO STATUS", tone: "amber" },
   missing_income_bracket: { label: "NO INCOME", tone: "muted" },

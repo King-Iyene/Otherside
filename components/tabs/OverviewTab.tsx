@@ -193,6 +193,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
 
   const statuses = Array.from(new Set(stats.apptRows.map((r) => r.status).filter(Boolean))) as string[];
 
+
   // Sparklines
   const sparkCash = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.cashCollected ?? 0);
   const sparkRevenue = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.revenue ?? 0);
@@ -239,6 +240,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       >
         <HeroCard
           label="Cash Collected"
+          sublabel="Reborn only"
           value={formatMoney(stats.cashCollected)}
           target={bench.monthlyCashCollected}
           current={stats.cashCollected}
@@ -251,6 +253,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
         <HeroCard
           label="Revenue Booked"
+          sublabel="Reborn only"
           value={formatMoney(stats.revenue)}
           target={bench.monthlyRevenueBooked}
           current={stats.revenue}
@@ -263,6 +266,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
         <HeroCard
           label="Enrollments"
+          sublabel="Reborn only"
           value={formatNumber(stats.enrollments)}
           target={bench.monthlyEnrollments}
           current={stats.enrollments}
@@ -275,6 +279,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
         <HeroCard
           label="Outstanding"
+          sublabel="Reborn only"
           value={formatMoney(stats.balance)}
           target={0}
           current={stats.balance}
@@ -374,7 +379,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash Collected"
-          points={stats.cashRows.map((r) => ({ date: r.enrollmentDate, value: r.cashCollected ?? 0 }))}
+          points={stats.cashRows.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.cashCollected ?? 0 }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
@@ -495,6 +500,7 @@ function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]
 
 interface HeroCardProps {
   label: string;
+  sublabel?: string;
   value: string;
   target: number;
   current: number;
@@ -510,6 +516,7 @@ interface HeroCardProps {
 
 function HeroCard({
   label,
+  sublabel,
   value,
   target,
   current,
@@ -540,7 +547,10 @@ function HeroCard({
     >
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color, opacity: 0.7 }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.1 }}>{label}</div>
+        <div>
+          <div style={{ color: "var(--muted)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.1 }}>{label}</div>
+          {sublabel && <div style={{ color: "var(--text-dim)", fontSize: 9, marginTop: 1 }}>{sublabel}</div>}
+        </div>
         {sparkline.length > 1 && <Sparkline values={sparkline} color={color} width={70} height={22} />}
       </div>
       <div className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text)" }}>
