@@ -884,14 +884,16 @@ tbody tr.test-row { opacity: 0.5; }
   border-radius: 10px 10px 0 0;
 }
 
-/* Bright, gently pulsing badge for the all-time scope note in the pulse bar */
+/* Bright, gently pulsing text for the all-time scope note in the pulse bar */
 @keyframes scopeGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 1px rgba(255, 196, 0, 0.5), 0 0 10px -2px rgba(255, 196, 0, 0.6);
+    opacity: 0.82;
+    text-shadow: 0 0 8px rgba(255, 196, 0, 0.25);
   }
   50% {
-    box-shadow: 0 0 0 1px rgba(255, 224, 102, 0.9), 0 0 18px 0 rgba(255, 171, 0, 0.9);
+    opacity: 1;
+    text-shadow: 0 0 14px rgba(255, 196, 0, 0.55);
   }
 }
 .pulse-scope-note {

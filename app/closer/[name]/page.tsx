@@ -79,7 +79,6 @@ export default function CloserScorecardPage({ params }: { params: { name: string
       <PulseBar
         cashCollected={cashCollectedTotal}
         revenueBooked={revenueBookedTotal}
-        outstanding={outstandingTotal}
         updatedAt={data?.generatedAt ?? null}
         loading={loading}
         onRefresh={() => load(true)}
