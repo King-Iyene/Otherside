@@ -204,16 +204,6 @@ export function cashRowHealthChecks(row: {
     });
   }
 
-  // Outstanding balance with no next payment date scheduled
-  if (row.balance !== null && row.balance > 0 && !row.nextPaymentDate) {
-    flags.push({
-      field: "Date of Next Payment",
-      kind: "outstanding_no_next_payment",
-      raw: `Balance $${row.balance}`,
-      hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. They owe $${row.balance} but "Date of Next Payment" is blank. Set the next collection date so accounts receivable doesn't lose track.`,
-    });
-  }
-
   return flags;
 }
 
@@ -461,7 +451,6 @@ export const HEALTH_LABELS: Record<HealthFlagKind, { label: string; tone: "red" 
   empty_enrollment_row: { label: "EMPTY ROW", tone: "red" },
   zero_revenue_enrollment: { label: "$0 DEAL", tone: "red" },
   cash_gt_revenue: { label: "PAID > PRICE", tone: "red" },
-  outstanding_no_next_payment: { label: "OWES + NO DATE", tone: "amber" },
   showed_no_status: { label: "CALL NO STATUS", tone: "amber" },
   missing_income_bracket: { label: "NO INCOME", tone: "muted" },
 };

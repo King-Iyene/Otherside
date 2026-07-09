@@ -13,7 +13,7 @@ import { extractLaunch } from "./launchNames";
  *  • Two identical rows (same date + amount) — a duplicated installment.
  */
 
-export type PaymentAnomalyKind = "plan_total_mismatch" | "cohort_split" | "overdue_payment" | "duplicate_row";
+export type PaymentAnomalyKind = "plan_total_mismatch" | "cohort_split" | "duplicate_row";
 
 export interface PaymentAnomaly {
   person: string;
@@ -26,7 +26,6 @@ export interface PaymentAnomaly {
 export const PAYMENT_ANOMALY_LABELS: Record<PaymentAnomalyKind, { label: string; tone: "red" | "amber" }> = {
   plan_total_mismatch: { label: "TOTAL ≠ PLAN", tone: "red" },
   cohort_split: { label: "COHORT SPLIT", tone: "amber" },
-  overdue_payment: { label: "PAYMENT MISSING", tone: "red" },
   duplicate_row: { label: "DUPLICATE ROW", tone: "amber" },
 };
 
@@ -97,7 +96,6 @@ export function detectPaymentAnomalies(
   opts: { includeTest?: boolean; today?: Date } = {}
 ): PaymentAnomaly[] {
   const rows = opts.includeTest ? cash : cash.filter((r) => !r.isTest);
-  const today = opts.today ?? new Date();
   const out: PaymentAnomaly[] = [];
 
   for (const group of groupByPerson(rows)) {
@@ -161,24 +159,6 @@ export function detectPaymentAnomalies(
       }
     }
 
-    // ── Overdue / missing scheduled payment ──────────────────────────
-    for (const r of group) {
-      if (!r.nextPaymentDate) continue;
-      const due = new Date(r.nextPaymentDate);
-      if (Number.isNaN(due.getTime())) continue;
-      if (due.getTime() < today.getTime() && (r.balance ?? 0) > 0) {
-        out.push({
-          person,
-          email,
-          kind: "overdue_payment",
-          detail: `A payment was due ${r.nextPaymentDate} and they still owe ${fmt(
-            r.balance ?? 0
-          )}, but no newer payment is recorded. Chase the missing installment or update the record.`,
-          rows: [r],
-        });
-        break; // one overdue flag per person
-      }
-    }
   }
 
   return out;

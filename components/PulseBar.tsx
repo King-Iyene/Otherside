@@ -2,6 +2,7 @@
 
 import { formatMoney } from "@/lib/money";
 import ThemeToggle from "./ThemeToggle";
+import Logo from "./Logo";
 
 interface Props {
   cashCollected: number;
@@ -37,8 +38,7 @@ export default function PulseBar({
   return (
     <div className="pulse-bar">
       <div className="pulse-brand">
-        <span className="pulse-brand-mark" />
-        OTHERSIDE
+        <Logo size={30} />
       </div>
       <div className="pulse-metrics">
         {scopeNote && (

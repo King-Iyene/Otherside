@@ -10,7 +10,6 @@ export type HealthFlagKind =
   | "duplicate_challenge_registration"
   | "zero_revenue_enrollment"
   | "cash_gt_revenue"
-  | "outstanding_no_next_payment"
   | "showed_no_status"
   | "missing_income_bracket"
   | "cohort_window_mismatch"

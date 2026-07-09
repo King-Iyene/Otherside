@@ -75,7 +75,6 @@ function computeStats(
     salesRows,
     cashCollected: sum(cashRows.map((r) => r.cashCollected)),
     revenue: sum(cashRows.map((r) => r.revenue)),
-    balance: sum(cashRows.map((r) => r.balance)),
     enrollments: uniqueEnrollments(cashRows),
     appointments: apptRows.length,
     showedCount,
@@ -276,21 +275,6 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           sparkline={sparkCash.map(() => 1)}
           color="var(--accent)"
           delta={prevStats && computeDelta(stats.enrollments, prevStats.enrollments)}
-          compareLabel={compareLabel}
-        />
-        <HeroCard
-          label="Outstanding"
-          sublabel="Reborn only"
-          value={formatMoney(stats.balance)}
-          target={0}
-          current={stats.balance}
-          pace={null}
-          formatter={(v) => formatMoney(v)}
-          sparkline={[]}
-          color="var(--red)"
-          delta={prevStats && computeDelta(stats.balance, prevStats.balance)}
-          higherIsBetter={false}
-          hidePaceBar
           compareLabel={compareLabel}
         />
       </div>

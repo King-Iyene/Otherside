@@ -89,8 +89,8 @@ const SECTIONS: Section[] = [
         <Formula>change % = (current − baseline) ÷ baseline</Formula>
         <P>
           It reads <B>n/a</B> when the baseline period has no data — e.g. a year-over-year comparison for a month before the
-          business existed. Green vs red follows whether “up” is good for that metric — for <B>Outstanding</B>, up is bad, so
-          the colors flip.
+          business existed. Green vs red follows whether “up” is good for that metric — more cash and enrollments is good, so
+          up is green.
         </P>
       </>
     ),
@@ -129,9 +129,9 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <P>
-          The big picture in one screen. The four large cards at the top — <B>Cash Collected, Revenue Booked, Enrollments,
-          Outstanding</B> — are the <B>Reborn</B> business over the date range you picked. Each has a small bar showing progress
-          toward the monthly target, and a mini trend line.
+          The big picture in one screen. The large cards at the top — <B>Cash Collected, Revenue Booked, Enrollments</B> — are
+          the <B>Reborn</B> business over the date range you picked. Each has a small bar showing progress toward the monthly
+          target, and a mini trend line.
         </P>
         <P>
           Just below, the <B>All-time</B> strips ignore the date filter on purpose and always show lifetime totals (including
@@ -145,9 +145,6 @@ const SECTIONS: Section[] = [
           <li>
             <B>Enrollments</B> = how many real, different people bought (same person paying twice counts once; blank rows don’t
             count).
-          </li>
-          <li>
-            <B>Outstanding</B> = money customers still owe you.
           </li>
           <li>The coloured band underneath flags big moves — cash down 20%+, show-rate drops — with a likely reason.</li>
         </List>
@@ -333,7 +330,7 @@ const SECTIONS: Section[] = [
             <B>TAG ≠ WINDOW</B> — the launch tag disagrees with the enrollment date (the “Javid” case).
           </li>
           <li>
-            <B>CASH &gt; REVENUE</B>, <B>$0 DEAL</B>, <B>OWES + NO DATE</B>, <B>DUPLICATE…</B> — arithmetic and duplicate checks.
+            <B>PAID &gt; PRICE</B>, <B>$0 DEAL</B>, <B>DUPLICATE…</B> — arithmetic and duplicate checks.
           </li>
         </List>
       </>

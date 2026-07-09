@@ -114,11 +114,6 @@ describe("cashRowHealthChecks", () => {
     expect(flags.some((f) => f.kind === "cash_gt_revenue")).toBe(true);
   });
 
-  it("flags outstanding balance with no next payment", () => {
-    const flags = cashRowHealthChecks({ ...base, nextPaymentDate: null });
-    expect(flags.some((f) => f.kind === "outstanding_no_next_payment")).toBe(true);
-  });
-
   it("does NOT flag zero revenue when no cash was collected", () => {
     const flags = cashRowHealthChecks({ ...base, revenue: null, cashCollected: null, balance: null });
     expect(flags.some((f) => f.kind === "zero_revenue_enrollment")).toBe(false);
