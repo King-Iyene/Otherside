@@ -54,18 +54,20 @@ export default function NotionDiagnosticsPanel({ alwaysShow = false }: { alwaysS
   const anyTargetFailing = data.targets.some((t) => !t.ok);
   const hasIssue = !!data.tokenError || anyTargetFailing || !data.bot;
 
-  if (!hasIssue && !alwaysShow) {
-    // Compact status pill only
+  // When everything is healthy, stay collapsed to a quiet status pill — no
+  // "Connect" button (nothing to fix). The full panel + Connect button only
+  // appear when there's an actual access problem.
+  if (!hasIssue) {
     return (
       <div
         className="panel"
         style={{
           marginBottom: 12,
-          padding: "10px 14px",
+          padding: "8px 14px",
           display: "flex",
           alignItems: "center",
           gap: 12,
-          borderColor: "rgba(69, 208, 147, 0.3)",
+          borderColor: "rgba(69, 208, 147, 0.25)",
         }}
       >
         <span className="badge" style={{ color: "var(--green)", border: "1px solid var(--green)" }}>
@@ -82,11 +84,9 @@ export default function NotionDiagnosticsPanel({ alwaysShow = false }: { alwaysS
             {busy ? "Disconnecting…" : "Disconnect"}
           </button>
         )}
-        {data.authMode === "env" && (
-          <button className="link-btn" onClick={connect}>
-            Connect my own account instead
-          </button>
-        )}
+        <button className="link-btn" onClick={load} disabled={loading}>
+          {loading ? "Re-checking…" : "Re-check"}
+        </button>
       </div>
     );
   }
