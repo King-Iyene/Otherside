@@ -80,11 +80,11 @@ export default function Home() {
   const rebornCash = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
   const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
   // Top header is the all-time pulse — Cash Collected combines both revenue
-  // streams (Reborn + Challenge) so it's the true total. Revenue Booked and
-  // Outstanding are Reborn-only concepts.
+  // streams (Reborn + Challenge) so it's the true total. Revenue Booked is
+  // Reborn only. (Outstanding intentionally omitted: once the cash tracker logs
+  // every installment on its own row, a per-row balance can't be trusted.)
   const cashCollected = rebornCash + challengeCash;
   const revenueBooked = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.revenue)) : 0;
-  const outstanding = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.balance)) : 0;
 
   const sourceErrors = data
     ? (["cash", "appointments", "applications", "salesActivity", "challenge"] as const)
@@ -101,7 +101,6 @@ export default function Home() {
       <PulseBar
         cashCollected={cashCollected}
         revenueBooked={revenueBooked}
-        outstanding={outstanding}
         updatedAt={data?.generatedAt ?? null}
         loading={loading}
         onRefresh={() => load(true)}

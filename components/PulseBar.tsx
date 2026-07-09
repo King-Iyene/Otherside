@@ -6,7 +6,6 @@ import ThemeToggle from "./ThemeToggle";
 interface Props {
   cashCollected: number;
   revenueBooked: number;
-  outstanding: number;
   updatedAt: number | null;
   loading: boolean;
   onRefresh: () => void;
@@ -20,7 +19,6 @@ interface Props {
 export default function PulseBar({
   cashCollected,
   revenueBooked,
-  outstanding,
   updatedAt,
   loading,
   onRefresh,
@@ -49,23 +47,21 @@ export default function PulseBar({
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 5,
-              fontSize: 10.5,
+              gap: 8,
+              fontSize: 11,
               fontWeight: 800,
-              color: "#1a1400",
-              background: "linear-gradient(135deg, #ffe066, #ffc400 55%, #ffab00)",
+              color: "#ffcf33",
               textTransform: "uppercase",
-              letterSpacing: 0.03,
+              letterSpacing: 0.04,
               alignSelf: "center",
-              marginRight: 6,
-              padding: "4px 10px",
-              borderRadius: 999,
+              marginRight: 10,
               whiteSpace: "nowrap",
+              textShadow: "0 0 10px rgba(255,196,0,0.35)",
             }}
-            title="Cash Collected in this top bar is the all-time total across BOTH revenue streams — Reborn + Challenge. Revenue Booked and Outstanding are Reborn only."
+            title="Cash Collected in this top bar is the all-time total across BOTH revenue streams — Reborn + Challenge. Revenue Booked is Reborn only."
           >
             {scopeNote}
-            <span aria-hidden="true" style={{ fontSize: 12, fontWeight: 900 }}>→</span>
+            <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, lineHeight: 1 }}>⟶</span>
           </span>
         )}
         <div className="pulse-metric">
@@ -75,12 +71,6 @@ export default function PulseBar({
         <div className="pulse-metric">
           <span className="pulse-metric-label">Revenue Booked</span>
           <span className="pulse-metric-value blue mono">{formatMoney(revenueBooked)}</span>
-        </div>
-        <div className="pulse-metric">
-          <span className="pulse-metric-label">Outstanding</span>
-          <span className="pulse-metric-value mono" style={{ color: "#ff8a3d" }}>
-            {formatMoney(outstanding)}
-          </span>
         </div>
         {dataQualityIssues !== undefined && (
           <button
