@@ -15,6 +15,8 @@ import BreakdownChart from "../BreakdownChart";
 import FunnelChart from "../FunnelChart";
 import BulletChart from "../BulletChart";
 import Sparkline from "../Sparkline";
+import DrillDownModal from "../DrillDownModal";
+import DataTable, { type Column } from "../DataTable";
 
 interface Props {
   cash: CashRow[];
@@ -22,7 +24,6 @@ interface Props {
   applications: ApplicationRow[];
   salesActivity: SalesActivityRow[];
   challenge?: ChallengeRow[];
-  onNavigate?: (tab: string) => void;
 }
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
@@ -170,12 +171,13 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
   return signals;
 }
 
-export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [], onNavigate }: Props) {
+export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [] }: Props) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("prev");
+  const [apptDrill, setApptDrill] = useState<{ title: string; rows: AppointmentRow[] } | null>(null);
 
   const bench = useMemo(() => getBenchmarks(), []);
   const { from, to } = resolveRange(preset, customFrom, customTo);
@@ -368,24 +370,13 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
-        <div
-          role={onNavigate ? "button" : undefined}
-          tabIndex={onNavigate ? 0 : undefined}
-          onClick={() => onNavigate?.("appointments")}
-          onKeyDown={(e) => {
-            if (onNavigate && (e.key === "Enter" || e.key === " ")) {
-              e.preventDefault();
-              onNavigate("appointments");
-            }
-          }}
-          style={{ cursor: onNavigate ? "pointer" : "default" }}
-          title={onNavigate ? "Open the Appointments tab" : undefined}
-        >
-          <BreakdownChart
-            title="Appointments by Status ↗"
-            items={statuses.map((s) => ({ key: s, value: stats.apptRows.filter((r) => r.status === s).length }))}
-          />
-        </div>
+        <BreakdownChart
+          title="Appointments by Status"
+          items={statuses.map((s) => ({ key: s, value: stats.apptRows.filter((r) => r.status === s).length }))}
+          onSelect={(s) =>
+            setApptDrill({ title: `Appointments — ${s}`, rows: stats.apptRows.filter((r) => r.status === s) })
+          }
+        />
       </div>
 
       <div style={{ marginBottom: 8 }}>
@@ -406,9 +397,35 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       </div>
 
       <ChallengeToRebornPanel challenge={challenge} cash={cash} />
+
+      <DrillDownModal
+        open={!!apptDrill}
+        onClose={() => setApptDrill(null)}
+        title={apptDrill?.title || ""}
+        subtitle={apptDrill ? `${apptDrill.rows.length} appointments` : ""}
+      >
+        <DataTable
+          columns={APPT_COLUMNS}
+          rows={apptDrill?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, phone, cohort, closer, status…"
+        />
+      </DrillDownModal>
     </div>
   );
 }
+
+const APPT_COLUMNS: Column<AppointmentRow>[] = [
+  { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+  { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+  { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
+  { key: "appointmentTime", label: "Appointment Time", render: (r) => r.appointmentTime || "—", sortValue: (r) => r.appointmentTime },
+  { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
+  { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+  { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+];
 
 function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]; cash: CashRow[] }) {
   const analysis = useMemo(() => analyzeChallengeToReborn(challenge, cash), [challenge, cash]);

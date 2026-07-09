@@ -133,7 +133,6 @@ export default function Home() {
                 applications={data.applications.rows}
                 salesActivity={data.salesActivity.rows}
                 challenge={data.challenge.rows}
-                onNavigate={(t) => setActiveTab(t as TabKey)}
               />
             )}
             {activeTab === "insights" && (
