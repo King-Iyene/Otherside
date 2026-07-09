@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { HealthFlag, HealthFlagKind } from "@/lib/types";
 import { HEALTH_LABELS } from "@/lib/dataHealth";
 import { urlForSource } from "@/lib/sourceLinks";
+import type { ColumnWarning } from "@/lib/schemaHealth";
 import HowToFixTip from "@/components/HowToFixTip";
 
 export interface HealthEntry {
@@ -26,10 +27,12 @@ export default function HealthPanel({
   entries,
   includeChallengeDupes,
   onToggleChallengeDupes,
+  columnWarnings = [],
 }: {
   entries: HealthEntry[];
   includeChallengeDupes?: boolean;
   onToggleChallengeDupes?: (v: boolean) => void;
+  columnWarnings?: ColumnWarning[];
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<FilterKind>("all");
@@ -112,6 +115,42 @@ export default function HealthPanel({
     </label>
   ) : null;
 
+  const schemaBanner = columnWarnings.length > 0 ? (
+    <div
+      style={{
+        marginTop: 12,
+        border: "1px solid var(--red)",
+        borderRadius: 10,
+        background: "color-mix(in srgb, var(--red) 12%, transparent)",
+        padding: "12px 14px",
+      }}
+    >
+      <div style={{ fontWeight: 700, color: "var(--red)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+        ⚠ Broken data connection — a whole column is coming back empty
+      </div>
+      <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 4 }}>
+        Every row is missing the column(s) below, which almost always means the column was renamed or removed at the source.
+        The affected numbers will read $0 or blank until this is fixed.
+      </div>
+      <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+        {columnWarnings.map((w, i) => {
+          const link = urlForSource(w.source);
+          return (
+            <li key={i} style={{ fontSize: 12, color: "var(--text)" }}>
+              <strong>{w.source}</strong> → column <span className="mono" style={{ color: "var(--red)" }}>&quot;{w.column}&quot;</span>{" "}
+              is empty on all {w.rowCount} rows.{" "}
+              {link && (
+                <a href={link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "none" }}>
+                  open source ↗
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  ) : null;
+
   if (total === 0) {
     return (
       <div className="panel health-panel">
@@ -119,7 +158,10 @@ export default function HealthPanel({
           <div className="panel-title">Data Health</div>
           {challengeToggle}
         </div>
-        <p style={{ color: "var(--muted)", marginTop: 8 }}>All checks pass — no data quality issues detected.</p>
+        {schemaBanner}
+        {!schemaBanner && (
+          <p style={{ color: "var(--muted)", marginTop: 8 }}>All checks pass — no data quality issues detected.</p>
+        )}
       </div>
     );
   }
@@ -139,6 +181,8 @@ export default function HealthPanel({
           </button>
         </div>
       </div>
+
+      {schemaBanner}
 
       {/* Category summary — visible even when details are collapsed */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
