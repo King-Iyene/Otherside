@@ -223,18 +223,18 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       <KpiGrid
         items={[
           {
-            label: "Revenue",
-            value: formatMoney(totalRevenue),
-            delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Enrollment Date in period" },
-            onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", filtered),
-          },
-          {
             label: "Cash Collected",
             value: formatMoney(totalCash),
             delta: prevTotals && computeDelta(totalCash, prevTotals.cash),
             source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: "SUM(Cash Collected)" },
             onClick: () => openDrilldown("Cash Collected — Enrollments", undefined, filtered),
+          },
+          {
+            label: "Revenue",
+            value: formatMoney(totalRevenue),
+            delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Enrollment Date in period" },
+            onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", filtered),
           },
           {
             label: "Collection Rate",
@@ -287,7 +287,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash Collected Over Time"
-          points={filtered.map((r) => ({ date: r.enrollmentDate, value: r.cashCollected ?? 0 }))}
+          points={filtered.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.cashCollected ?? 0 }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
@@ -317,7 +317,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         />
       </div>
 
-      <div className="chart-grid">
+      <div style={{ marginBottom: 20 }}>
         <CloserBars
           title="Revenue Booked by Coach"
           items={[
