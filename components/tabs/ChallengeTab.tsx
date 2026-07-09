@@ -11,6 +11,8 @@ import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
 import InfoTip from "../InfoTip";
+import DrillDownModal from "../DrillDownModal";
+import DataTable, { type Column } from "../DataTable";
 import { detectChallengeColumns, parseAmount } from "@/lib/challengeColumns";
 
 function valStr(v: any): string {
@@ -40,6 +42,8 @@ export default function ChallengeTab({
   const [productFilter, setProductFilter] = useState("");
   const [couponFilter, setCouponFilter] = useState("");
   const [utmFilter, setUtmFilter] = useState("");
+  const [drill, setDrill] = useState<{ title: string; rows: ChallengeRow[] } | null>(null);
+  const openDrill = (title: string, subset: ChallengeRow[]) => setDrill({ title, rows: subset });
 
   // Detect column roles by CONTENT + header hint, not header name alone — so the
   // money/date columns are found even when they aren't literally called "amount"
@@ -170,6 +174,12 @@ export default function ChallengeTab({
       .sort((a, b) => b.count - a.count);
   }, [filtered, utmCol, amountCol]);
 
+  // Lead table for drill-downs: one column per detected sheet column.
+  const leadColumns: Column<ChallengeRow>[] = useMemo(
+    () => columns.map((c) => ({ key: c, label: c, render: (r: ChallengeRow) => valStr(r[c]) || "—", sortValue: (r: ChallengeRow) => valStr(r[c]) })),
+    [columns]
+  );
+
   const dimensions = [
     challengeCol
       ? { key: "challenge", label: challengeCol, options: challenges, value: challengeFilter, onChange: setChallengeFilter }
@@ -271,20 +281,28 @@ export default function ChallengeTab({
 
       <KpiGrid
         items={[
-          { label: "Revenue", value: formatMoney(revenue), delta: prevRevenue !== null ? computeDelta(revenue, prevRevenue) : null },
+          {
+            label: "Revenue",
+            value: formatMoney(revenue),
+            delta: prevRevenue !== null ? computeDelta(revenue, prevRevenue) : null,
+            onClick: () => openDrill("All Registrations", filtered),
+          },
           {
             label: "Registrations",
             value: formatNumber(registrations),
             delta: prevRegs !== null ? computeDelta(registrations, prevRegs) : null,
+            onClick: () => openDrill("All Registrations", filtered),
           },
           {
             label: "Paid Registrations",
             value: formatNumber(paidRegs),
             delta: prevPaid !== null ? computeDelta(paidRegs, prevPaid) : null,
+            onClick: amountCol ? () => openDrill("Paid Registrations", filtered.filter((r) => (valNum(r[amountCol]) ?? 0) > 0)) : undefined,
           },
           {
             label: "Free / Coupon Regs",
             value: formatNumber(freeRegs),
+            onClick: amountCol ? () => openDrill("Free / Coupon Registrations", filtered.filter((r) => (valNum(r[amountCol]) ?? 0) === 0)) : undefined,
           },
           {
             label: "Paid %",
@@ -295,6 +313,7 @@ export default function ChallengeTab({
             label: "Coupon Uses",
             value: formatNumber(couponUsed),
             delta: prevCouponUsed !== null ? computeDelta(couponUsed, prevCouponUsed) : null,
+            onClick: couponCol ? () => openDrill("Coupon Uses", filtered.filter((r) => valStr(r[couponCol]) !== "")) : undefined,
           },
           { label: "Coupon Rate", value: formatPercent(couponRate) },
         ]}
@@ -314,7 +333,22 @@ export default function ChallengeTab({
             <div className="empty-state">Date or Amount column not detected in sheet.</div>
           </div>
         )}
-        <BreakdownChart title="Price Tier Distribution" items={priceMix.slice(0, 10)} />
+        <BreakdownChart
+          title="Price Tier Distribution"
+          items={priceMix.slice(0, 10)}
+          onSelect={
+            amountCol
+              ? (key) =>
+                  openDrill(
+                    `Price Tier — ${key}`,
+                    filtered.filter((r) => {
+                      const n = valNum(r[amountCol]);
+                      return (n === null || n === 0 ? "$0 (free/coupon)" : `$${n}`) === key;
+                    })
+                  )
+              : undefined
+          }
+        />
       </div>
 
       <div className="chart-grid">
@@ -322,6 +356,7 @@ export default function ChallengeTab({
           <div className="panel">
             <div className="panel-header">
               <div className="panel-title">Product Performance</div>
+              <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a product to see the leads</span>
             </div>
             {productMix.length === 0 ? (
               <div className="empty-state">No product data.</div>
@@ -337,8 +372,12 @@ export default function ChallengeTab({
                 </thead>
                 <tbody>
                   {productMix.map((p) => (
-                    <tr key={p.product}>
-                      <td>{p.product || "(unspecified)"}</td>
+                    <tr
+                      key={p.product}
+                      onClick={() => productCol && openDrill(`Product — ${p.product || "(unspecified)"}`, filtered.filter((r) => valStr(r[productCol]) === p.product))}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td>{(p.product || "(unspecified)") + " →"}</td>
                       <td className="mono">{formatNumber(p.registrations)}</td>
                       <td className="mono">{formatMoney(p.revenue)}</td>
                       <td className="mono">{p.registrations ? formatMoney(p.revenue / p.registrations) : "—"}</td>
@@ -350,7 +389,13 @@ export default function ChallengeTab({
           </div>
         )}
         {utmCol && (
-          <BreakdownChart title="Registrations by UTM Medium" items={utmMix.map((u) => ({ key: u.channel, value: u.count }))} />
+          <BreakdownChart
+            title="Registrations by UTM Medium"
+            items={utmMix.map((u) => ({ key: u.channel, value: u.count }))}
+            onSelect={(channel) =>
+              openDrill(`UTM — ${channel}`, filtered.filter((r) => (valStr(r[utmCol]) || "(direct/none)") === channel))
+            }
+          />
         )}
       </div>
 
@@ -371,8 +416,12 @@ export default function ChallengeTab({
             </thead>
             <tbody>
               {couponMix.map((c) => (
-                <tr key={c.code}>
-                  <td className="mono">{c.code}</td>
+                <tr
+                  key={c.code}
+                  onClick={() => couponCol && openDrill(`Coupon — ${c.code}`, filtered.filter((r) => (valStr(r[couponCol]) || "(no coupon)") === c.code))}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td className="mono">{c.code} →</td>
                   <td className="mono">{formatNumber(c.count)}</td>
                   <td className="mono">{formatPercent(registrations ? c.count / registrations : null)}</td>
                   <td className="mono">{formatNumber(c.freeCount)}</td>
@@ -400,8 +449,12 @@ export default function ChallengeTab({
             </thead>
             <tbody>
               {utmMix.map((u) => (
-                <tr key={u.channel}>
-                  <td>{u.channel}</td>
+                <tr
+                  key={u.channel}
+                  onClick={() => utmCol && openDrill(`UTM — ${u.channel}`, filtered.filter((r) => (valStr(r[utmCol]) || "(direct/none)") === u.channel))}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td>{u.channel} →</td>
                   <td className="mono">{formatNumber(u.count)}</td>
                   <td className="mono">{formatMoney(u.revenue)}</td>
                   <td className="mono">{u.count ? formatMoney(u.revenue / u.count) : "—"}</td>
@@ -434,8 +487,12 @@ export default function ChallengeTab({
                 const paid = amountCol ? rowsForCh.filter((r) => (valNum(r[amountCol]) ?? 0) > 0).length : 0;
                 const rev = amountCol ? sum(rowsForCh.map((r) => valNum(r[amountCol]))) : 0;
                 return (
-                  <tr key={c}>
-                    <td>{c || "(unspecified)"}</td>
+                  <tr
+                    key={c}
+                    onClick={() => openDrill(`Challenge — ${c || "(unspecified)"}`, rowsForCh)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td>{(c || "(unspecified)") + " →"}</td>
                     <td className="mono">{formatNumber(rowsForCh.length)}</td>
                     <td className="mono">{formatNumber(paid)}</td>
                     <td className="mono">{formatPercent(rowsForCh.length ? paid / rowsForCh.length : null)}</td>
@@ -449,11 +506,42 @@ export default function ChallengeTab({
         </div>
       )}
 
-      <div style={{ color: "var(--muted)", fontSize: 11, textAlign: "center", padding: 10 }}>
-        Showing aggregates across {formatNumber(filtered.length)} filtered registration
-        {filtered.length === 1 ? "" : "s"}. The raw lead list lives in the Google Sheet — this view is for
-        analysis, not lookup.
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> registrations match current filters
+        </div>
+        <button className="link-btn" onClick={() => openDrill("All Filtered Registrations", filtered)}>
+          View leads →
+        </button>
       </div>
+
+      <DrillDownModal
+        open={!!drill}
+        onClose={() => setDrill(null)}
+        title={drill?.title || ""}
+        subtitle={drill ? `${drill.rows.length} registrations` : ""}
+      >
+        <DataTable
+          columns={leadColumns}
+          rows={drill?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search any column…"
+        />
+      </DrillDownModal>
     </div>
   );
 }

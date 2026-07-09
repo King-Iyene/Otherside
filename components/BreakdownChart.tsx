@@ -14,11 +14,13 @@ interface Props {
   color?: string;
   valueFormatter?: (v: number) => string;
   maxBars?: number;
+  /** When provided, bars become clickable and this fires with the bar's key. */
+  onSelect?: (key: string) => void;
 }
 
-const PALETTE = ["#f2b63c", "#61aaf2", "#45d093", "#f07070", "#a48bf2", "#f28b61"];
+const PALETTE = ["#FF9C26", "#10b981", "#FF4400", "#61aaf2", "#a48bf2", "#f07070"];
 
-export default function BreakdownChart({ title, items, valueFormatter, maxBars = 10 }: Props) {
+export default function BreakdownChart({ title, items, valueFormatter, maxBars = 10, onSelect }: Props) {
   const data = useMemo(() => {
     return items
       .map((i) => ({ name: i.key || "(none)", value: i.value }))
@@ -30,6 +32,7 @@ export default function BreakdownChart({ title, items, valueFormatter, maxBars =
     <div className="panel">
       <div className="panel-header">
         <div className="panel-title">{title}</div>
+        {onSelect && <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a bar to see the leads</span>}
       </div>
       {data.length === 0 ? (
         <div className="empty-state">No data in range.</div>
@@ -60,7 +63,12 @@ export default function BreakdownChart({ title, items, valueFormatter, maxBars =
               formatter={(v: number) => (valueFormatter ? valueFormatter(v) : v)}
               cursor={{ fill: "rgba(255,255,255,0.04)" }}
             />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+            <Bar
+              dataKey="value"
+              radius={[0, 4, 4, 0]}
+              cursor={onSelect ? "pointer" : undefined}
+              onClick={onSelect ? (d: any) => d && onSelect(d.name) : undefined}
+            >
               {data.map((_, idx) => (
                 <Cell key={idx} fill={PALETTE[idx % PALETTE.length]} />
               ))}
