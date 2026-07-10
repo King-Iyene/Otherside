@@ -1,7 +1,9 @@
 "use client";
 
-export const TAB_KEYS = ["overview", "insights", "cash", "payments", "appointments", "applications", "sales", "challenge", "reconciliation", "guide"] as const;
-export type TabKey = (typeof TAB_KEYS)[number];
+import { TAB_KEYS, type TabKey } from "@/lib/tabs";
+
+export { TAB_KEYS };
+export type { TabKey };
 
 const LABELS: Record<TabKey, string> = {
   overview: "Overview",
@@ -16,10 +18,20 @@ const LABELS: Record<TabKey, string> = {
   guide: "Guide 📖",
 };
 
-export default function Tabs({ active, onChange }: { active: TabKey; onChange: (t: TabKey) => void }) {
+export default function Tabs({
+  active,
+  onChange,
+  allowed,
+}: {
+  active: TabKey;
+  onChange: (t: TabKey) => void;
+  /** When provided, only these tabs render (role lens). Defaults to all. */
+  allowed?: readonly TabKey[];
+}) {
+  const keys = allowed && allowed.length ? TAB_KEYS.filter((k) => allowed.includes(k)) : TAB_KEYS;
   return (
     <div className="tab-row">
-      {TAB_KEYS.map((key) => (
+      {keys.map((key) => (
         <button
           key={key}
           className={`tab-btn ${active === key ? "active" : ""}`}
