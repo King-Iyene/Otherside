@@ -5,7 +5,9 @@ import type { DashboardPayload } from "@/lib/types";
 import { sum } from "@/lib/filtering";
 import { challengeCashStats } from "@/lib/crossSource";
 import PulseBar from "@/components/PulseBar";
-import Tabs, { type TabKey } from "@/components/Tabs";
+import Tabs, { TAB_KEYS, type TabKey } from "@/components/Tabs";
+import RoleSelector from "@/components/RoleSelector";
+import { DEFAULT_ROLE, tabsForRole, type Role } from "@/lib/roles";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
 import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
@@ -33,9 +35,35 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  // Role lens — which tabs the current viewer sees. Presentation only (not auth).
+  const [role, setRole] = useState<Role>(DEFAULT_ROLE);
   // Challenge-sheet duplicate registrations are noisy and often expected, so they
   // are ignored by default. A toggle in the Data Health panel brings them back.
   const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
+
+  // Restore the last-picked role on mount; persist changes.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("otherside_role") as Role | null;
+      if (saved) setRole(saved);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const changeRole = useCallback((r: Role) => {
+    setRole(r);
+    try {
+      window.localStorage.setItem("otherside_role", r);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const allowedTabs = useMemo(() => tabsForRole(role, TAB_KEYS), [role]);
+  // If the active tab isn't in the current role's set, fall back to its first tab.
+  useEffect(() => {
+    if (!allowedTabs.includes(activeTab)) setActiveTab(allowedTabs[0] ?? "overview");
+  }, [allowedTabs, activeTab]);
 
   const load = useCallback(async (fresh: boolean) => {
     setLoading(true);
@@ -118,7 +146,8 @@ export default function Home() {
         scopeNote="All-time · Cash Collected includes Challenge"
       />
       <div className="app-body">
-        <Tabs active={activeTab} onChange={setActiveTab} />
+        <RoleSelector role={role} onChange={changeRole} />
+        <Tabs active={activeTab} onChange={setActiveTab} allowed={allowedTabs} />
 
         {loadError && <div className="error-banner">Failed to load dashboard: {loadError}</div>}
 
