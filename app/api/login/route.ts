@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE, sha256Hex } from "@/lib/auth";
+import { AUTH_COOKIE, getRoleAccess, sessionToken } from "@/lib/auth";
 
+/**
+ * Password → role. Each role has its own password; on a match we set a signed
+ * httpOnly session cookie carrying that role, and return the role + the list of
+ * names sharing it so the client can show the "who are you" picker.
+ */
 export async function POST(request: NextRequest) {
-  const password = process.env.DASHBOARD_PASSWORD;
-  if (!password) {
-    return NextResponse.json({ ok: true });
+  const access = getRoleAccess();
+  if (access.length === 0) {
+    // No gate configured — nothing to authenticate against.
+    return NextResponse.json({ ok: true, role: "oliver", names: ["Oliver"] });
   }
 
   const body = await request.json().catch(() => ({}));
   const submitted = typeof body?.password === "string" ? body.password : "";
 
-  if (submitted !== password) {
+  const entry = access.find((e) => e.password === submitted);
+  if (!entry) {
     return NextResponse.json({ ok: false, error: "Incorrect password." }, { status: 401 });
   }
 
-  const token = await sha256Hex(password);
-  const res = NextResponse.json({ ok: true });
+  const token = await sessionToken(entry.role, entry.password);
+  const res = NextResponse.json({ ok: true, role: entry.role, names: entry.names });
   res.cookies.set(AUTH_COOKIE, token, {
     httpOnly: true,
     secure: true,
