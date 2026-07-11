@@ -6,8 +6,7 @@ import { sum } from "@/lib/filtering";
 import { challengeCashStats } from "@/lib/crossSource";
 import PulseBar from "@/components/PulseBar";
 import Tabs, { TAB_KEYS, type TabKey } from "@/components/Tabs";
-import RoleSelector from "@/components/RoleSelector";
-import { DEFAULT_ROLE, tabsForRole, type Role } from "@/lib/roles";
+import { DEFAULT_ROLE, roleDef, tabsForRole, type Role } from "@/lib/roles";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
 import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
@@ -35,28 +34,31 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  // Role lens — which tabs the current viewer sees. Presentation only (not auth).
+  // Role comes from the server session (set by the role password at login).
   const [role, setRole] = useState<Role>(DEFAULT_ROLE);
+  const [viewerName, setViewerName] = useState<string>("");
   // Challenge-sheet duplicate registrations are noisy and often expected, so they
   // are ignored by default. A toggle in the Data Health panel brings them back.
   const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
 
-  // Restore the last-picked role on mount; persist changes.
+  // Resolve the viewer's role server-side; name is display-only from login.
   useEffect(() => {
+    let alive = true;
+    fetch("/api/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.role) setRole(j.role as Role);
+      })
+      .catch(() => {});
     try {
-      const saved = window.localStorage.getItem("otherside_role") as Role | null;
-      if (saved) setRole(saved);
+      const n = window.localStorage.getItem("otherside_name");
+      if (n) setViewerName(n);
     } catch {
       /* ignore */
     }
-  }, []);
-  const changeRole = useCallback((r: Role) => {
-    setRole(r);
-    try {
-      window.localStorage.setItem("otherside_role", r);
-    } catch {
-      /* ignore */
-    }
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const allowedTabs = useMemo(() => tabsForRole(role, TAB_KEYS), [role]);
@@ -146,7 +148,20 @@ export default function Home() {
         scopeNote="All-time · Cash Collected includes Challenge"
       />
       <div className="app-body">
-        <RoleSelector role={role} onChange={changeRole} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 12px" }}>
+          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.06, color: "var(--muted)", fontWeight: 700 }}>
+            {viewerName ? `${viewerName} · ` : ""}
+            {roleDef(role).label}
+          </span>
+          <span style={{ fontSize: 11.5, color: "var(--text-dim)" }}>{roleDef(role).blurb}</span>
+          <a
+            href="/api/logout"
+            style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)", textDecoration: "none" }}
+            title="Sign out and switch role"
+          >
+            Sign out ↩
+          </a>
+        </div>
         <Tabs active={activeTab} onChange={setActiveTab} allowed={allowedTabs} />
 
         {loadError && <div className="error-banner">Failed to load dashboard: {loadError}</div>}

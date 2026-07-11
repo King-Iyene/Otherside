@@ -180,16 +180,55 @@ space here), `Launch`, `New Calls in Calendar`, `Showed to Call`, `Offers Made`,
 `Sales Made`, `Cash Collected on Call`, `Sales in Revenue`, `Paid in Full Sold`,
 `Payment Plans Sold`, `No Show`, `Cancelled Calls`, `Rescheduled`.
 
-### Proposed ADDITIVE changes (nothing until you confirm names)
+### UPDATE — adjustments live on the **Master REBORN CRM**, not the cash tracker
 
-- **New DB "Reborn Adjustments"** — §3 table.
-- **Reborn Cash Tracker** additions: `Deposit Paid` (checkbox), `Program Deferral`
-  (checkbox), `Referred By` (email/text).
+Seeing your **Master REBORN CRM** (`collection://0ec6324f…`) changes the answer for
+the better. It is already **one row per (Customer Email + Product)**, links the many
+payment rows from the Reborn Cash Tracker, and rolls up `Total Cash Collected`,
+`Payment Count`, `Enrollment Date`, `Last Payment Date` — with a **manual**
+`Total Revenue` (you noted revenue changes sometimes). **That per-client row is the
+right home for adjustments** — the per-transaction cash tracker stays untouched.
+
+**Add these columns to the Master REBORN CRM** (exact names — verify, then I build):
+
+| Property | Type | Notes |
+|---|---|---|
+| `Refunded Cash` | Number ($) | cash given back (cumulative) |
+| `Refunded Revenue` | Number ($) | deal value reversed (cumulative) |
+| `Adjustment Type` | Select: `Refund` · `Plan Change` · `Deferral` · `Comp` · `Correction` | what happened |
+| `Adjustment Date` | Date | when |
+| `Adjustment Note` | Text | reason / history |
+| `Deposit Paid?` | Checkbox | deposit tracking |
+| `Program Deferral?` | Checkbox | carried to next cohort |
+| `Referred By (Email)` | Email | referral source |
+| `Net Revenue` | Formula | `prop("Total Revenue") - prop("Refunded Revenue")` |
+| `Net Cash` | Formula | `prop("Total Cash Collected") - prop("Refunded Cash")` |
+
+Originals (`Total Revenue`, `Total Cash Collected`) are never overwritten; the
+counters sit beside them and the formulas show gross vs net. This is what your team
+described in the call (counter columns), and it's maintainable at one row per client.
+
+**Counters vs. ledger:** the counters above hold the *cumulative* adjustment per
+client — perfect for the common case (a refund, or a plan-change reflected by editing
+`Total Revenue` + a note). If you later need a **dated history of multiple events on
+the same client** (plan-change *then* a refund), we add the separate `Reborn
+Adjustments` DB (§3) related to this CRM row. Recommendation: **start with the
+counters** (you asked where to put columns — this is it), add the ledger only if the
+multi-event case becomes common.
+
 - **Erupt Google Sheet** additions: `Telegram Adopted` (checkbox/TRUE-FALSE),
   `Telegram Username` (text).
 - **Commissions**: prefer *computed* (rate rule + adjustments) over a stored column;
-  if stored, a `Commission Rate` or `Commission Amount` + `Commission Status` on the
-  client record — pending your rules.
+  if stored, `Commission Amount` + `Commission Status` on the client record —
+  pending your rules.
+
+### Dashboard side (after you add the columns)
+
+The dashboard will read the **Master REBORN CRM** as a per-client source (one row per
+client) to power the operating + metrics views: payment-plan/deposit/deferral lists,
+PIF vs plan vs open, refunds, and **gross / refunded / net** revenue. The Notion
+integration must be shared with this DB (it already relates to the others). I'll build
+the source adapter to read the exact property names above once you confirm them.
 
 ---
 
