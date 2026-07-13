@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { AppointmentRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
-import { uniqueSorted, matchesSearch } from "@/lib/filtering";
+import { uniqueSorted, matchesSearch, selected } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
@@ -21,10 +21,10 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [status, setStatus] = useState("");
-  const [type, setType] = useState("");
-  const [cohort, setCohort] = useState("");
-  const [enrManager, setEnrManager] = useState("");
+  const [status, setStatus] = useState<string[]>([]);
+  const [type, setType] = useState<string[]>([]);
+  const [cohort, setCohort] = useState<string[]>([]);
+  const [enrManager, setEnrManager] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: AppointmentRow[] } | null>(null);
@@ -35,10 +35,10 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
 
   const dimensionMatch = (r: AppointmentRow) => {
-    if (status && r.status !== status) return false;
-    if (type && r.appointmentType !== type) return false;
-    if (cohort && r.cohort !== cohort) return false;
-    if (enrManager && r.enrManager !== enrManager) return false;
+    if (!selected(status, r.status)) return false;
+    if (!selected(type, r.appointmentType)) return false;
+    if (!selected(cohort, r.cohort)) return false;
+    if (!selected(enrManager, r.enrManager)) return false;
     if (!matchesSearch([r.name, r.email, r.phone, r.notes], search)) return false;
     return true;
   };

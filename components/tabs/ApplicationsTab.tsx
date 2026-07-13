@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ApplicationRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
-import { uniqueSorted, matchesSearch } from "@/lib/filtering";
+import { uniqueSorted, matchesSearch, selected } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
@@ -18,8 +18,8 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [status, setStatus] = useState("");
-  const [earnings, setEarnings] = useState("");
+  const [status, setStatus] = useState<string[]>([]);
+  const [earnings, setEarnings] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: ApplicationRow[] } | null>(null);
@@ -28,8 +28,8 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
   const earningsOptions = useMemo(() => uniqueSorted(rows.map((r) => r.annualEarnings)), [rows]);
 
   const dimensionMatch = (r: ApplicationRow) => {
-    if (status && r.applicationStatus !== status) return false;
-    if (earnings && r.annualEarnings !== earnings) return false;
+    if (!selected(status, r.applicationStatus)) return false;
+    if (!selected(earnings, r.annualEarnings)) return false;
     if (!matchesSearch([r.firstName, r.lastName, r.email, r.phone], search)) return false;
     return true;
   };

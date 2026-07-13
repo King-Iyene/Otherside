@@ -38,10 +38,10 @@ export default function ChallengeTab({
   const [customTo, setCustomTo] = useState("");
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
-  const [challengeFilter, setChallengeFilter] = useState("");
-  const [productFilter, setProductFilter] = useState("");
-  const [couponFilter, setCouponFilter] = useState("");
-  const [utmFilter, setUtmFilter] = useState("");
+  const [challengeFilter, setChallengeFilter] = useState<string[]>([]);
+  const [productFilter, setProductFilter] = useState<string[]>([]);
+  const [couponFilter, setCouponFilter] = useState<string[]>([]);
+  const [utmFilter, setUtmFilter] = useState<string[]>([]);
   const [drill, setDrill] = useState<{ title: string; rows: ChallengeRow[] } | null>(null);
   const openDrill = (title: string, subset: ChallengeRow[]) => setDrill({ title, rows: subset });
 
@@ -67,13 +67,15 @@ export default function ChallengeTab({
   const { from, to } = resolveRange(preset, customFrom, customTo);
 
   const dimensionMatch = (r: ChallengeRow) => {
-    if (challengeCol && challengeFilter && valStr(r[challengeCol]) !== challengeFilter) return false;
-    if (productCol && productFilter && valStr(r[productCol]) !== productFilter) return false;
-    if (couponCol && couponFilter) {
+    if (challengeCol && challengeFilter.length && !challengeFilter.includes(valStr(r[challengeCol]))) return false;
+    if (productCol && productFilter.length && !productFilter.includes(valStr(r[productCol]))) return false;
+    if (couponCol && couponFilter.length) {
       const cv = valStr(r[couponCol]);
-      if (couponFilter === "__NONE__" ? cv !== "" : cv !== couponFilter) return false;
+      // "(No coupon)" matches blank; any other selected value matches exactly.
+      const ok = couponFilter.some((f) => (f === "(No coupon)" ? cv === "" : cv === f));
+      if (!ok) return false;
     }
-    if (utmCol && utmFilter && valStr(r[utmCol]) !== utmFilter) return false;
+    if (utmCol && utmFilter.length && !utmFilter.includes(valStr(r[utmCol]))) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       if (!columns.some((c) => valStr(r[c]).toLowerCase().includes(q))) return false;
@@ -189,7 +191,7 @@ export default function ChallengeTab({
       ? {
           key: "coupon",
           label: couponCol,
-          options: ["__NONE__", ...coupons],
+          options: ["(No coupon)", ...coupons],
           value: couponFilter,
           onChange: setCouponFilter,
         }
