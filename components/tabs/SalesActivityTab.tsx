@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { SalesActivityRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
-import { uniqueSorted, matchesSearch, sum } from "@/lib/filtering";
+import { uniqueSorted, matchesSearch, sum, selected } from "@/lib/filtering";
 import { computeRates } from "@/lib/sources/salesActivity";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
@@ -33,8 +33,8 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
   const [preset, setPreset] = useState<RangePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [launch, setLaunch] = useState("");
-  const [enrManager, setEnrManager] = useState("");
+  const [launch, setLaunch] = useState<string[]>([]);
+  const [enrManager, setEnrManager] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: SalesActivityRow[] } | null>(null);
@@ -43,8 +43,8 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
 
   const dimensionMatch = (r: SalesActivityRow) => {
-    if (launch && r.launch !== launch) return false;
-    if (enrManager && r.enrManager !== enrManager) return false;
+    if (!selected(launch, r.launch)) return false;
+    if (!selected(enrManager, r.enrManager)) return false;
     if (!matchesSearch([r.entry, r.enrManager, r.launch], search)) return false;
     return true;
   };

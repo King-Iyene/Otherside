@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { CashRow } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
-import { uniqueSorted, matchesSearch, sum } from "@/lib/filtering";
+import { uniqueSorted, matchesSearch, sum, selected } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
@@ -63,10 +63,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [product, setProduct] = useState("");
-  const [cohort, setCohort] = useState("");
-  const [enrManager, setEnrManager] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [product, setProduct] = useState<string[]>([]);
+  const [cohort, setCohort] = useState<string[]>([]);
+  const [enrManager, setEnrManager] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
 
@@ -78,10 +78,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const paymentMethods = useMemo(() => uniqueSorted(rows.map((r) => r.paymentMethod)), [rows]);
 
   const dimensionMatch = (r: CashRow) => {
-    if (product && r.product !== product) return false;
-    if (cohort && r.cohort !== cohort) return false;
-    if (enrManager && r.enrManager !== enrManager) return false;
-    if (paymentMethod && r.paymentMethod !== paymentMethod) return false;
+    if (!selected(product, r.product)) return false;
+    if (!selected(cohort, r.cohort)) return false;
+    if (!selected(enrManager, r.enrManager)) return false;
+    if (!selected(paymentMethod, r.paymentMethod)) return false;
     if (!matchesSearch([r.name, r.email, r.note], search)) return false;
     return true;
   };

@@ -3,6 +3,7 @@
 import type { RangePreset } from "@/lib/dates";
 import type { CompareMode } from "@/lib/comparison";
 import InfoTip from "./InfoTip";
+import MultiSelect from "./MultiSelect";
 
 const PRESETS: { key: RangePreset; label: string }[] = [
   { key: "all", label: "All" },
@@ -18,8 +19,9 @@ export interface DimensionFilter {
   key: string;
   label: string;
   options: string[];
-  value: string;
-  onChange: (v: string) => void;
+  /** Selected values; empty array = All. Multi-select. */
+  value: string[];
+  onChange: (v: string[]) => void;
 }
 
 interface Props {
@@ -87,14 +89,7 @@ export default function Controls({
       )}
 
       {dimensions.map((d) => (
-        <select key={d.key} className="select-input" value={d.value} onChange={(e) => d.onChange(e.target.value)}>
-          <option value="">{d.label}: All</option>
-          {d.options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+        <MultiSelect key={d.key} label={d.label} options={d.options} value={d.value} onChange={d.onChange} />
       ))}
 
       <input
