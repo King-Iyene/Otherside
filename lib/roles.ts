@@ -1,24 +1,22 @@
 import type { TabKey } from "@/lib/tabs";
 
 /**
- * Role-relevant "lens" over the single data layer (mirrors the Notion Testimonial
- * Tracker: one dataset, many per-role views). This is PRESENTATION ONLY — it curates
- * which existing tabs a role sees so each person gets their slice ("too much info is
- * no info"). It is NOT access control; real per-user auth + the gated commissions
- * view come in a later phase. No sensitive (commission) data is exposed here.
+ * Role-relevant views over the single data layer (mirrors the Notion Testimonial
+ * Tracker: one dataset, many per-team views — "too much info is no info"). Each
+ * team logs in with its own password (see ROLE_ACCESS env) and sees only its tabs.
  */
-export type Role = "oliver" | "ops" | "va" | "closer" | "em" | "setter";
+export type Role = "ops" | "closer" | "content" | "leadership" | "transformation";
 
 export interface RoleDef {
   key: Role;
   label: string;
-  /** One line describing what this role focuses on. */
+  /** One line describing what this team focuses on. */
   blurb: string;
-  /** Tabs this role sees, in order. `oliver` = everything. */
+  /** Tabs this team sees, in order. */
   tabs: TabKey[];
 }
 
-// Keep tab keys in sync with components/Tabs.tsx TAB_KEYS.
+// Keep tab keys in sync with lib/tabs.ts.
 const FULL: TabKey[] = [
   "overview",
   "insights",
@@ -34,22 +32,16 @@ const FULL: TabKey[] = [
 
 export const ROLES: RoleDef[] = [
   {
-    key: "oliver",
-    label: "Oliver — Full",
-    blurb: "Everything across marketing, sales, delivery and finance.",
+    key: "ops",
+    label: "Ops Team",
+    blurb: "Runs operations & finance — everything across the business.",
     tabs: FULL,
   },
   {
-    key: "ops",
-    label: "Ops",
-    blurb: "Operating: payment plans due, deposits, reconciliation, data health.",
-    tabs: ["overview", "cash", "payments", "appointments", "reconciliation", "guide"],
-  },
-  {
-    key: "va",
-    label: "VA",
-    blurb: "Challenge adoption, appointments and applications support.",
-    tabs: ["overview", "appointments", "applications", "challenge", "guide"],
+    key: "leadership",
+    label: "Leadership",
+    blurb: "The high-level picture: revenue, performance and adoption.",
+    tabs: ["overview", "insights", "cash", "sales", "challenge", "reconciliation", "guide"],
   },
   {
     key: "closer",
@@ -58,20 +50,21 @@ export const ROLES: RoleDef[] = [
     tabs: ["overview", "sales", "appointments", "guide"],
   },
   {
-    key: "em",
-    label: "EM (Adeyemi)",
-    blurb: "Enrollment pipeline: applications → appointments → enrollments.",
-    tabs: ["overview", "cash", "applications", "appointments", "sales", "guide"],
+    key: "content",
+    label: "Content Team",
+    blurb: "Marketing & content: challenge adoption, applications, appointments.",
+    tabs: ["overview", "challenge", "applications", "appointments", "guide"],
   },
   {
-    key: "setter",
-    label: "Setter",
-    blurb: "Setting activity: booked calls and show rate on your sets.",
-    tabs: ["overview", "appointments", "sales", "guide"],
+    key: "transformation",
+    label: "Transformation Team",
+    blurb: "Delivery & client journey: appointments, applications, challenge.",
+    tabs: ["overview", "appointments", "applications", "challenge", "guide"],
   },
 ];
 
-export const DEFAULT_ROLE: Role = "oliver";
+// When no gate is configured the app is open — default to the broadest team.
+export const DEFAULT_ROLE: Role = "ops";
 
 export function roleDef(role: Role): RoleDef {
   return ROLES.find((r) => r.key === role) ?? ROLES[0];
