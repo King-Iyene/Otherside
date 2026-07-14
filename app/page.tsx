@@ -37,9 +37,11 @@ export default function Home() {
   // Role comes from the server session (set by the role password at login).
   const [role, setRole] = useState<Role>(DEFAULT_ROLE);
   const [viewerName, setViewerName] = useState<string>("");
-  // Challenge-sheet duplicate registrations are noisy and often expected, so they
-  // are ignored by default. A toggle in the Data Health panel brings them back.
+  // Challenge-sheet duplicate registrations and repeat applications are noisy and
+  // often expected (a lead can apply/register more than once), so both are ignored
+  // by default. Toggles in the Data Health panel bring them back.
   const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
+  const [includeAppDupes, setIncludeAppDupes] = useState(false);
 
   // Resolve the viewer's role server-side; name is display-only from login.
   useEffect(() => {
@@ -99,8 +101,8 @@ export default function Home() {
       if (r.health.length) entries.push({ source: "Notion · Appointments Tracker", id: r.id, label: r.name || r.id, flags: r.health });
     }
     for (const r of data.applications.rows) {
-      if (r.health.length)
-        entries.push({ source: "Notion · REBORN Application Tracker", id: r.id, label: r.firstName || r.id, flags: r.health });
+      const flags = includeAppDupes ? r.health : r.health.filter((f) => f.kind !== "duplicate_application");
+      if (flags.length) entries.push({ source: "Notion · REBORN Application Tracker", id: r.id, label: r.firstName || r.id, flags });
     }
     for (const r of data.salesActivity.rows) {
       if (r.health.length) entries.push({ source: "Notion · Sales Activity Tracker", id: r.id, label: r.entry || r.id, flags: r.health });
@@ -112,7 +114,7 @@ export default function Home() {
       if (flags.length) entries.push({ source: "Google Sheet · Challenge Master Cash Tracker", id: r.id, label: r.id, flags });
     }
     return entries;
-  }, [data, includeChallengeDupes]);
+  }, [data, includeChallengeDupes, includeAppDupes]);
 
   // Schema safety net: catch a whole column reading empty (renamed/removed source column).
   const columnWarnings = useMemo(() => (data ? detectColumnHealth(data) : []), [data]);
@@ -218,6 +220,8 @@ export default function Home() {
                 entries={healthEntries}
                 includeChallengeDupes={includeChallengeDupes}
                 onToggleChallengeDupes={setIncludeChallengeDupes}
+                includeAppDupes={includeAppDupes}
+                onToggleAppDupes={setIncludeAppDupes}
                 columnWarnings={columnWarnings}
               />
             )}
