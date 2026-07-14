@@ -27,11 +27,15 @@ export default function HealthPanel({
   entries,
   includeChallengeDupes,
   onToggleChallengeDupes,
+  includeAppDupes,
+  onToggleAppDupes,
   columnWarnings = [],
 }: {
   entries: HealthEntry[];
   includeChallengeDupes?: boolean;
   onToggleChallengeDupes?: (v: boolean) => void;
+  includeAppDupes?: boolean;
+  onToggleAppDupes?: (v: boolean) => void;
   columnWarnings?: ColumnWarning[];
 }) {
   const [open, setOpen] = useState(false);
@@ -92,7 +96,12 @@ export default function HealthPanel({
     return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
   }, [filtered]);
 
-  const challengeToggle = onToggleChallengeDupes ? (
+  const dupeToggle = (
+    label: string,
+    checked: boolean,
+    onChange: (v: boolean) => void,
+    tip: string
+  ) => (
     <label
       style={{
         display: "inline-flex",
@@ -104,16 +113,32 @@ export default function HealthPanel({
         userSelect: "none",
         whiteSpace: "nowrap",
       }}
-      title="Challenge-sheet duplicate registrations are ignored by default because the same person often re-registers across challenges. Turn this on to include them."
+      title={tip}
     >
-      <input
-        type="checkbox"
-        checked={!!includeChallengeDupes}
-        onChange={(e) => onToggleChallengeDupes(e.target.checked)}
-      />
-      Include Challenge duplicates
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
     </label>
-  ) : null;
+  );
+
+  const challengeToggle =
+    onToggleChallengeDupes || onToggleAppDupes ? (
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        {onToggleChallengeDupes &&
+          dupeToggle(
+            "Include Challenge duplicates",
+            !!includeChallengeDupes,
+            onToggleChallengeDupes,
+            "Challenge-sheet duplicate registrations are ignored by default because the same person often re-registers across challenges. Turn this on to include them."
+          )}
+        {onToggleAppDupes &&
+          dupeToggle(
+            "Include Application duplicates",
+            !!includeAppDupes,
+            onToggleAppDupes,
+            "Repeat applications are ignored by default because a lead can apply more than once. Turn this on to include them."
+          )}
+      </div>
+    ) : null;
 
   const schemaBanner = columnWarnings.length > 0 ? (
     <div
