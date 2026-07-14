@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   const access = getRoleAccess();
   if (access.length === 0) {
     // No gate configured — nothing to authenticate against.
-    return NextResponse.json({ ok: true, role: "oliver", names: ["Oliver"] });
+    return NextResponse.json({ ok: true, role: "ops", names: ["Oliver"] });
   }
 
   const body = await request.json().catch(() => ({}));

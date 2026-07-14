@@ -11,9 +11,9 @@ describe("roles", () => {
     }
   });
 
-  it("oliver (default, full) sees every tab", () => {
-    expect(DEFAULT_ROLE).toBe("oliver");
-    expect(tabsForRole("oliver", TAB_KEYS).sort()).toEqual([...TAB_KEYS].sort());
+  it("ops (default, full) sees every tab", () => {
+    expect(DEFAULT_ROLE).toBe("ops");
+    expect(tabsForRole("ops", TAB_KEYS).sort()).toEqual([...TAB_KEYS].sort());
   });
 
   it("a narrow role sees a subset and never the whole set", () => {
