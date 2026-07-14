@@ -110,6 +110,9 @@ export default function ChallengeTab({
   const paidRegs = amountCol ? filtered.filter((r) => (valNum(r[amountCol]) ?? 0) > 0).length : 0;
   const freeRegs = registrations - paidRegs;
   const couponUsed = couponCol ? filtered.filter((r) => valStr(r[couponCol]) !== "").length : 0;
+  // VIP registrants — anyone whose product is a VIP tier (e.g. "ERUPT VIP Upgrade").
+  const vipRows = productCol ? filtered.filter((r) => valStr(r[productCol]).toLowerCase().includes("vip")) : [];
+  const vipRegs = vipRows.length;
   const avgTicket = paidRegs > 0 ? revenue / paidRegs : null;
   const paidRate = registrations > 0 ? paidRegs / registrations : null;
   const couponRate = registrations > 0 ? couponUsed / registrations : null;
@@ -300,6 +303,12 @@ export default function ChallengeTab({
             value: formatNumber(paidRegs),
             delta: prevPaid !== null ? computeDelta(paidRegs, prevPaid) : null,
             onClick: amountCol ? () => openDrill("Paid Registrations", filtered.filter((r) => (valNum(r[amountCol]) ?? 0) > 0)) : undefined,
+          },
+          {
+            label: "VIP Registrants",
+            value: formatNumber(vipRegs),
+            hint: registrations ? `${((vipRegs / registrations) * 100).toFixed(0)}% of registrations` : undefined,
+            onClick: productCol ? () => openDrill("VIP Registrants", vipRows) : undefined,
           },
           {
             label: "Free / Coupon Regs",
