@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CashRow, TransactionType } from "@/lib/types";
+import type { CashRow, MasterCrmRow, TransactionType } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch, sum, selected } from "@/lib/filtering";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
@@ -61,7 +61,7 @@ function countUniquePeople(rows: CashRow[]): number {
   return seen.size;
 }
 
-export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
+export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; masterCrm: MasterCrmRow[] }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -70,6 +70,9 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [drilldown, setDrilldown] = useState<{ title: string; subtitle?: string; rows: CashRow[] } | null>(null);
+  // CRM drilldown is separate — MasterCrmRow has a different column shape
+  // (no per-transaction fields; totals + lifecycle checkboxes instead).
+  const [crmDrilldown, setCrmDrilldown] = useState<{ title: string; rows: MasterCrmRow[] } | null>(null);
 
   const cohorts = useMemo(() => uniqueSorted(rows.map((r) => r.cohort)), [rows]);
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
@@ -87,11 +90,28 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
     });
   }, [rows, from, to, cohort, enrManager, search, includeTest]);
 
-  // Split by transaction type
+  // Split by transaction type (Cash Tracker — source of truth for refunds/dropouts)
   const payments = useMemo(() => filtered.filter((r) => !r.transactionType || r.transactionType === "Payment"), [filtered]);
   const refunds = useMemo(() => filtered.filter((r) => r.transactionType === "Refund"), [filtered]);
   const deposits = useMemo(() => filtered.filter((r) => r.transactionType === "Deposit"), [filtered]);
   const dropouts = useMemo(() => filtered.filter((r) => r.transactionType === "Dropout"), [filtered]);
+
+  // Master CRM — deferrals + plan changes are lifecycle events tracked there,
+  // not in Cash Tracker (no $ moved, so no CT row). Apply the same date /
+  // cohort / search / test filters as CashRow. enrManager isn't on CRM rows,
+  // so it's skipped for CRM (adding it would exclude every CRM row when a
+  // manager is selected).
+  const filteredCrm = useMemo(() => {
+    return masterCrm.filter((r) => {
+      if (!includeTest && r.isTest) return false;
+      if (!inRange(r.enrollmentDate, from, to)) return false;
+      if (!selected(cohort, r.cohort)) return false;
+      if (!matchesSearch([r.name, r.email, r.note], search)) return false;
+      return true;
+    });
+  }, [masterCrm, from, to, cohort, search, includeTest]);
+  const deferrals = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Deferral"), [filteredCrm]);
+  const planChanges = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Plan Change"), [filteredCrm]);
 
   // Gross = all payments + deposits (positive transactions)
   const grossRevenue = sum(payments.map((r) => r.revenue)) + sum(deposits.map((r) => r.revenue));
@@ -112,8 +132,12 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
   const refundedPeopleCount = countUniquePeople(refunds);
   const dropoutPeopleCount = countUniquePeople(dropouts);
   const depositPeopleCount = countUniquePeople(deposits);
+  // Master CRM rows are already 1-per-person by design, so length = people.
+  const deferralPeopleCount = deferrals.length;
+  const planChangePeopleCount = planChanges.length;
 
-  const totalAdjustmentRows = refunds.length + dropouts.length;
+  const totalAdjustmentRows =
+    refunds.length + dropouts.length + deferrals.length + planChanges.length;
   const refundRate = grossRevenue > 0 ? refundedRevenue / grossRevenue : null;
 
   // Waterfall data for the flow visualization
@@ -160,6 +184,46 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
     { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
     { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "note", label: "Note", render: (r) => r.note || "—" },
+  ];
+
+  // Master CRM has one row per person (lifecycle tracker), not per transaction,
+  // so its drilldown shows totals + the reason note instead of per-payment fields.
+  const crmColumns: Column<MasterCrmRow>[] = [
+    { key: "name", label: "Name", render: (r) => r.name || "—", sortValue: (r) => r.name },
+    { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+    {
+      key: "adjustmentType",
+      label: "Adjustment",
+      render: (r) => r.adjustmentType || "—",
+      sortValue: (r) => r.adjustmentType,
+    },
+    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+    {
+      key: "enrollmentDate",
+      label: "Enrolled",
+      render: (r) => (r.enrollmentDate ? r.enrollmentDate.slice(0, 10) : "—"),
+      sortValue: (r) => r.enrollmentDate,
+    },
+    {
+      key: "totalRevenue",
+      label: "Total Revenue",
+      render: (r) => (r.totalRevenue == null ? "—" : formatMoney(r.totalRevenue)),
+      sortValue: (r) => r.totalRevenue ?? 0,
+    },
+    {
+      key: "totalCash",
+      label: "Total Cash",
+      render: (r) => (r.totalCashCollected == null ? "—" : formatMoney(r.totalCashCollected)),
+      sortValue: (r) => r.totalCashCollected ?? 0,
+    },
+    {
+      key: "paymentCount",
+      label: "Payments",
+      render: (r) => (r.paymentCount == null ? "—" : String(r.paymentCount)),
+      sortValue: (r) => r.paymentCount ?? 0,
+    },
+    { key: "note", label: "Reason / Note", render: (r) => r.note || "—" },
   ];
 
   const openDrilldown = (title: string, subtitle: string | undefined, subset: CashRow[]) =>
@@ -260,9 +324,37 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
             onClick: () => openDrilldown("Deposits", `${deposits.length} deposit rows`, deposits),
           },
           {
+            label: "Deferrals",
+            value: formatNumber(deferralPeopleCount),
+            source: {
+              source: "Master REBORN CRM",
+              field: 'People with Adjustment Type = "Deferral"',
+              formula: "money kept, timeline shifted",
+            },
+            higherIsBetter: false,
+            hint: deferralPeopleCount === 0 ? "None deferred" : "money kept, timeline shifted",
+            hintColor: deferralPeopleCount === 0 ? "green" : "muted",
+          },
+          {
+            label: "Plan Changes",
+            value: formatNumber(planChangePeopleCount),
+            source: {
+              source: "Master REBORN CRM",
+              field: 'People with Adjustment Type = "Plan Change"',
+              formula: "plan restructured, no refund",
+            },
+            higherIsBetter: false,
+            hint: planChangePeopleCount === 0 ? undefined : "plan restructured, no refund",
+            hintColor: "muted",
+          },
+          {
             label: "Total Adjustments",
             value: formatNumber(totalAdjustmentRows),
-            source: { source: "Reborn Cash Tracker", field: "COUNT(Refund rows) + COUNT(Dropout rows)" },
+            source: {
+              source: "Cash Tracker + Master CRM",
+              field: "COUNT(Refund) + COUNT(Dropout) + COUNT(Deferral) + COUNT(Plan Change)",
+              formula: "All revenue-affecting or lifecycle events combined",
+            },
             hint: totalAdjustmentRows === 0 ? "Clean slate" : undefined,
             hintColor: totalAdjustmentRows === 0 ? "green" : "muted",
           },
@@ -275,7 +367,18 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
         <WaterfallChart title="Cash Flow: Gross → Net" segments={waterfallCashSegments} />
       </div>
 
-      {/* Operating lists by adjustment type */}
+      {/* Adjustment breakdown — bar chart of every adjustment type side-by-side */}
+      <AdjustmentBreakdownChart
+        items={[
+          { label: "Refunds",      count: refundedPeopleCount,   amount: -refundedCash, color: "#f07070", source: "Cash Tracker" },
+          { label: "Dropouts",     count: dropoutPeopleCount,    amount: null,          color: "#a0a0a0", source: "Cash Tracker" },
+          { label: "Deferrals",    count: deferralPeopleCount,   amount: null,          color: "#7ca0f4", source: "Master CRM"    },
+          { label: "Plan Changes", count: planChangePeopleCount, amount: null,          color: "#c58af9", source: "Master CRM"    },
+          { label: "Deposits",     count: depositPeopleCount,    amount: sum(deposits.map((r) => r.cashCollected)), color: "#f5a623", source: "Cash Tracker" },
+        ]}
+      />
+
+      {/* Operating lists by adjustment type — refunds & dropouts (Cash Tracker) */}
       <div className="chart-grid">
         <AdjustmentList
           title="Refunds"
@@ -284,6 +387,8 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
           color="#f07070"
           emptyMessage="No refunds recorded this period."
           onViewAll={() => openDrilldown("All Refunds", undefined, refunds)}
+          amountOf={(r) => r.cashCollected}
+          secondaryOf={(r) => r.revenue}
         />
         <AdjustmentList
           title="Dropouts"
@@ -292,6 +397,32 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
           color="#a0a0a0"
           emptyMessage="No dropouts recorded this period."
           onViewAll={() => openDrilldown("All Dropouts", undefined, dropouts)}
+          amountOf={(r) => r.cashCollected}
+          secondaryOf={(r) => r.revenue}
+        />
+      </div>
+
+      {/* Operating lists — deferrals & plan changes (Master CRM lifecycle) */}
+      <div className="chart-grid">
+        <AdjustmentList
+          title="Deferrals"
+          subtitle={`${deferralPeopleCount} people · money kept, timeline shifted`}
+          rows={deferrals}
+          color="#7ca0f4"
+          emptyMessage="No deferrals on file — the Adjustment Type field in Master CRM is empty or nothing set to Deferral."
+          onViewAll={() => setCrmDrilldown({ title: "All Deferrals", rows: deferrals })}
+          amountOf={(r) => r.totalCashCollected}
+          secondaryOf={(r) => r.totalRevenue}
+        />
+        <AdjustmentList
+          title="Plan Changes"
+          subtitle={`${planChangePeopleCount} people · plan restructured, no refund`}
+          rows={planChanges}
+          color="#c58af9"
+          emptyMessage="No plan changes on file — nothing in Master CRM set to Plan Change."
+          onViewAll={() => setCrmDrilldown({ title: "All Plan Changes", rows: planChanges })}
+          amountOf={(r) => r.totalCashCollected}
+          secondaryOf={(r) => r.totalRevenue}
         />
       </div>
 
@@ -304,6 +435,8 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
             color="#f5a623"
             emptyMessage="No deposits recorded."
             onViewAll={() => openDrilldown("All Deposits", undefined, deposits)}
+            amountOf={(r) => r.cashCollected}
+            secondaryOf={(r) => r.revenue}
           />
         </div>
       )}
@@ -335,19 +468,23 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
         }}
       >
         <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> total rows
+          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> Cash Tracker rows
           {" · "}
           <strong style={{ color: "#f07070" }}>{refunds.length}</strong> refunds
           {" · "}
           <strong style={{ color: "#a0a0a0" }}>{dropouts.length}</strong> dropouts
           {" · "}
+          <strong style={{ color: "#7ca0f4" }}>{deferrals.length}</strong> deferrals
+          {" · "}
+          <strong style={{ color: "#c58af9" }}>{planChanges.length}</strong> plan changes
+          {" · "}
           <strong style={{ color: "#f5a623" }}>{deposits.length}</strong> deposits
         </div>
         <button
           className="link-btn"
-          onClick={() => openDrilldown("All Adjustment Records", undefined, [...refunds, ...dropouts, ...deposits])}
+          onClick={() => openDrilldown("All Cash-Tracker Adjustments", undefined, [...refunds, ...dropouts, ...deposits])}
         >
-          View all adjustments →
+          View all Cash-Tracker rows →
         </button>
       </div>
 
@@ -364,6 +501,25 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
           isTestRow={(r) => r.isTest}
           searchable
           searchPlaceholder="Search name, email, cohort…"
+        />
+      </DrillDownModal>
+
+      {/* CRM drilldown — MasterCrmRow has totals + lifecycle checkboxes, not
+          per-transaction fields; render a distinct column set instead of
+          reusing the Cash-Tracker columns. */}
+      <DrillDownModal
+        open={!!crmDrilldown}
+        onClose={() => setCrmDrilldown(null)}
+        title={crmDrilldown?.title || ""}
+        subtitle={crmDrilldown ? `${crmDrilldown.rows.length} people` : ""}
+      >
+        <DataTable
+          columns={crmColumns}
+          rows={crmDrilldown?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, note…"
         />
       </DrillDownModal>
     </div>
@@ -444,22 +600,136 @@ function WaterfallChart({ title, segments }: { title: string; segments: Waterfal
   );
 }
 
+// ── Adjustment breakdown bar chart ───────────────────────────────
+// Horizontal bars, one per adjustment category, sized by person-count.
+// Colored dot + name on the left, mini source-of-truth tag under it, and
+// the count (plus optional cash amount) pinned right. Shared max scale so
+// bars are visually comparable across all categories.
+
+interface AdjustmentBreakdownItem {
+  label: string;
+  count: number;
+  amount: number | null;
+  color: string;
+  source: string;
+}
+
+function AdjustmentBreakdownChart({ items }: { items: AdjustmentBreakdownItem[] }) {
+  const max = Math.max(1, ...items.map((i) => i.count));
+  const total = items.reduce((acc, i) => acc + i.count, 0);
+  return (
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 20,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+        <div style={{ fontSize: 12, letterSpacing: 0.4, color: "var(--muted)", fontWeight: 600 }}>
+          ADJUSTMENTS BREAKDOWN · BY PEOPLE
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+          <strong style={{ color: "var(--text)" }}>{total}</strong> people affected
+        </div>
+      </div>
+
+      {total === 0 ? (
+        <div style={{ color: "var(--muted)", fontSize: 12, padding: "16px 0", textAlign: "center" }}>
+          No adjustments in this period.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {items.map((i) => (
+            <div key={i.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 130, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: i.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{i.label}</div>
+                </div>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginLeft: 16, letterSpacing: 0.3 }}>
+                  {i.source}
+                </div>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  background: "rgba(255,255,255,0.04)",
+                  borderRadius: 4,
+                  height: 22,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${(i.count / max) * 100}%`,
+                    minWidth: i.count > 0 ? 2 : 0,
+                    background: i.color,
+                    height: "100%",
+                    borderRadius: 4,
+                    transition: "width 200ms ease",
+                  }}
+                />
+              </div>
+              <div style={{ width: 90, textAlign: "right", flexShrink: 0 }}>
+                <div className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                  {i.count}
+                </div>
+                {i.amount != null && i.amount !== 0 && (
+                  <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                    {i.amount < 0 ? "−" : ""}
+                    {formatMoney(Math.abs(i.amount))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Operating list for a specific adjustment type ────────────────
 
-function AdjustmentList({
+interface AdjustmentListRow {
+  id: string;
+  name: string;
+  cohort: string | null;
+  enrollmentDate: string | null;
+}
+
+function AdjustmentList<T extends AdjustmentListRow>({
   title,
   subtitle,
   rows,
   color,
   emptyMessage,
   onViewAll,
+  amountOf,
+  secondaryOf,
 }: {
   title: string;
   subtitle: string;
-  rows: CashRow[];
+  rows: T[];
   color: string;
   emptyMessage: string;
   onViewAll: () => void;
+  /** Primary amount shown on the right of each row (colored). */
+  amountOf: (r: T) => number | null;
+  /** Optional secondary amount shown muted underneath — hidden if equal to primary. */
+  secondaryOf?: (r: T) => number | null;
 }) {
   const sorted = useMemo(
     () => [...rows].sort((a, b) => ((b.enrollmentDate || "") > (a.enrollmentDate || "") ? 1 : -1)),
@@ -514,13 +784,18 @@ function AdjustmentList({
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div className="mono" style={{ fontSize: 13, color, fontWeight: 600 }}>
-                    {formatMoney(r.cashCollected)}
+                    {formatMoney(amountOf(r))}
                   </div>
-                  {r.revenue !== null && r.revenue !== r.cashCollected && (
-                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-                      rev {formatMoney(r.revenue)}
-                    </div>
-                  )}
+                  {(() => {
+                    const primary = amountOf(r);
+                    const secondary = secondaryOf?.(r);
+                    if (secondary == null || secondary === primary) return null;
+                    return (
+                      <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                        rev {formatMoney(secondary)}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

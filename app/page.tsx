@@ -207,7 +207,9 @@ export default function Home() {
               />
             )}
             {activeTab === "cash" && <CashTab rows={data.cash.rows} />}
-            {activeTab === "adjustments" && <AdjustmentsTab rows={data.cash.rows} />}
+            {activeTab === "adjustments" && (
+              <AdjustmentsTab rows={data.cash.rows} masterCrm={data.masterCrm.rows} />
+            )}
             {activeTab === "payments" && <PaymentsTab rows={data.cash.rows} />}
             {activeTab === "appointments" && <AppointmentsTab rows={data.appointments.rows} />}
             {activeTab === "applications" && <ApplicationsTab rows={data.applications.rows} />}
