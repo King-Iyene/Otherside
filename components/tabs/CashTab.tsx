@@ -122,6 +122,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const refundedCash = sum(refundTx.map((r) => r.cashCollected));
   const totalRevenue = grossRevenue - refundedRevenue;
   const totalCash = grossCash - refundedCash;
+  const hasAdjustments = refundedCash > 0 || refundedRevenue > 0;
 
   const enrollmentsCount = useMemo(() => countPeople(positiveTx), [positiveTx]);
 
