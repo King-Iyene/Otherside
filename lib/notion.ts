@@ -194,5 +194,36 @@ export function getPlainNumber(properties: Record<string, any>, name: string): n
   if (!prop) return null;
   if (prop.type === "number") return typeof prop.number === "number" ? prop.number : null;
   if (prop.type === "formula" && prop.formula?.type === "number") return prop.formula.number ?? null;
+  if (prop.type === "rollup" && prop.rollup?.type === "number") return typeof prop.rollup.number === "number" ? prop.rollup.number : null;
   return null;
+}
+
+export function getRollupDate(properties: Record<string, any>, name: string): string | null {
+  const prop = getProp(properties, name);
+  if (!prop) return null;
+  if (prop.type === "date") return prop.date?.start ?? null;
+  if (prop.type === "rollup" && prop.rollup?.type === "date") return prop.rollup.date?.start ?? null;
+  return null;
+}
+
+export function getRollupText(properties: Record<string, any>, name: string): string | null {
+  const prop = getProp(properties, name);
+  if (!prop) return null;
+  if (prop.type === "rollup" && prop.rollup?.type === "array") {
+    const items = prop.rollup.array || [];
+    const texts: string[] = [];
+    for (const item of items) {
+      if (item.type === "rich_text") {
+        const t = (item.rich_text || []).map((x: any) => x.plain_text).join("").trim();
+        if (t) texts.push(t);
+      } else if (item.type === "select" && item.select?.name) {
+        texts.push(item.select.name);
+      } else if (item.type === "title") {
+        const t = (item.title || []).map((x: any) => x.plain_text).join("").trim();
+        if (t) texts.push(t);
+      }
+    }
+    return texts.length ? [...new Set(texts)].join(", ") : null;
+  }
+  return getRichText(properties, name);
 }

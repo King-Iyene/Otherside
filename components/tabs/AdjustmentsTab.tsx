@@ -105,9 +105,9 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
   const dropoutRevenue = sum(dropouts.map((r) => r.revenue));
   const dropoutCash = sum(dropouts.map((r) => r.cashCollected));
 
-  // Net = gross - refunded - dropout
-  const netRevenue = grossRevenue - refundedRevenue - dropoutRevenue;
-  const netCash = grossCash - refundedCash - dropoutCash;
+  // Net = gross - refunded ONLY. Dropouts kept the money (no refund issued).
+  const netRevenue = grossRevenue - refundedRevenue;
+  const netCash = grossCash - refundedCash;
 
   const refundedPeopleCount = countUniquePeople(refunds);
   const dropoutPeopleCount = countUniquePeople(dropouts);
@@ -120,14 +120,12 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
   const waterfallSegments = [
     { label: "Gross Revenue", value: grossRevenue, color: "#45d093", type: "positive" as const },
     { label: "Refunds", value: -refundedRevenue, color: "#f07070", type: "negative" as const },
-    { label: "Dropouts", value: -dropoutRevenue, color: "#a0a0a0", type: "negative" as const },
     { label: "Net Revenue", value: netRevenue, color: "#7ca0f4", type: "total" as const },
   ];
 
   const waterfallCashSegments = [
     { label: "Gross Cash", value: grossCash, color: "#45d093", type: "positive" as const },
     { label: "Refunded Cash", value: -refundedCash, color: "#f07070", type: "negative" as const },
-    { label: "Dropout Cash", value: -dropoutCash, color: "#a0a0a0", type: "negative" as const },
     { label: "Net Cash", value: netCash, color: "#7ca0f4", type: "total" as const },
   ];
 
@@ -229,14 +227,14 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
           {
             label: "Net Revenue",
             value: formatMoney(netRevenue),
-            source: { source: "Derived", field: "Gross − Refunds − Dropouts", formula: "Gross Revenue − Refunded Revenue − Dropout Revenue" },
+            source: { source: "Derived", field: "Gross − Refunds", formula: "Gross Revenue − Refunded Revenue" },
             hint: grossRevenue > 0 ? `${((netRevenue / grossRevenue) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netRevenue >= grossRevenue * 0.9 ? "green" : "red",
           },
           {
             label: "Net Cash",
             value: formatMoney(netCash),
-            source: { source: "Derived", field: "Gross Cash − Refunded Cash − Dropout Cash" },
+            source: { source: "Derived", field: "Gross Cash − Refunded Cash" },
             hint: grossCash > 0 ? `${((netCash / grossCash) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netCash >= grossCash * 0.9 ? "green" : "muted",
           },
@@ -289,7 +287,7 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
         />
         <AdjustmentList
           title="Dropouts"
-          subtitle={`${dropoutPeopleCount} people · ${formatMoney(dropoutCash)} lost`}
+          subtitle={`${dropoutPeopleCount} people · money kept (no refund)`}
           rows={dropouts}
           color="#a0a0a0"
           emptyMessage="No dropouts recorded this period."
@@ -571,10 +569,10 @@ function CohortAdjustmentTable({
         const grossRev = sum(cPayments.map((r) => r.revenue)) + sum(cDeposits.map((r) => r.revenue));
         const refundRev = sum(cRefunds.map((r) => r.revenue));
         const dropoutRev = sum(cDropouts.map((r) => r.revenue));
-        const netRev = grossRev - refundRev - dropoutRev;
+        const netRev = grossRev - refundRev;
         const grossCash = sum(cPayments.map((r) => r.cashCollected)) + sum(cDeposits.map((r) => r.cashCollected));
         const refundCash = sum(cRefunds.map((r) => r.cashCollected));
-        const netCash = grossCash - refundCash - sum(cDropouts.map((r) => r.cashCollected));
+        const netCash = grossCash - refundCash;
 
         return {
           cohort: c,

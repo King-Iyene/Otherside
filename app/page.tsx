@@ -24,6 +24,7 @@ import AdjustmentsTab from "@/components/tabs/AdjustmentsTab";
 
 const SOURCE_LABELS: Record<string, string> = {
   cash: "Reborn Cash Tracker",
+  masterCrm: "Master REBORN CRM",
   appointments: "Appointments Tracker",
   applications: "REBORN Application Tracker",
   salesActivity: "Sales Activity Tracker",
@@ -122,26 +123,26 @@ export default function Home() {
 
   const nonTestCash = data ? data.cash.rows.filter((r) => !r.isTest) : [];
   const isPositiveTx = (r: typeof nonTestCash[number]) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit";
-  const isAdjustmentTx = (r: typeof nonTestCash[number]) => r.transactionType === "Refund" || r.transactionType === "Dropout";
+  const isRefundTx = (r: typeof nonTestCash[number]) => r.transactionType === "Refund";
 
   const grossRebornCash = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.cashCollected)) : 0;
-  const adjustedCash = data ? sum(nonTestCash.filter(isAdjustmentTx).map((r) => r.cashCollected)) : 0;
-  const rebornCash = grossRebornCash - adjustedCash;
+  const refundedCash = data ? sum(nonTestCash.filter(isRefundTx).map((r) => r.cashCollected)) : 0;
+  const rebornCash = grossRebornCash - refundedCash;
   const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
   const cashCollected = rebornCash + challengeCash;
 
   const grossRevenue = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.revenue)) : 0;
-  const adjustedRevenue = data ? sum(nonTestCash.filter(isAdjustmentTx).map((r) => r.revenue)) : 0;
-  const revenueBooked = grossRevenue - adjustedRevenue;
+  const refundedRevenue = data ? sum(nonTestCash.filter(isRefundTx).map((r) => r.revenue)) : 0;
+  const revenueBooked = grossRevenue - refundedRevenue;
 
   const sourceErrors = data
-    ? (["cash", "appointments", "applications", "salesActivity", "challenge"] as const)
+    ? (["cash", "masterCrm", "appointments", "applications", "salesActivity", "challenge"] as const)
         .map((key) => ({ key, error: data[key].error }))
         .filter((x) => x.error)
     : [];
 
   const hasNotionError = data
-    ? !!(data.cash.error || data.appointments.error || data.applications.error || data.salesActivity.error)
+    ? !!(data.cash.error || data.masterCrm.error || data.appointments.error || data.applications.error || data.salesActivity.error)
     : false;
 
   return (

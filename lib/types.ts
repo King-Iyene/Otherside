@@ -99,6 +99,32 @@ export interface SalesActivityRow extends BaseRow {
   salesRevenue: number | null;
 }
 
+export type AdjustmentType = "Deferral" | "Plan Change" | "Program Dopout t($0 Refund)" | null;
+
+export interface MasterCrmRow extends BaseRow {
+  name: string;
+  email: string | null;
+  totalRevenue: number | null;
+  totalCashCollected: number | null;
+  enrollmentDate: string | null;
+  lastPaymentDate: string | null;
+  nextPaymentDate: string | null;
+  paymentCount: number | null;
+  cohort: string | null;
+  product: string | null;
+  adjustmentType: AdjustmentType;
+  referredByEmail: string | null;
+  contactStatus: string | null;
+  note: string | null;
+  agreementSigned: boolean;
+  intakeFormSubmitted: boolean;
+  invitedToCircle: boolean;
+  joinedCircle: boolean;
+  addedToKickoff: boolean;
+  addedToPod: boolean;
+  exitFormSubmitted: boolean;
+}
+
 export interface ChallengeRow extends BaseRow {
   [key: string]: any;
 }
@@ -111,6 +137,7 @@ export interface SourceResult<T> {
 
 export interface DashboardPayload {
   cash: SourceResult<CashRow>;
+  masterCrm: SourceResult<MasterCrmRow>;
   appointments: SourceResult<AppointmentRow>;
   applications: SourceResult<ApplicationRow>;
   salesActivity: SourceResult<SalesActivityRow>;

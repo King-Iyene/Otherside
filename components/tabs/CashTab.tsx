@@ -111,32 +111,32 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, prevRange, product, cohort, enrManager, paymentMethod, txType, search, includeTest]);
 
-  // Positive transactions (payments + deposits)
-  const positiveTx = useMemo(() => filtered.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit"), [filtered]);
-  // Adjustment transactions (refunds + dropouts)
-  const adjustmentTx = useMemo(() => filtered.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout"), [filtered]);
+  // Positive transactions (payments + deposits + dropouts — dropout keeps the money)
+  const positiveTx = useMemo(() => filtered.filter((r) => r.transactionType !== "Refund"), [filtered]);
+  // Refunds only — the only type that subtracts from revenue/cash
+  const refundTx = useMemo(() => filtered.filter((r) => r.transactionType === "Refund"), [filtered]);
 
   const grossRevenue = sum(positiveTx.map((r) => r.revenue));
   const grossCash = sum(positiveTx.map((r) => r.cashCollected));
-  const refundedRevenue = sum(adjustmentTx.map((r) => r.revenue));
-  const refundedCash = sum(adjustmentTx.map((r) => r.cashCollected));
+  const refundedRevenue = sum(refundTx.map((r) => r.revenue));
+  const refundedCash = sum(refundTx.map((r) => r.cashCollected));
   const totalRevenue = grossRevenue - refundedRevenue;
   const totalCash = grossCash - refundedCash;
 
   const enrollmentsCount = useMemo(() => countPeople(positiveTx), [positiveTx]);
 
-  const prevPositive = prevFiltered ? prevFiltered.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit") : null;
-  const prevAdjustments = prevFiltered ? prevFiltered.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout") : null;
+  const prevPositive = prevFiltered ? prevFiltered.filter((r) => r.transactionType !== "Refund") : null;
+  const prevRefunds = prevFiltered ? prevFiltered.filter((r) => r.transactionType === "Refund") : null;
   const prevTotals = prevPositive
     ? {
-        revenue: sum(prevPositive.map((r) => r.revenue)) - sum((prevAdjustments || []).map((r) => r.revenue)),
-        cash: sum(prevPositive.map((r) => r.cashCollected)) - sum((prevAdjustments || []).map((r) => r.cashCollected)),
+        revenue: sum(prevPositive.map((r) => r.revenue)) - sum((prevRefunds || []).map((r) => r.revenue)),
+        cash: sum(prevPositive.map((r) => r.cashCollected)) - sum((prevRefunds || []).map((r) => r.cashCollected)),
         count: countPeople(prevPositive),
       }
     : null;
 
   const collectionRate = totalRevenue > 0 ? totalCash / totalRevenue : null;
-  const hasAdjustments = adjustmentTx.length > 0;
+  const hasRefunds = refundTx.length > 0;
 
   // Cohort economics
   const cohortEconomics = useMemo(() => {

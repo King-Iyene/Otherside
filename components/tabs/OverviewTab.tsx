@@ -70,7 +70,7 @@ function computeStats(
   const purchasedApps = appRows.filter((r) => r.purchased).length;
 
   const positiveCashRows = cashRows.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit");
-  const adjustmentCashRows = cashRows.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout");
+  const refundCashRows = cashRows.filter((r) => r.transactionType === "Refund");
 
   return {
     cashRows,
@@ -79,11 +79,11 @@ function computeStats(
     salesRows,
     grossCashCollected: sum(positiveCashRows.map((r) => r.cashCollected)),
     grossRevenue: sum(positiveCashRows.map((r) => r.revenue)),
-    refundedCash: sum(adjustmentCashRows.map((r) => r.cashCollected)),
-    refundedRevenue: sum(adjustmentCashRows.map((r) => r.revenue)),
-    cashCollected: sum(positiveCashRows.map((r) => r.cashCollected)) - sum(adjustmentCashRows.map((r) => r.cashCollected)),
-    revenue: sum(positiveCashRows.map((r) => r.revenue)) - sum(adjustmentCashRows.map((r) => r.revenue)),
-    adjustmentCount: adjustmentCashRows.length,
+    refundedCash: sum(refundCashRows.map((r) => r.cashCollected)),
+    refundedRevenue: sum(refundCashRows.map((r) => r.revenue)),
+    cashCollected: sum(positiveCashRows.map((r) => r.cashCollected)) - sum(refundCashRows.map((r) => r.cashCollected)),
+    revenue: sum(positiveCashRows.map((r) => r.revenue)) - sum(refundCashRows.map((r) => r.revenue)),
+    refundCount: refundCashRows.length,
     enrollments: uniqueEnrollments(positiveCashRows),
     appointments: apptRows.length,
     showedCount,
@@ -249,8 +249,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         }}
       >
         <HeroCard
-          label={stats.adjustmentCount > 0 ? "Net Cash Collected" : "Cash Collected"}
-          sublabel={stats.adjustmentCount > 0 ? `Gross ${formatMoney(stats.grossCashCollected)} − ${formatMoney(stats.refundedCash)} adj` : "Reborn only"}
+          label={stats.refundCount > 0 ? "Net Cash Collected" : "Cash Collected"}
+          sublabel={stats.refundCount > 0 ? `Gross ${formatMoney(stats.grossCashCollected)} − ${formatMoney(stats.refundedCash)} refunded` : "Reborn Cash Tracker (Notion)"}
           value={formatMoney(stats.cashCollected)}
           target={bench.monthlyCashCollected}
           current={stats.cashCollected}
@@ -262,8 +262,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           compareLabel={compareLabel}
         />
         <HeroCard
-          label={stats.adjustmentCount > 0 ? "Net Revenue" : "Revenue Booked"}
-          sublabel={stats.adjustmentCount > 0 ? `Gross ${formatMoney(stats.grossRevenue)} − ${formatMoney(stats.refundedRevenue)} adj` : "Reborn only"}
+          label={stats.refundCount > 0 ? "Net Revenue" : "Revenue Booked"}
+          sublabel={stats.refundCount > 0 ? `Gross ${formatMoney(stats.grossRevenue)} − ${formatMoney(stats.refundedRevenue)} refunded` : "Reborn Cash Tracker (Notion)"}
           value={formatMoney(stats.revenue)}
           target={bench.monthlyRevenueBooked}
           current={stats.revenue}
@@ -276,7 +276,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
         <HeroCard
           label="Enrollments"
-          sublabel="Reborn only"
+          sublabel="Reborn Cash Tracker (Notion)"
           value={formatNumber(stats.enrollments)}
           target={bench.monthlyEnrollments}
           current={stats.enrollments}
