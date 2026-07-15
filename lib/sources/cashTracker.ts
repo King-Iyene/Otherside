@@ -53,6 +53,8 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
       })
     );
 
+    const transactionType = (getSelect(props, "Transaction Type") as CashRow["transactionType"]) ?? null;
+
     return {
       id: page.id,
       url: page.url,
@@ -69,6 +71,8 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
       balance: balance.value,
       couponCode: getRichText(props, "Coupon Code"),
       paymentMethod: getRichText(props, "Payment Method"),
+      paymentPlan: getRichText(props, "Payment Plan"),
+      transactionType,
       nextPaymentDate,
       enrManager,
       note: getRichText(props, "Note"),

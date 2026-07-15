@@ -4,6 +4,7 @@ export const TAB_KEYS = [
   "overview",
   "insights",
   "cash",
+  "adjustments",
   "payments",
   "appointments",
   "applications",

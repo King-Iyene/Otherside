@@ -30,6 +30,8 @@ export interface BaseRow {
   url?: string;
 }
 
+export type TransactionType = "Payment" | "Deposit" | "Refund" | "Dropout" | null;
+
 export interface CashRow extends BaseRow {
   name: string;
   email: string | null;
@@ -44,6 +46,8 @@ export interface CashRow extends BaseRow {
   balance: number | null;
   couponCode: string | null;
   paymentMethod: string | null;
+  paymentPlan: string | null;
+  transactionType: TransactionType;
   nextPaymentDate: string | null;
   enrManager: string | null;
   note: string | null;
