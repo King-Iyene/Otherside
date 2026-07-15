@@ -294,6 +294,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             source: { source: "Derived", field: "Gross − Refunds", formula: "Gross Revenue − Refunded Revenue" },
             hint: grossRevenue > 0 ? `${((netRevenue / grossRevenue) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netRevenue >= grossRevenue * 0.9 ? "green" : "red",
+            onClick: () => openDrilldown("Net Revenue — Payments + Deposits", `${payments.length + deposits.length} contributing rows`, [...payments, ...deposits]),
           },
           {
             label: "Net Cash",
@@ -301,6 +302,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             source: { source: "Derived", field: "Gross Cash − Refunded Cash" },
             hint: grossCash > 0 ? `${((netCash / grossCash) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netCash >= grossCash * 0.9 ? "green" : "muted",
+            onClick: () => openDrilldown("Net Cash — Payments + Deposits", `${payments.length + deposits.length} contributing rows`, [...payments, ...deposits]),
           },
           {
             label: "Refunded People",
@@ -334,6 +336,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             higherIsBetter: false,
             hint: deferralPeopleCount === 0 ? "None deferred" : "money kept, timeline shifted",
             hintColor: deferralPeopleCount === 0 ? "green" : "muted",
+            onClick: deferralPeopleCount > 0 ? () => setCrmDrilldown({ title: "All Deferrals", rows: deferrals }) : undefined,
           },
           {
             label: "Plan Changes",
@@ -346,6 +349,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             higherIsBetter: false,
             hint: planChangePeopleCount === 0 ? undefined : "plan restructured, no refund",
             hintColor: "muted",
+            onClick: planChangePeopleCount > 0 ? () => setCrmDrilldown({ title: "All Plan Changes", rows: planChanges }) : undefined,
           },
           {
             label: "Total Adjustments",
@@ -355,8 +359,9 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
               field: "COUNT(Refund) + COUNT(Dropout) + COUNT(Deferral) + COUNT(Plan Change)",
               formula: "All revenue-affecting or lifecycle events combined",
             },
-            hint: totalAdjustmentRows === 0 ? "Clean slate" : undefined,
+            hint: totalAdjustmentRows === 0 ? "Clean slate" : `${refunds.length + dropouts.length + deposits.length} Cash-Tracker · ${deferrals.length + planChanges.length} CRM`,
             hintColor: totalAdjustmentRows === 0 ? "green" : "muted",
+            onClick: totalAdjustmentRows > 0 ? () => openDrilldown("All Cash-Tracker Adjustments", `Refunds + Dropouts + Deposits · ${refunds.length + dropouts.length + deposits.length} rows (Deferrals + Plan Changes are Master-CRM — see their own cards)`, [...refunds, ...dropouts, ...deposits]) : undefined,
           },
         ]}
       />
@@ -367,14 +372,50 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
         <WaterfallChart title="Cash Flow: Gross → Net" segments={waterfallCashSegments} />
       </div>
 
-      {/* Adjustment breakdown — bar chart of every adjustment type side-by-side */}
+      {/* Adjustment breakdown — bar chart of every adjustment type side-by-side.
+          Each row is a button — click a category to open its leads drilldown. */}
       <AdjustmentBreakdownChart
         items={[
-          { label: "Refunds",      count: refundedPeopleCount,   amount: -refundedCash, color: "#f07070", source: "Cash Tracker" },
-          { label: "Dropouts",     count: dropoutPeopleCount,    amount: null,          color: "#a0a0a0", source: "Cash Tracker" },
-          { label: "Deferrals",    count: deferralPeopleCount,   amount: null,          color: "#7ca0f4", source: "Master CRM"    },
-          { label: "Plan Changes", count: planChangePeopleCount, amount: null,          color: "#c58af9", source: "Master CRM"    },
-          { label: "Deposits",     count: depositPeopleCount,    amount: sum(deposits.map((r) => r.cashCollected)), color: "#f5a623", source: "Cash Tracker" },
+          {
+            label: "Refunds",
+            count: refundedPeopleCount,
+            amount: -refundedCash,
+            color: "#f07070",
+            source: "Cash Tracker",
+            onClick: refunds.length > 0 ? () => openDrilldown("All Refunds", `${refunds.length} refund rows`, refunds) : undefined,
+          },
+          {
+            label: "Dropouts",
+            count: dropoutPeopleCount,
+            amount: null,
+            color: "#a0a0a0",
+            source: "Cash Tracker",
+            onClick: dropouts.length > 0 ? () => openDrilldown("All Dropouts", `${dropouts.length} dropout rows`, dropouts) : undefined,
+          },
+          {
+            label: "Deferrals",
+            count: deferralPeopleCount,
+            amount: null,
+            color: "#7ca0f4",
+            source: "Master CRM",
+            onClick: deferrals.length > 0 ? () => setCrmDrilldown({ title: "All Deferrals", rows: deferrals }) : undefined,
+          },
+          {
+            label: "Plan Changes",
+            count: planChangePeopleCount,
+            amount: null,
+            color: "#c58af9",
+            source: "Master CRM",
+            onClick: planChanges.length > 0 ? () => setCrmDrilldown({ title: "All Plan Changes", rows: planChanges }) : undefined,
+          },
+          {
+            label: "Deposits",
+            count: depositPeopleCount,
+            amount: sum(deposits.map((r) => r.cashCollected)),
+            color: "#f5a623",
+            source: "Cash Tracker",
+            onClick: deposits.length > 0 ? () => openDrilldown("All Deposits", `${deposits.length} deposit rows`, deposits) : undefined,
+          },
         ]}
       />
 
@@ -612,6 +653,8 @@ interface AdjustmentBreakdownItem {
   amount: number | null;
   color: string;
   source: string;
+  /** Optional — click a row to open that category's leads drilldown. */
+  onClick?: () => void;
 }
 
 function AdjustmentBreakdownChart({ items }: { items: AdjustmentBreakdownItem[] }) {
@@ -641,60 +684,92 @@ function AdjustmentBreakdownChart({ items }: { items: AdjustmentBreakdownItem[] 
           No adjustments in this period.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {items.map((i) => (
-            <div key={i.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 130, flexShrink: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: i.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{i.label}</div>
-                </div>
-                <div style={{ fontSize: 10, color: "var(--muted)", marginLeft: 16, letterSpacing: 0.3 }}>
-                  {i.source}
-                </div>
-              </div>
-              <div
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map((i) => {
+            const clickable = !!i.onClick && i.count > 0;
+            return (
+              <button
+                key={i.label}
+                type="button"
+                onClick={i.onClick}
+                disabled={!clickable}
+                aria-label={clickable ? `View ${i.count} ${i.label} leads` : undefined}
                 style={{
-                  flex: 1,
-                  background: "rgba(255,255,255,0.04)",
-                  borderRadius: 4,
-                  height: 22,
-                  position: "relative",
-                  overflow: "hidden",
+                  // Reset the browser button defaults so this looks/lays out like a row.
+                  all: "unset",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  cursor: clickable ? "pointer" : "default",
+                  transition: "background 120ms ease, transform 120ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!clickable) return;
+                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                  e.currentTarget.style.transform = "translateX(2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "";
+                  e.currentTarget.style.transform = "";
                 }}
               >
+                <div style={{ width: 130, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: i.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{i.label}</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginLeft: 16, letterSpacing: 0.3 }}>
+                    {i.source}
+                  </div>
+                </div>
                 <div
                   style={{
-                    width: `${(i.count / max) * 100}%`,
-                    minWidth: i.count > 0 ? 2 : 0,
-                    background: i.color,
-                    height: "100%",
+                    flex: 1,
+                    background: "rgba(255,255,255,0.04)",
                     borderRadius: 4,
-                    transition: "width 200ms ease",
+                    height: 22,
+                    position: "relative",
+                    overflow: "hidden",
                   }}
-                />
-              </div>
-              <div style={{ width: 90, textAlign: "right", flexShrink: 0 }}>
-                <div className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
-                  {i.count}
+                >
+                  <div
+                    style={{
+                      width: `${(i.count / max) * 100}%`,
+                      minWidth: i.count > 0 ? 2 : 0,
+                      background: i.color,
+                      height: "100%",
+                      borderRadius: 4,
+                      transition: "width 200ms ease",
+                    }}
+                  />
                 </div>
-                {i.amount != null && i.amount !== 0 && (
-                  <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
-                    {i.amount < 0 ? "−" : ""}
-                    {formatMoney(Math.abs(i.amount))}
+                <div style={{ width: 110, textAlign: "right", flexShrink: 0 }}>
+                  <div className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                    {i.count}
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
+                  {i.amount != null && i.amount !== 0 ? (
+                    <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                      {i.amount < 0 ? "−" : ""}
+                      {formatMoney(Math.abs(i.amount))}
+                    </div>
+                  ) : clickable ? (
+                    <div style={{ fontSize: 10, color: "var(--muted)" }}>click →</div>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

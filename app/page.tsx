@@ -12,6 +12,7 @@ import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import CohortFunnels from "@/components/tabs/CohortFunnels";
+import InsightsTab from "@/components/tabs/InsightsTab";
 import CashTab from "@/components/tabs/CashTab";
 import AppointmentsTab from "@/components/tabs/AppointmentsTab";
 import ApplicationsTab from "@/components/tabs/ApplicationsTab";
@@ -199,12 +200,26 @@ export default function Home() {
               />
             )}
             {activeTab === "insights" && (
-              <CohortFunnels
-                cash={data.cash.rows}
-                appointments={data.appointments.rows}
-                applications={data.applications.rows}
-                challenge={data.challenge.rows}
-              />
+              <>
+                {/* Cross-source insights (Deposit Lifecycle, Challenge→Reborn,
+                    Coupon, Application→Purchase, Calls/day) — renders above
+                    the cohort funnels since the deposit-lifecycle question
+                    ("what actually happened after they deposited?") is the
+                    top-of-mind operator question. */}
+                <InsightsTab
+                  cash={data.cash.rows}
+                  applications={data.applications.rows}
+                  appointments={data.appointments.rows}
+                  salesActivity={data.salesActivity.rows}
+                  challenge={data.challenge.rows}
+                />
+                <CohortFunnels
+                  cash={data.cash.rows}
+                  appointments={data.appointments.rows}
+                  applications={data.applications.rows}
+                  challenge={data.challenge.rows}
+                />
+              </>
             )}
             {activeTab === "cash" && <CashTab rows={data.cash.rows} />}
             {activeTab === "adjustments" && (
