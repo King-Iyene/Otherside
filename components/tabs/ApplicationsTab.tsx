@@ -10,6 +10,8 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
+import DonutChart from "../DonutChart";
+import FunnelBars from "../FunnelBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
@@ -148,15 +150,49 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
         ]}
       />
 
+      {/* ── Application Funnel ── */}
+      <FunnelBars
+        title="Application Funnel"
+        stages={[
+          { label: "Applications", value: filtered.length },
+          { label: "Purchased", value: purchasedCount },
+        ]}
+        onStageClick={(label) => {
+          if (label === "Applications") setDrilldown({ title: "All Applications", rows: filtered });
+          else if (label === "Purchased") setDrilldown({ title: "Purchased Applications", rows: filtered.filter((r) => r.purchased) });
+        }}
+      />
+
       <div className="chart-grid">
         <TimeSeriesChart
           title="Applications Over Time"
           points={filtered.map((r) => ({ date: r.dateCreated, value: 1 }))}
           color="#f2b63c"
         />
+        <DonutChart
+          title="Application Status"
+          items={statuses.map((s) => ({ key: s, value: filtered.filter((r) => r.applicationStatus === s).length }))}
+          onSelect={(key) =>
+            setDrilldown({ title: `Status: ${key}`, rows: filtered.filter((r) => r.applicationStatus === key) })
+          }
+        />
+      </div>
+
+      <div className="chart-grid">
+        <DonutChart
+          title="Annual Earnings Distribution"
+          items={earningsOptions.map((e) => ({ key: e || "(not set)", value: filtered.filter((r) => r.annualEarnings === e).length }))}
+          onSelect={(key) => {
+            const k = key === "(not set)" ? null : key;
+            setDrilldown({ title: `Earnings: ${key}`, rows: filtered.filter((r) => (r.annualEarnings || "(not set)") === key || r.annualEarnings === k) });
+          }}
+        />
         <BreakdownChart
-          title="By Annual Earnings"
+          title="Applications by Earnings (Bar)"
           items={earningsOptions.map((e) => ({ key: e, value: filtered.filter((r) => r.annualEarnings === e).length }))}
+          onSelect={(key) =>
+            setDrilldown({ title: `Earnings: ${key}`, rows: filtered.filter((r) => r.annualEarnings === key) })
+          }
         />
       </div>
 

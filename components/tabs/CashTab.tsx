@@ -10,6 +10,8 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
+import DonutChart from "../DonutChart";
+import FunnelBars from "../FunnelBars";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
@@ -136,6 +138,74 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
 
   const collectionRate = totalRevenue > 0 ? totalCash / totalRevenue : null;
   const hasRefunds = refundTx.length > 0;
+
+  // Product revenue breakdown — the big bar chart the user asked for
+  const productBreakdown = useMemo(() => {
+    return products
+      .map((p) => {
+        const pRows = filtered.filter((r) => r.product === p);
+        const pos = pRows.filter((r) => r.transactionType !== "Refund");
+        const ref = pRows.filter((r) => r.transactionType === "Refund");
+        return {
+          product: p || "(none)",
+          rawProduct: p,
+          revenue: sum(pos.map((r) => r.revenue)) - sum(ref.map((r) => r.revenue)),
+          cash: sum(pos.map((r) => r.cashCollected)) - sum(ref.map((r) => r.cashCollected)),
+          enrollments: countPeople(pos),
+          rows: pRows,
+        };
+      })
+      .filter((p) => p.enrollments > 0 || p.cash !== 0)
+      .sort((a, b) => b.cash - a.cash);
+  }, [products, filtered]);
+
+  // Payment plan distribution — for the donut chart
+  const paymentPlanDist = useMemo(() => {
+    const planMap = new Map<string, { count: number; cash: number; rows: CashRow[] }>();
+    for (const r of positiveTx) {
+      const plan = r.paymentPlan || "(not set)";
+      const e = planMap.get(plan) || { count: 0, cash: 0, rows: [] };
+      e.count++;
+      e.cash += r.cashCollected ?? 0;
+      e.rows.push(r);
+      planMap.set(plan, e);
+    }
+    return Array.from(planMap.entries())
+      .map(([plan, d]) => ({ plan, ...d }))
+      .sort((a, b) => b.count - a.count);
+  }, [positiveTx]);
+
+  // Transaction type distribution — for the donut chart
+  const txTypeDist = useMemo(() => {
+    const typeMap = new Map<string, { count: number; cash: number; rows: CashRow[] }>();
+    for (const r of filtered) {
+      const t = r.transactionType || "(not set)";
+      const e = typeMap.get(t) || { count: 0, cash: 0, rows: [] };
+      e.count++;
+      e.cash += r.cashCollected ?? 0;
+      e.rows.push(r);
+      typeMap.set(t, e);
+    }
+    return Array.from(typeMap.entries())
+      .map(([type, d]) => ({ type, ...d }))
+      .sort((a, b) => b.count - a.count);
+  }, [filtered]);
+
+  // Payment method distribution — for a donut chart
+  const paymentMethodDist = useMemo(() => {
+    const methodMap = new Map<string, { count: number; cash: number; rows: CashRow[] }>();
+    for (const r of positiveTx) {
+      const m = r.paymentMethod || "(not set)";
+      const e = methodMap.get(m) || { count: 0, cash: 0, rows: [] };
+      e.count++;
+      e.cash += r.cashCollected ?? 0;
+      e.rows.push(r);
+      methodMap.set(m, e);
+    }
+    return Array.from(methodMap.entries())
+      .map(([method, d]) => ({ method, ...d }))
+      .sort((a, b) => b.cash - a.cash);
+  }, [positiveTx]);
 
   // Cohort economics
   const cohortEconomics = useMemo(() => {
@@ -303,6 +373,43 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         ]}
       />
 
+      {/* ── Revenue by Product — the big bar chart ── */}
+      {productBreakdown.length > 0 && (
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-header">
+            <div className="panel-title">Revenue by Product</div>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a bar to see the enrollments</span>
+          </div>
+          <BreakdownChart
+            title=""
+            items={productBreakdown.map((p) => ({ key: p.product, value: p.revenue }))}
+            valueFormatter={(v) => formatMoney(v)}
+            onSelect={(key) => {
+              const match = productBreakdown.find((p) => p.product === key);
+              if (match) openDrilldown(`Product: ${match.product}`, `${match.enrollments} enrollments · ${formatMoney(match.cash)} collected`, match.rows);
+            }}
+          />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "8px 16px 12px" }}>
+            {productBreakdown.map((p) => (
+              <button
+                key={p.product}
+                onClick={() => openDrilldown(`Product: ${p.product}`, `${p.enrollments} enrollments · ${formatMoney(p.cash)} collected`, p.rows)}
+                style={{
+                  background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 8,
+                  padding: "6px 12px", cursor: "pointer", color: "var(--text)", fontSize: 12,
+                  display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>{p.product}</span>
+                <span style={{ color: "var(--muted)", fontSize: 11 }}>
+                  {formatNumber(p.enrollments)} people · {formatMoney(p.cash)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash Collected Over Time"
@@ -314,8 +421,57 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           title="Cash Collected by Cohort"
           items={cohorts.map((c) => ({ key: c, value: sum(filtered.filter((r) => r.cohort === c).map((r) => r.cashCollected)) }))}
           valueFormatter={(v) => formatMoney(v)}
+          onSelect={(key) => {
+            const cRows = filtered.filter((r) => r.cohort === key);
+            openDrilldown(`Cohort: ${key}`, `${countPeople(cRows)} enrollments · ${formatMoney(sum(cRows.map((r) => r.cashCollected)))} collected`, cRows);
+          }}
         />
       </div>
+
+      {/* ── Distribution Donuts — Payment Plan + Payment Method + Transaction Type ── */}
+      <div className="chart-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+        <DonutChart
+          title="Payment Plan Distribution"
+          items={paymentPlanDist.map((d) => ({ key: d.plan, value: d.count }))}
+          onSelect={(key) => {
+            const match = paymentPlanDist.find((d) => d.plan === key);
+            if (match) openDrilldown(`Payment Plan: ${match.plan}`, `${match.count} rows · ${formatMoney(match.cash)} collected`, match.rows);
+          }}
+        />
+        <DonutChart
+          title="Payment Method Breakdown"
+          items={paymentMethodDist.map((d) => ({ key: d.method, value: d.cash }))}
+          valueFormatter={(v) => formatMoney(v)}
+          onSelect={(key) => {
+            const match = paymentMethodDist.find((d) => d.method === key);
+            if (match) openDrilldown(`Payment Method: ${match.method}`, `${match.count} rows · ${formatMoney(match.cash)} collected`, match.rows);
+          }}
+        />
+        <DonutChart
+          title="Transaction Type Split"
+          items={txTypeDist.map((d) => ({ key: d.type, value: d.count }))}
+          onSelect={(key) => {
+            const match = txTypeDist.find((d) => d.type === key);
+            if (match) openDrilldown(`Transaction Type: ${match.type}`, `${match.count} rows · ${formatMoney(match.cash)} collected`, match.rows);
+          }}
+        />
+      </div>
+
+      {/* ── Sales Funnel (Enrollments → Payment Plan → Paid in Full) ── */}
+      <FunnelBars
+        title="Enrollment Funnel"
+        stages={[
+          { label: "Total Enrollments", value: enrollmentsCount },
+          { label: "On Payment Plan", value: onPlanCount },
+          { label: "Paid in Full", value: paidInFullCount },
+        ]}
+        valueFormatter={(v) => formatNumber(v)}
+        onStageClick={(label) => {
+          if (label === "Total Enrollments") openDrilldown("All Enrollments", undefined, positiveTx);
+          else if (label === "On Payment Plan") openDrilldown("On Payment Plan", undefined, filtered.filter((r) => (r.balance ?? 0) > 0));
+          else if (label === "Paid in Full") openDrilldown("Paid in Full", undefined, filtered.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0));
+        }}
+      />
 
       {/* Per-coach breakdown — includes a "No EM" bar for rows with no coach */}
       <div className="chart-grid">

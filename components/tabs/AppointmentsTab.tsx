@@ -10,6 +10,8 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import BreakdownChart from "../BreakdownChart";
+import DonutChart from "../DonutChart";
+import FunnelBars from "../FunnelBars";
 import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
@@ -160,15 +162,55 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         ]}
       />
 
+      {/* ── Appointment Funnel ── */}
+      <FunnelBars
+        title="Appointment Funnel"
+        stages={[
+          { label: "Booked", value: filtered.length },
+          { label: "Showed", value: showedCount },
+          { label: "No Show", value: noShowCount },
+          { label: "Cancelled", value: cancelledCount },
+        ]}
+        onStageClick={(label) => {
+          if (label === "Booked") setDrilldown({ title: "All Booked Appointments", rows: filtered });
+          else if (label === "Showed") setDrilldown({ title: "Showed Appointments", rows: filtered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) });
+          else if (label === "No Show") setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status === "No show") });
+          else if (label === "Cancelled") setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status === "Cancelled") });
+        }}
+      />
+
       <div className="chart-grid">
         <TimeSeriesChart
           title="Appointments Over Time"
           points={filtered.map((r) => ({ date: r.appointmentTime, value: 1 }))}
           color="#61aaf2"
         />
-        <BreakdownChart
-          title="Appointments by Status"
+        {/* Donut: Status distribution — clickable to drill into each status */}
+        <DonutChart
+          title="Status Distribution"
           items={statuses.map((s) => ({ key: s, value: filtered.filter((r) => r.status === s).length }))}
+          onSelect={(key) =>
+            setDrilldown({ title: `Appointments — ${key}`, rows: filtered.filter((r) => r.status === key) })
+          }
+        />
+      </div>
+
+      {/* Donut: Appointment Type + Cohort side by side */}
+      <div className="chart-grid">
+        <DonutChart
+          title="By Appointment Type"
+          items={types.map((t) => ({ key: t || "(none)", value: filtered.filter((r) => r.appointmentType === t).length }))}
+          onSelect={(key) => {
+            const typeKey = key === "(none)" ? null : key;
+            setDrilldown({ title: `Type: ${key}`, rows: filtered.filter((r) => (r.appointmentType || "(none)") === key || r.appointmentType === typeKey) });
+          }}
+        />
+        <BreakdownChart
+          title="Appointments by Cohort"
+          items={cohorts.map((c) => ({ key: c, value: filtered.filter((r) => r.cohort === c).length }))}
+          onSelect={(key) =>
+            setDrilldown({ title: `Cohort: ${key}`, rows: filtered.filter((r) => r.cohort === key) })
+          }
         />
       </div>
 

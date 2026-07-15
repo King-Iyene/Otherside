@@ -12,6 +12,8 @@ import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import TimeSeriesChart from "../TimeSeriesChart";
 import ComboChart from "../ComboChart";
+import DonutChart from "../DonutChart";
+import FunnelBars from "../FunnelBars";
 import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
@@ -161,30 +163,35 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
             value: formatNumber(totals.newCalls),
             delta: prevTotals && computeDelta(totals.newCalls, prevTotals.newCalls),
             source: { source: "Sales Activity Tracker (Notion)", field: "New Calls in Calendar", formula: "SUM" },
+            onClick: () => setDrilldown({ title: "All Daily Entries — New Calls", rows: filtered.filter((r) => (r.newCalls ?? 0) > 0) }),
           },
           {
             label: "Showed",
             value: formatNumber(totals.showed),
             delta: prevTotals && computeDelta(totals.showed, prevTotals.showed),
             source: { source: "Sales Activity Tracker (Notion)", field: "Showed to Call", formula: "SUM" },
+            onClick: () => setDrilldown({ title: "Entries with Shows", rows: filtered.filter((r) => (r.showed ?? 0) > 0) }),
           },
           {
             label: "Sales Made",
             value: formatNumber(totals.salesMade),
             delta: prevTotals && computeDelta(totals.salesMade, prevTotals.salesMade),
             source: { source: "Sales Activity Tracker (Notion)", field: "Sales Made", formula: "SUM" },
+            onClick: () => setDrilldown({ title: "Entries with Sales", rows: filtered.filter((r) => (r.salesMade ?? 0) > 0) }),
           },
           {
             label: "Cash on Call",
             value: formatMoney(totals.cashOnCall),
             delta: prevTotals && computeDelta(totals.cashOnCall, prevTotals.cashOnCall),
             source: { source: "Sales Activity Tracker (Notion)", field: "Cash Collected on Call ($)", formula: "SUM" },
+            onClick: () => setDrilldown({ title: "Entries with Cash on Call", rows: filtered.filter((r) => (r.cashCollectedOnCall ?? 0) > 0) }),
           },
           {
             label: "Sales Revenue",
             value: formatMoney(totals.salesRevenue),
             delta: prevTotals && computeDelta(totals.salesRevenue, prevTotals.salesRevenue),
             source: { source: "Sales Activity Tracker (Notion)", field: "Sales in Revenue ($)", formula: "SUM" },
+            onClick: () => setDrilldown({ title: "Entries with Revenue", rows: filtered.filter((r) => (r.salesRevenue ?? 0) > 0) }),
           },
           {
             label: "Show %",
@@ -210,7 +217,24 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         ]}
       />
 
-      {/* Team funnel chart */}
+      {/* ── Sales Funnel — Calls → Showed → Offers → Sales ── */}
+      <FunnelBars
+        title="Sales Funnel"
+        stages={[
+          { label: "New Calls", value: totals.newCalls },
+          { label: "Showed", value: totals.showed },
+          { label: "Offers Made", value: totals.offersMade },
+          { label: "Sales Made", value: totals.salesMade },
+        ]}
+        onStageClick={(label) => {
+          if (label === "New Calls") setDrilldown({ title: "Entries with New Calls", rows: filtered.filter((r) => (r.newCalls ?? 0) > 0) });
+          else if (label === "Showed") setDrilldown({ title: "Entries with Shows", rows: filtered.filter((r) => (r.showed ?? 0) > 0) });
+          else if (label === "Offers Made") setDrilldown({ title: "Entries with Offers", rows: filtered.filter((r) => (r.offersMade ?? 0) > 0) });
+          else if (label === "Sales Made") setDrilldown({ title: "Entries with Sales", rows: filtered.filter((r) => (r.salesMade ?? 0) > 0) });
+        }}
+      />
+
+      {/* Team charts */}
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash on Call — Over Time"
@@ -223,6 +247,35 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
           points={filtered.map((r) => ({ date: r.date, offers: r.offersMade ?? 0, sales: r.salesMade ?? 0 }))}
         />
       </div>
+
+      {/* ── Launch Distribution — donut chart ── */}
+      {launches.length > 1 && (
+        <div className="chart-grid">
+          <DonutChart
+            title="Activity by Launch"
+            items={launches.map((l) => ({
+              key: l || "(none)",
+              value: filtered.filter((r) => r.launch === l).length,
+            }))}
+            onSelect={(key) => {
+              const launchKey = key === "(none)" ? null : key;
+              setDrilldown({ title: `Launch: ${key}`, rows: filtered.filter((r) => (r.launch || "(none)") === key || r.launch === launchKey) });
+            }}
+          />
+          <DonutChart
+            title="Cash on Call by Launch"
+            items={launches.map((l) => ({
+              key: l || "(none)",
+              value: sum(filtered.filter((r) => r.launch === l).map((r) => r.cashCollectedOnCall)),
+            }))}
+            valueFormatter={(v) => formatMoney(v)}
+            onSelect={(key) => {
+              const launchKey = key === "(none)" ? null : key;
+              setDrilldown({ title: `Launch: ${key}`, rows: filtered.filter((r) => (r.launch || "(none)") === key || r.launch === launchKey) });
+            }}
+          />
+        </div>
+      )}
 
       {/* Per-coach bar charts — the closer leaderboard, visualized */}
       {perCloser.length > 0 && (
