@@ -114,7 +114,6 @@ export interface MasterCrmRow extends BaseRow {
   product: string | null;
   adjustmentType: AdjustmentType;
   referredByEmail: string | null;
-  contactStatus: string | null;
   note: string | null;
   agreementSigned: boolean;
   intakeFormSubmitted: boolean;

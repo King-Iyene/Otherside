@@ -24,6 +24,7 @@ import AdjustmentsTab from "@/components/tabs/AdjustmentsTab";
 
 const SOURCE_LABELS: Record<string, string> = {
   cash: "Reborn Cash Tracker",
+  masterCrm: "Master REBORN CRM",
   appointments: "Appointments Tracker",
   applications: "REBORN Application Tracker",
   salesActivity: "Sales Activity Tracker",
@@ -135,13 +136,13 @@ export default function Home() {
   const revenueBooked = grossRevenue - refundedRevenue;
 
   const sourceErrors = data
-    ? (["cash", "appointments", "applications", "salesActivity", "challenge"] as const)
+    ? (["cash", "masterCrm", "appointments", "applications", "salesActivity", "challenge"] as const)
         .map((key) => ({ key, error: data[key].error }))
         .filter((x) => x.error)
     : [];
 
   const hasNotionError = data
-    ? !!(data.cash.error || data.appointments.error || data.applications.error || data.salesActivity.error)
+    ? !!(data.cash.error || data.masterCrm.error || data.appointments.error || data.applications.error || data.salesActivity.error)
     : false;
 
   return (

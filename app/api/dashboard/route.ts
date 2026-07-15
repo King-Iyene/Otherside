@@ -4,7 +4,7 @@ import { fetchCashTracker } from "@/lib/sources/cashTracker";
 import { fetchAppointments } from "@/lib/sources/appointments";
 import { fetchApplications } from "@/lib/sources/applications";
 import { fetchSalesActivity } from "@/lib/sources/salesActivity";
-
+import { fetchMasterCrm } from "@/lib/sources/masterCrm";
 import { fetchChallengeSheet } from "@/lib/sources/challenge";
 import { resolveTokenFromRequest } from "@/lib/notionAuth";
 // Duplicate detection is kept for Applications and Challenge registrations —
@@ -49,8 +49,9 @@ async function buildPayload(token: string | null, authMode: string) {
     return isolate(() => fn(token));
   };
 
-  const [cash, appointments, applications, salesActivity, challenge] = await Promise.all([
+  const [cash, masterCrm, appointments, applications, salesActivity, challenge] = await Promise.all([
     notionCall(fetchCashTracker),
+    notionCall(fetchMasterCrm),
     notionCall(fetchAppointments),
     notionCall(fetchApplications),
     notionCall(fetchSalesActivity),
@@ -69,7 +70,7 @@ async function buildPayload(token: string | null, authMode: string) {
 
   return {
     cash,
-    masterCrm: { rows: [], error: null, fetchedAt: Date.now() },
+    masterCrm,
     appointments,
     applications,
     salesActivity,

@@ -41,7 +41,6 @@ export async function fetchMasterCrm(token: string): Promise<SourceResult<Master
       product: getRollupText(props, "Product"),
       adjustmentType: (getSelect(props, "Adjustment Type") as MasterCrmRow["adjustmentType"]) ?? null,
       referredByEmail: getEmail(props, "Referred By (Email)"),
-      contactStatus: getSelect(props, "Contact Status"),
       note: getRichText(props, "Note"),
       agreementSigned: getCheckbox(props, "Agreement Signed?"),
       intakeFormSubmitted: getCheckbox(props, "Intake Form Submitted?"),
