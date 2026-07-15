@@ -262,7 +262,7 @@ export default function AdjustmentsTab({ rows }: { rows: CashRow[] }) {
           {
             label: "Total Adjustments",
             value: formatNumber(totalAdjustmentRows),
-            source: { source: "Derived", field: "Refund + Dropout row count" },
+            source: { source: "Reborn Cash Tracker", field: "COUNT(Refund rows) + COUNT(Dropout rows)" },
             hint: totalAdjustmentRows === 0 ? "Clean slate" : undefined,
             hintColor: totalAdjustmentRows === 0 ? "green" : "muted",
           },
