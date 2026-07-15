@@ -122,8 +122,6 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const refundedCash = sum(refundTx.map((r) => r.cashCollected));
   const totalRevenue = grossRevenue - refundedRevenue;
   const totalCash = grossCash - refundedCash;
-  const hasAdjustments = refundedCash > 0 || refundedRevenue > 0;
-
   const enrollmentsCount = useMemo(() => countPeople(positiveTx), [positiveTx]);
 
   const prevPositive = prevFiltered ? prevFiltered.filter((r) => r.transactionType !== "Refund") : null;
@@ -241,19 +239,19 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       <KpiGrid
         items={[
           {
-            label: hasAdjustments ? "Net Cash Collected" : "Cash Collected",
+            label: hasRefunds ? "Net Cash Collected" : "Cash Collected",
             value: formatMoney(totalCash),
             delta: prevTotals && computeDelta(totalCash, prevTotals.cash),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: hasAdjustments ? "Gross Cash − Refunded Cash" : "SUM(Cash Collected)" },
-            hint: hasAdjustments ? `Gross ${formatMoney(grossCash)} − ${formatMoney(refundedCash)} adjusted` : undefined,
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: hasRefunds ? "Gross Cash − Refunded Cash" : "SUM(Cash Collected)" },
+            hint: hasRefunds ? `Gross ${formatMoney(grossCash)} − ${formatMoney(refundedCash)} refunded` : undefined,
             onClick: () => openDrilldown("Cash Collected — Enrollments", undefined, positiveTx),
           },
           {
-            label: hasAdjustments ? "Net Revenue" : "Revenue",
+            label: hasRefunds ? "Net Revenue" : "Revenue",
             value: formatMoney(totalRevenue),
             delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: hasAdjustments ? "Gross Revenue − Refunded Revenue" : "SUM(Revenue) WHERE Payment Date in period" },
-            hint: hasAdjustments ? `Gross ${formatMoney(grossRevenue)} − ${formatMoney(refundedRevenue)} adjusted` : undefined,
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: hasRefunds ? "Gross Revenue − Refunded Revenue" : "SUM(Revenue) WHERE Payment Date in period" },
+            hint: hasRefunds ? `Gross ${formatMoney(grossRevenue)} − ${formatMoney(refundedRevenue)} refunded` : undefined,
             onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", positiveTx),
           },
           {
@@ -262,6 +260,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             source: { source: "Derived", field: "Cash Collected ÷ Revenue", formula: "Total collected out of total booked" },
             hint: collectionRate === null ? undefined : collectionRate >= 0.9 ? "excellent" : collectionRate >= 0.7 ? "healthy" : "needs attention",
             hintColor: collectionRate === null ? "muted" : collectionRate >= 0.9 ? "green" : collectionRate >= 0.7 ? "muted" : "red",
+            onClick: () => openDrilldown("Collection Rate — All Rows", `${positiveTx.length} rows`, positiveTx),
           },
           {
             label: "Enrollments",

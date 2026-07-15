@@ -300,6 +300,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             label: "Net Cash",
             value: formatMoney(netCash),
             source: { source: "Derived", field: "Gross Cash − Refunded Cash" },
+            onClick: () => openDrilldown("Net Cash — All Rows", `${filtered.length} rows`, filtered),
             hint: grossCash > 0 ? `${((netCash / grossCash) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netCash >= grossCash * 0.9 ? "green" : "muted",
             onClick: () => openDrilldown("Net Cash — Payments + Deposits", `${payments.length + deposits.length} contributing rows`, [...payments, ...deposits]),
@@ -361,7 +362,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             },
             hint: totalAdjustmentRows === 0 ? "Clean slate" : `${refunds.length + dropouts.length + deposits.length} Cash-Tracker · ${deferrals.length + planChanges.length} CRM`,
             hintColor: totalAdjustmentRows === 0 ? "green" : "muted",
-            onClick: totalAdjustmentRows > 0 ? () => openDrilldown("All Cash-Tracker Adjustments", `Refunds + Dropouts + Deposits · ${refunds.length + dropouts.length + deposits.length} rows (Deferrals + Plan Changes are Master-CRM — see their own cards)`, [...refunds, ...dropouts, ...deposits]) : undefined,
+            onClick: totalAdjustmentRows > 0 ? () => openDrilldown("All Cash-Tracker Adjustments", `Refunds + Dropouts + Deposits · ${refunds.length + dropouts.length + deposits.length} rows`, [...refunds, ...dropouts, ...deposits]) : undefined,
           },
         ]}
       />

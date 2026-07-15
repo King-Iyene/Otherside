@@ -186,6 +186,9 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
   const [includeTest, setIncludeTest] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("prev");
   const [apptDrill, setApptDrill] = useState<{ title: string; rows: AppointmentRow[] } | null>(null);
+  const [cashDrill, setCashDrill] = useState<{ title: string; subtitle?: string; rows: CashRow[] } | null>(null);
+  const [appDrill, setAppDrill] = useState<{ title: string; subtitle?: string; rows: ApplicationRow[] } | null>(null);
+  const [salesDrill, setSalesDrill] = useState<{ title: string; subtitle?: string; rows: SalesActivityRow[] } | null>(null);
 
   const bench = useMemo(() => getBenchmarks(), []);
   const { from, to } = resolveRange(preset, customFrom, customTo);
@@ -260,6 +263,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="var(--green)"
           delta={prevStats && computeDelta(stats.cashCollected, prevStats.cashCollected)}
           compareLabel={compareLabel}
+          onClick={() => setCashDrill({ title: "Cash Collected", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
         />
         <HeroCard
           label={stats.refundCount > 0 ? "Net Revenue" : "Revenue Booked"}
@@ -273,6 +277,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="var(--blue)"
           delta={prevStats && computeDelta(stats.revenue, prevStats.revenue)}
           compareLabel={compareLabel}
+          onClick={() => setCashDrill({ title: "Revenue Booked", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
         />
         <HeroCard
           label="Enrollments"
@@ -286,6 +291,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="var(--accent)"
           delta={prevStats && computeDelta(stats.enrollments, prevStats.enrollments)}
           compareLabel={compareLabel}
+          onClick={() => setCashDrill({ title: "Enrollments", subtitle: `${stats.enrollments} unique enrollees`, rows: stats.cashRows.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit") })}
         />
       </div>
 
@@ -336,6 +342,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             sparklineColor: "var(--blue)",
             delta: prevStats && computeDelta(stats.appointments, prevStats.appointments),
             source: { source: "Appointments Tracker (Notion)", field: "COUNT" },
+            onClick: () => setApptDrill({ title: "All Appointments", rows: stats.apptRows }),
           },
           {
             label: "Show Rate",
@@ -344,6 +351,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             source: { source: "Derived", field: "Showed ÷ Appointments" },
             hint: `benchmark ${(bench.showPct * 100).toFixed(0)}%`,
             hintColor: stats.showRate === null ? "muted" : stats.showRate >= bench.showPct ? "green" : stats.showRate < bench.showPct * 0.8 ? "red" : "muted",
+            onClick: () => setApptDrill({ title: "Showed Appointments", rows: stats.apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) }),
           },
           {
             label: "Applications",
@@ -352,6 +360,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             sparklineColor: "var(--accent)",
             delta: prevStats && computeDelta(stats.applications, prevStats.applications),
             source: { source: "REBORN Application Tracker (Notion)", field: "COUNT" },
+            onClick: () => setAppDrill({ title: "All Applications", subtitle: `${stats.appRows.length} applications`, rows: stats.appRows }),
           },
           {
             label: "App → Purchase",
@@ -361,12 +370,14 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
                 ? computeDelta(stats.conversionRate, prevStats.conversionRate)
                 : null,
             source: { source: "Derived", field: "Purchased ÷ Applications" },
+            onClick: () => setAppDrill({ title: "Purchased Applications", subtitle: `${stats.purchasedApps} purchased`, rows: stats.appRows.filter((r) => r.purchased) }),
           },
           {
             label: "Cash on Call",
             value: formatMoney(stats.cashOnCall),
             delta: prevStats && computeDelta(stats.cashOnCall, prevStats.cashOnCall),
             source: { source: "Sales Activity Tracker (Notion)", field: "SUM Cash Collected on Call" },
+            onClick: () => setSalesDrill({ title: "Sales Activity", subtitle: `${stats.salesRows.length} entries`, rows: stats.salesRows }),
           },
         ]}
       />
@@ -421,6 +432,54 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           searchPlaceholder="Search name, email, phone, cohort, closer, status…"
         />
       </DrillDownModal>
+
+      <DrillDownModal
+        open={!!cashDrill}
+        onClose={() => setCashDrill(null)}
+        title={cashDrill?.title || ""}
+        subtitle={cashDrill?.subtitle || ""}
+      >
+        <DataTable
+          columns={CASH_COLUMNS}
+          rows={cashDrill?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, cohort, product…"
+        />
+      </DrillDownModal>
+
+      <DrillDownModal
+        open={!!appDrill}
+        onClose={() => setAppDrill(null)}
+        title={appDrill?.title || ""}
+        subtitle={appDrill?.subtitle || ""}
+      >
+        <DataTable
+          columns={APP_COLUMNS}
+          rows={appDrill?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, phone, status…"
+        />
+      </DrillDownModal>
+
+      <DrillDownModal
+        open={!!salesDrill}
+        onClose={() => setSalesDrill(null)}
+        title={salesDrill?.title || ""}
+        subtitle={salesDrill?.subtitle || ""}
+      >
+        <DataTable
+          columns={SALES_COLUMNS}
+          rows={salesDrill?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search entry, closer, launch…"
+        />
+      </DrillDownModal>
     </div>
   );
 }
@@ -433,6 +492,41 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+];
+
+const CASH_COLUMNS: Column<CashRow>[] = [
+  { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+  { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+  { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+  { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+  { key: "enrollmentDate", label: "Date", render: (r) => r.enrollmentDate?.slice(0, 10) || "—", sortValue: (r) => r.enrollmentDate },
+  { key: "revenue", label: "Revenue", render: (r) => formatMoney(r.revenue), sortValue: (r) => r.revenue },
+  { key: "cashCollected", label: "Cash", render: (r) => formatMoney(r.cashCollected), sortValue: (r) => r.cashCollected },
+  { key: "transactionType", label: "Type", render: (r) => r.transactionType || "Payment", sortValue: (r) => r.transactionType },
+  { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+];
+
+const APP_COLUMNS: Column<ApplicationRow>[] = [
+  { key: "firstName", label: "First Name", render: (r) => r.firstName, sortValue: (r) => r.firstName },
+  { key: "lastName", label: "Last Name", render: (r) => r.lastName || "—", sortValue: (r) => r.lastName },
+  { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+  { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
+  { key: "applicationStatus", label: "Status", render: (r) => r.applicationStatus || "—", sortValue: (r) => r.applicationStatus },
+  { key: "dateCreated", label: "Date", render: (r) => r.dateCreated?.slice(0, 10) || "—", sortValue: (r) => r.dateCreated },
+  { key: "purchased", label: "Purchased", render: (r) => r.purchased ? "Yes" : "No", sortValue: (r) => (r.purchased ? 1 : 0) },
+  { key: "annualEarnings", label: "Earnings", render: (r) => r.annualEarnings || "—", sortValue: (r) => r.annualEarnings },
+];
+
+const SALES_COLUMNS: Column<SalesActivityRow>[] = [
+  { key: "entry", label: "Entry", render: (r) => r.entry, sortValue: (r) => r.entry },
+  { key: "date", label: "Date", render: (r) => r.date?.slice(0, 10) || "—", sortValue: (r) => r.date },
+  { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+  { key: "launch", label: "Launch", render: (r) => r.launch || "—", sortValue: (r) => r.launch },
+  { key: "newCalls", label: "Calls", render: (r) => formatNumber(r.newCalls), sortValue: (r) => r.newCalls },
+  { key: "showed", label: "Showed", render: (r) => formatNumber(r.showed), sortValue: (r) => r.showed },
+  { key: "offersMade", label: "Offers", render: (r) => formatNumber(r.offersMade), sortValue: (r) => r.offersMade },
+  { key: "salesMade", label: "Sales", render: (r) => formatNumber(r.salesMade), sortValue: (r) => r.salesMade },
+  { key: "cashCollectedOnCall", label: "Cash on Call", render: (r) => formatMoney(r.cashCollectedOnCall), sortValue: (r) => r.cashCollectedOnCall },
 ];
 
 function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]; cash: CashRow[] }) {
@@ -536,6 +630,7 @@ interface HeroCardProps {
   higherIsBetter?: boolean;
   hidePaceBar?: boolean;
   compareLabel?: string;
+  onClick?: () => void;
 }
 
 function HeroCard({
@@ -552,6 +647,7 @@ function HeroCard({
   higherIsBetter = true,
   hidePaceBar,
   compareLabel = "vs prev",
+  onClick,
 }: HeroCardProps) {
   const deltaText = delta?.pct === null || delta === null ? null : delta;
   const deltaGood = deltaText?.pct === null || deltaText === null || Math.abs(deltaText.pct) < 0.001 ? null : deltaText.pct > 0 === higherIsBetter;
@@ -559,6 +655,10 @@ function HeroCard({
 
   return (
     <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       style={{
         background: "var(--gradient-surface)",
         border: "1px solid var(--line)",
@@ -567,6 +667,8 @@ function HeroCard({
         boxShadow: "var(--shadow-card)",
         position: "relative",
         overflow: "hidden",
+        cursor: onClick ? "pointer" : undefined,
+        transition: onClick ? "border-color 0.15s" : undefined,
       }}
     >
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color, opacity: 0.7 }} />
