@@ -20,6 +20,7 @@ import ChallengeTab from "@/components/tabs/ChallengeTab";
 import ReconciliationTab from "@/components/tabs/ReconciliationTab";
 import GuideTab from "@/components/tabs/GuideTab";
 import PaymentsTab from "@/components/tabs/PaymentsTab";
+import AdjustmentsTab from "@/components/tabs/AdjustmentsTab";
 
 const SOURCE_LABELS: Record<string, string> = {
   cash: "Reborn Cash Tracker",
@@ -119,14 +120,19 @@ export default function Home() {
   // Schema safety net: catch a whole column reading empty (renamed/removed source column).
   const columnWarnings = useMemo(() => (data ? detectColumnHealth(data) : []), [data]);
 
-  const rebornCash = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.cashCollected)) : 0;
+  const nonTestCash = data ? data.cash.rows.filter((r) => !r.isTest) : [];
+  const isPositiveTx = (r: typeof nonTestCash[number]) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit";
+  const isAdjustmentTx = (r: typeof nonTestCash[number]) => r.transactionType === "Refund" || r.transactionType === "Dropout";
+
+  const grossRebornCash = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.cashCollected)) : 0;
+  const adjustedCash = data ? sum(nonTestCash.filter(isAdjustmentTx).map((r) => r.cashCollected)) : 0;
+  const rebornCash = grossRebornCash - adjustedCash;
   const challengeCash = data ? challengeCashStats(data.challenge.rows).cashCollected : 0;
-  // Top header is the all-time pulse — Cash Collected combines both revenue
-  // streams (Reborn + Challenge) so it's the true total. Revenue Booked is
-  // Reborn only. (Outstanding intentionally omitted: once the cash tracker logs
-  // every installment on its own row, a per-row balance can't be trusted.)
   const cashCollected = rebornCash + challengeCash;
-  const revenueBooked = data ? sum(data.cash.rows.filter((r) => !r.isTest).map((r) => r.revenue)) : 0;
+
+  const grossRevenue = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.revenue)) : 0;
+  const adjustedRevenue = data ? sum(nonTestCash.filter(isAdjustmentTx).map((r) => r.revenue)) : 0;
+  const revenueBooked = grossRevenue - adjustedRevenue;
 
   const sourceErrors = data
     ? (["cash", "appointments", "applications", "salesActivity", "challenge"] as const)
@@ -200,6 +206,7 @@ export default function Home() {
               />
             )}
             {activeTab === "cash" && <CashTab rows={data.cash.rows} />}
+            {activeTab === "adjustments" && <AdjustmentsTab rows={data.cash.rows} />}
             {activeTab === "payments" && <PaymentsTab rows={data.cash.rows} />}
             {activeTab === "appointments" && <AppointmentsTab rows={data.appointments.rows} />}
             {activeTab === "applications" && <ApplicationsTab rows={data.applications.rows} />}

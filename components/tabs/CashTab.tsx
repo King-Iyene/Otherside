@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CashRow } from "@/lib/types";
+import type { CashRow, TransactionType } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch, sum, selected } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
@@ -67,6 +67,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const [cohort, setCohort] = useState<string[]>([]);
   const [enrManager, setEnrManager] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string[]>([]);
+  const [txType, setTxType] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
 
@@ -76,12 +77,14 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const cohorts = useMemo(() => uniqueSorted(rows.map((r) => r.cohort)), [rows]);
   const managers = useMemo(() => uniqueSorted(rows.map((r) => r.enrManager)), [rows]);
   const paymentMethods = useMemo(() => uniqueSorted(rows.map((r) => r.paymentMethod)), [rows]);
+  const txTypes = useMemo(() => uniqueSorted(rows.map((r) => r.transactionType)), [rows]);
 
   const dimensionMatch = (r: CashRow) => {
     if (!selected(product, r.product)) return false;
     if (!selected(cohort, r.cohort)) return false;
     if (!selected(enrManager, r.enrManager)) return false;
     if (!selected(paymentMethod, r.paymentMethod)) return false;
+    if (!selected(txType, r.transactionType)) return false;
     if (!matchesSearch([r.name, r.email, r.note], search)) return false;
     return true;
   };
@@ -95,7 +98,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       return dimensionMatch(r);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, from, to, product, cohort, enrManager, paymentMethod, search, includeTest]);
+  }, [rows, from, to, product, cohort, enrManager, paymentMethod, txType, search, includeTest]);
 
   const prevRange = previousPeriod(from, to);
   const prevFiltered = useMemo(() => {
@@ -106,22 +109,34 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       return dimensionMatch(r);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, prevRange, product, cohort, enrManager, paymentMethod, search, includeTest]);
+  }, [rows, prevRange, product, cohort, enrManager, paymentMethod, txType, search, includeTest]);
 
-  const totalRevenue = sum(filtered.map((r) => r.revenue));
-  const totalCash = sum(filtered.map((r) => r.cashCollected));
+  // Positive transactions (payments + deposits)
+  const positiveTx = useMemo(() => filtered.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit"), [filtered]);
+  // Adjustment transactions (refunds + dropouts)
+  const adjustmentTx = useMemo(() => filtered.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout"), [filtered]);
 
-  const enrollmentsCount = useMemo(() => countPeople(filtered), [filtered]);
+  const grossRevenue = sum(positiveTx.map((r) => r.revenue));
+  const grossCash = sum(positiveTx.map((r) => r.cashCollected));
+  const refundedRevenue = sum(adjustmentTx.map((r) => r.revenue));
+  const refundedCash = sum(adjustmentTx.map((r) => r.cashCollected));
+  const totalRevenue = grossRevenue - refundedRevenue;
+  const totalCash = grossCash - refundedCash;
 
-  const prevTotals = prevFiltered
+  const enrollmentsCount = useMemo(() => countPeople(positiveTx), [positiveTx]);
+
+  const prevPositive = prevFiltered ? prevFiltered.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit") : null;
+  const prevAdjustments = prevFiltered ? prevFiltered.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout") : null;
+  const prevTotals = prevPositive
     ? {
-        revenue: sum(prevFiltered.map((r) => r.revenue)),
-        cash: sum(prevFiltered.map((r) => r.cashCollected)),
-        count: countPeople(prevFiltered),
+        revenue: sum(prevPositive.map((r) => r.revenue)) - sum((prevAdjustments || []).map((r) => r.revenue)),
+        cash: sum(prevPositive.map((r) => r.cashCollected)) - sum((prevAdjustments || []).map((r) => r.cashCollected)),
+        count: countPeople(prevPositive),
       }
     : null;
 
   const collectionRate = totalRevenue > 0 ? totalCash / totalRevenue : null;
+  const hasAdjustments = adjustmentTx.length > 0;
 
   // Cohort economics
   const cohortEconomics = useMemo(() => {
@@ -165,6 +180,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   const columns: Column<CashRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
     { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+    { key: "transactionType", label: "Type", render: (r) => r.transactionType || "—", sortValue: (r) => r.transactionType },
     { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
     { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
     {
@@ -212,6 +228,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           { key: "cohort", label: "Cohort", options: cohorts, value: cohort, onChange: setCohort },
           { key: "enrManager", label: "Enr Manager", options: managers, value: enrManager, onChange: setEnrManager },
           { key: "paymentMethod", label: "Payment Method", options: paymentMethods, value: paymentMethod, onChange: setPaymentMethod },
+          { key: "txType", label: "Transaction Type", options: txTypes, value: txType, onChange: setTxType },
         ]}
         search={search}
         onSearchChange={setSearch}
@@ -223,18 +240,20 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       <KpiGrid
         items={[
           {
-            label: "Cash Collected",
+            label: hasAdjustments ? "Net Cash Collected" : "Cash Collected",
             value: formatMoney(totalCash),
             delta: prevTotals && computeDelta(totalCash, prevTotals.cash),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: "SUM(Cash Collected)" },
-            onClick: () => openDrilldown("Cash Collected — Enrollments", undefined, filtered),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Cash Collected", formula: hasAdjustments ? "Gross Cash − Refunded/Dropout Cash" : "SUM(Cash Collected)" },
+            hint: hasAdjustments ? `Gross ${formatMoney(grossCash)} − ${formatMoney(refundedCash)} adjusted` : undefined,
+            onClick: () => openDrilldown("Cash Collected — Enrollments", undefined, positiveTx),
           },
           {
-            label: "Revenue",
+            label: hasAdjustments ? "Net Revenue" : "Revenue",
             value: formatMoney(totalRevenue),
             delta: prevTotals && computeDelta(totalRevenue, prevTotals.revenue),
-            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: "SUM(Revenue) WHERE Payment Date in period" },
-            onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", filtered),
+            source: { source: "Reborn Cash Tracker (Notion)", field: "Revenue", formula: hasAdjustments ? "Gross Revenue − Refunded/Dropout Revenue" : "SUM(Revenue) WHERE Payment Date in period" },
+            hint: hasAdjustments ? `Gross ${formatMoney(grossRevenue)} − ${formatMoney(refundedRevenue)} adjusted` : undefined,
+            onClick: () => openDrilldown("All Enrollments", "Contributing to Revenue", positiveTx),
           },
           {
             label: "Collection Rate",
@@ -248,7 +267,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             value: formatNumber(enrollmentsCount),
             delta: prevTotals && computeDelta(enrollmentsCount, prevTotals.count),
             source: { source: "Reborn Cash Tracker (Notion)", field: "Unique buyers (deduped by email; blank rows excluded)" },
-            onClick: () => openDrilldown("All Enrollments", `${enrollmentsCount} unique buyers · ${formatNumber(filtered.length)} rows`, filtered),
+            onClick: () => openDrilldown("All Enrollments", `${enrollmentsCount} unique buyers · ${formatNumber(positiveTx.length)} rows`, positiveTx),
           },
           {
             label: "Paid In Full",

@@ -9,6 +9,7 @@ const LABELS: Record<TabKey, string> = {
   overview: "Overview",
   insights: "Insights ✦",
   cash: "Reborn Cash",
+  adjustments: "Adjustments",
   payments: "Payments 🚩",
   appointments: "Appointments",
   applications: "Applications",

@@ -21,6 +21,7 @@ const FULL: TabKey[] = [
   "overview",
   "insights",
   "cash",
+  "adjustments",
   "payments",
   "appointments",
   "applications",
@@ -41,7 +42,7 @@ export const ROLES: RoleDef[] = [
     key: "leadership",
     label: "Leadership",
     blurb: "The high-level picture: revenue, performance and adoption.",
-    tabs: ["overview", "insights", "cash", "sales", "challenge", "reconciliation", "guide"],
+    tabs: ["overview", "insights", "cash", "adjustments", "sales", "challenge", "reconciliation", "guide"],
   },
   {
     key: "closer",

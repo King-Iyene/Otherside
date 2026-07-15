@@ -69,14 +69,22 @@ function computeStats(
   const showedCount = apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length;
   const purchasedApps = appRows.filter((r) => r.purchased).length;
 
+  const positiveCashRows = cashRows.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit");
+  const adjustmentCashRows = cashRows.filter((r) => r.transactionType === "Refund" || r.transactionType === "Dropout");
+
   return {
     cashRows,
     apptRows,
     appRows,
     salesRows,
-    cashCollected: sum(cashRows.map((r) => r.cashCollected)),
-    revenue: sum(cashRows.map((r) => r.revenue)),
-    enrollments: uniqueEnrollments(cashRows),
+    grossCashCollected: sum(positiveCashRows.map((r) => r.cashCollected)),
+    grossRevenue: sum(positiveCashRows.map((r) => r.revenue)),
+    refundedCash: sum(adjustmentCashRows.map((r) => r.cashCollected)),
+    refundedRevenue: sum(adjustmentCashRows.map((r) => r.revenue)),
+    cashCollected: sum(positiveCashRows.map((r) => r.cashCollected)) - sum(adjustmentCashRows.map((r) => r.cashCollected)),
+    revenue: sum(positiveCashRows.map((r) => r.revenue)) - sum(adjustmentCashRows.map((r) => r.revenue)),
+    adjustmentCount: adjustmentCashRows.length,
+    enrollments: uniqueEnrollments(positiveCashRows),
     appointments: apptRows.length,
     showedCount,
     showRate: apptRows.length ? showedCount / apptRows.length : null,
@@ -241,8 +249,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         }}
       >
         <HeroCard
-          label="Cash Collected"
-          sublabel="Reborn only"
+          label={stats.adjustmentCount > 0 ? "Net Cash Collected" : "Cash Collected"}
+          sublabel={stats.adjustmentCount > 0 ? `Gross ${formatMoney(stats.grossCashCollected)} − ${formatMoney(stats.refundedCash)} adj` : "Reborn only"}
           value={formatMoney(stats.cashCollected)}
           target={bench.monthlyCashCollected}
           current={stats.cashCollected}
@@ -254,8 +262,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           compareLabel={compareLabel}
         />
         <HeroCard
-          label="Revenue Booked"
-          sublabel="Reborn only"
+          label={stats.adjustmentCount > 0 ? "Net Revenue" : "Revenue Booked"}
+          sublabel={stats.adjustmentCount > 0 ? `Gross ${formatMoney(stats.grossRevenue)} − ${formatMoney(stats.refundedRevenue)} adj` : "Reborn only"}
           value={formatMoney(stats.revenue)}
           target={bench.monthlyRevenueBooked}
           current={stats.revenue}
