@@ -328,3 +328,122 @@ export function analyzeCouponPurchase(challengeRows: ChallengeRow[], cashRows: C
       .sort((a, b) => b.revenue - a.revenue),
   };
 }
+
+// ── Deposit lifecycle ─────────────────────────────────────────────
+// "After someone puts down a deposit, what actually happens?" Groups
+// Cash Tracker rows by person (email) and buckets each depositor into
+// one terminal outcome — outcome priority (highest wins):
+//   1. refunded   — any Refund row on file
+//   2. droppedOut — any Dropout row on file (but no refund)
+//   3. paidInFull — total cash collected ≥ total revenue booked
+//   4. continuing — has at least one Payment row after the deposit
+//                   (still on a payment plan / installment refills)
+//   5. depositOnly — the deposit is the ONLY row for this person
+//                   (stalled — never converted to a real enrollment)
+//
+// Refund/dropout beat "paid in full" so a person who paid it off but
+// was later refunded lands in the refunded bucket, not paid-in-full.
+
+export type DepositOutcome = "paid_in_full" | "continuing" | "refunded" | "dropped_out" | "deposit_only";
+
+export interface DepositLead {
+  email: string;
+  name: string;
+  cohort: string | null;
+  product: string | null;
+  /** SUM of Cash Collected across this person's Deposit rows. */
+  depositCash: number;
+  /** SUM of Cash Collected across all positive rows (Deposit + Payment). */
+  totalCash: number;
+  /** SUM of Revenue across all positive rows (what they owe in total). */
+  totalRevenue: number;
+  /** SUM of Cash Collected across Refund rows (what came back to them). */
+  totalRefunded: number;
+  paymentCount: number;
+  hasRefund: boolean;
+  hasDropout: boolean;
+  outcome: DepositOutcome;
+}
+
+export interface DepositLifecycleAnalysis {
+  totalDepositors: number;
+  paidInFull: DepositLead[];
+  continuing: DepositLead[];
+  refunded: DepositLead[];
+  droppedOut: DepositLead[];
+  depositOnly: DepositLead[];
+}
+
+export function analyzeDepositLifecycle(cashRows: CashRow[], includeTest = false): DepositLifecycleAnalysis {
+  const byEmail = new Map<string, CashRow[]>();
+  for (const r of cashRows) {
+    if (!includeTest && r.isTest) continue;
+    const email = normalizeEmail(r.email);
+    if (!email) continue;
+    const bucket = byEmail.get(email);
+    if (bucket) bucket.push(r);
+    else byEmail.set(email, [r]);
+  }
+
+  const paidInFull: DepositLead[] = [];
+  const continuing: DepositLead[] = [];
+  const refunded: DepositLead[] = [];
+  const droppedOut: DepositLead[] = [];
+  const depositOnly: DepositLead[] = [];
+
+  for (const [email, personRows] of byEmail) {
+    const deposits = personRows.filter((r) => r.transactionType === "Deposit");
+    if (deposits.length === 0) continue;
+
+    const payments = personRows.filter((r) => !r.transactionType || r.transactionType === "Payment");
+    const refunds = personRows.filter((r) => r.transactionType === "Refund");
+    const dropouts = personRows.filter((r) => r.transactionType === "Dropout");
+
+    const depositCash = deposits.reduce((s, r) => s + (r.cashCollected || 0), 0);
+    const positive = [...payments, ...deposits];
+    const totalCash = positive.reduce((s, r) => s + (r.cashCollected || 0), 0);
+    const totalRevenue = positive.reduce((s, r) => s + (r.revenue || 0), 0);
+    const totalRefunded = refunds.reduce((s, r) => s + (r.cashCollected || 0), 0);
+
+    // Priority: refund > dropout > paid-in-full > continuing > deposit-only.
+    // Paid-in-full is inclusive of a $1 rounding tolerance to survive
+    // fractional cents from currency conversion / gateway rounding.
+    let outcome: DepositOutcome;
+    if (refunds.length > 0) outcome = "refunded";
+    else if (dropouts.length > 0) outcome = "dropped_out";
+    else if (totalRevenue > 0 && totalCash >= totalRevenue - 1) outcome = "paid_in_full";
+    else if (payments.length > 0) outcome = "continuing";
+    else outcome = "deposit_only";
+
+    const anchor = deposits[0] || personRows[0];
+    const lead: DepositLead = {
+      email,
+      name: anchor.name,
+      cohort: anchor.cohort,
+      product: anchor.product,
+      depositCash,
+      totalCash,
+      totalRevenue,
+      totalRefunded,
+      paymentCount: payments.length,
+      hasRefund: refunds.length > 0,
+      hasDropout: dropouts.length > 0,
+      outcome,
+    };
+
+    if (outcome === "refunded") refunded.push(lead);
+    else if (outcome === "dropped_out") droppedOut.push(lead);
+    else if (outcome === "paid_in_full") paidInFull.push(lead);
+    else if (outcome === "continuing") continuing.push(lead);
+    else depositOnly.push(lead);
+  }
+
+  return {
+    totalDepositors: paidInFull.length + continuing.length + refunded.length + droppedOut.length + depositOnly.length,
+    paidInFull,
+    continuing,
+    refunded,
+    droppedOut,
+    depositOnly,
+  };
+}

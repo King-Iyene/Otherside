@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { ApplicationRow, AppointmentRow, CashRow, ChallengeRow, SalesActivityRow } from "@/lib/types";
-import { analyzeAppToPurchase, analyzeChallengeToReborn, analyzeCouponPurchase } from "@/lib/crossSource";
+import {
+  analyzeAppToPurchase,
+  analyzeChallengeToReborn,
+  analyzeCouponPurchase,
+  analyzeDepositLifecycle,
+  type DepositLead,
+} from "@/lib/crossSource";
 import { allLaunchesForData, computeSubOfferBreakdown } from "@/lib/cohortFunnel";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import DrillDownModal from "../DrillDownModal";
@@ -125,6 +131,26 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
   const c2r = useMemo(() => analyzeChallengeToReborn(challenge, cash), [challenge, cash]);
   const a2p = useMemo(() => analyzeAppToPurchase(applications, cash), [applications, cash]);
   const coupon = useMemo(() => analyzeCouponPurchase(challenge, cash), [challenge, cash]);
+  const dep = useMemo(() => analyzeDepositLifecycle(cash), [cash]);
+
+  const depColumns: Column<DepositLead>[] = [
+    { key: "name", label: "Name", render: (r) => r.name || "—", sortValue: (r) => r.name },
+    { key: "email", label: "Email", render: (r) => r.email, sortValue: (r) => r.email },
+    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+    { key: "deposit", label: "Deposit", render: (r) => formatMoney(r.depositCash), sortValue: (r) => r.depositCash },
+    { key: "totalCash", label: "Cash Collected", render: (r) => formatMoney(r.totalCash), sortValue: (r) => r.totalCash },
+    { key: "totalRevenue", label: "Booked Revenue", render: (r) => formatMoney(r.totalRevenue), sortValue: (r) => r.totalRevenue },
+    { key: "paymentCount", label: "Payments", render: (r) => String(r.paymentCount), sortValue: (r) => r.paymentCount },
+    {
+      key: "outcome",
+      label: "Outcome",
+      render: (r) => r.outcome.replace(/_/g, " "),
+      sortValue: (r) => r.outcome,
+    },
+  ];
+  const openDepDrill = (title: string, rows: DepositLead[]) =>
+    setDrilldown({ title, subtitle: `${rows.length} depositors`, rows, columns: depColumns });
 
   // Adeyemi approval → purchase rate
   const adeyemiAppRows = applications.filter((r) => !r.isTest && r.applicationStatus?.startsWith("Adeyemi"));
@@ -206,6 +232,126 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           Joins every dataset by email — Challenge Sheet, Reborn Cash Tracker, Application Tracker, Appointments, Sales Activity — to answer
           the questions raw single-source views can&apos;t. Every card is clickable → see the matched leads.
         </div>
+      </div>
+
+      {/* DEPOSIT LIFECYCLE — what happens after someone puts down a deposit? */}
+      <SectionHeader
+        title="Deposit Lifecycle"
+        sub="Group by person, then bucket every depositor by what actually happened next. Priority: refunded → dropped-out → paid-in-full → still-refilling → deposit-only (stalled). Every card is clickable."
+      />
+      <div className="kpi-grid">
+        <InsightCard
+          label="Total Depositors"
+          value={formatNumber(dep.totalDepositors)}
+          hint="People with ≥1 Deposit row"
+          color="#f5a623"
+          source="Cash Tracker · rows WHERE Transaction Type = Deposit, grouped by Email"
+        />
+        <InsightCard
+          label="Paid in Full"
+          value={formatNumber(dep.paidInFull.length)}
+          hint={dep.totalDepositors ? `${formatPercent(dep.paidInFull.length / dep.totalDepositors)} of depositors` : undefined}
+          color="#45d093"
+          source="Cash Tracker · Cash Collected ≥ Revenue booked"
+          onClick={dep.paidInFull.length ? () => openDepDrill("Deposit → Paid in Full", dep.paidInFull) : undefined}
+        />
+        <InsightCard
+          label="Still Refilling"
+          value={formatNumber(dep.continuing.length)}
+          hint={dep.totalDepositors ? `${formatPercent(dep.continuing.length / dep.totalDepositors)} still on payment plan` : undefined}
+          color="#7ca0f4"
+          source="Cash Tracker · has Payment rows after Deposit, not yet paid off"
+          onClick={dep.continuing.length ? () => openDepDrill("Deposit → Still Refilling", dep.continuing) : undefined}
+        />
+        <InsightCard
+          label="Refunded"
+          value={formatNumber(dep.refunded.length)}
+          hint={dep.totalDepositors ? `${formatPercent(dep.refunded.length / dep.totalDepositors)} of depositors` : undefined}
+          color="#f07070"
+          source="Cash Tracker · Deposit followed by ≥1 Refund row"
+          onClick={dep.refunded.length ? () => openDepDrill("Deposit → Refunded", dep.refunded) : undefined}
+        />
+        <InsightCard
+          label="Dropped Out"
+          value={formatNumber(dep.droppedOut.length)}
+          hint={dep.totalDepositors ? `${formatPercent(dep.droppedOut.length / dep.totalDepositors)} money kept, gone silent` : undefined}
+          color="#a0a0a0"
+          source="Cash Tracker · Deposit followed by Dropout, no refund"
+          onClick={dep.droppedOut.length ? () => openDepDrill("Deposit → Dropped Out", dep.droppedOut) : undefined}
+        />
+        <InsightCard
+          label="Deposit Only (Stalled)"
+          value={formatNumber(dep.depositOnly.length)}
+          hint={dep.totalDepositors ? `${formatPercent(dep.depositOnly.length / dep.totalDepositors)} never converted` : undefined}
+          color="#c58af9"
+          source="Cash Tracker · Deposit is the ONLY row for this person"
+          onClick={dep.depositOnly.length ? () => openDepDrill("Deposit → Only, Never Converted", dep.depositOnly) : undefined}
+        />
+      </div>
+
+      {/* Deposit outcome breakdown — horizontal bar chart */}
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: 20,
+          marginTop: 14,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+          <div style={{ fontSize: 12, letterSpacing: 0.4, color: "var(--muted)", fontWeight: 600 }}>
+            OUTCOME BREAKDOWN · WHERE DEPOSITORS ENDED UP
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>
+            <strong style={{ color: "var(--text)" }}>{dep.totalDepositors}</strong> depositors total
+          </div>
+        </div>
+        {dep.totalDepositors === 0 ? (
+          <div style={{ color: "var(--muted)", fontSize: 12, padding: "16px 0", textAlign: "center" }}>
+            No depositors in the current dataset.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              { label: "Paid in Full",     count: dep.paidInFull.length,  color: "#45d093" },
+              { label: "Still Refilling",  count: dep.continuing.length,  color: "#7ca0f4" },
+              { label: "Refunded",         count: dep.refunded.length,    color: "#f07070" },
+              { label: "Dropped Out",      count: dep.droppedOut.length,  color: "#a0a0a0" },
+              { label: "Deposit Only",     count: dep.depositOnly.length, color: "#c58af9" },
+            ].map((row) => {
+              const pct = dep.totalDepositors ? row.count / dep.totalDepositors : 0;
+              return (
+                <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 140, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
+                    <div style={{ fontSize: 13, color: "var(--text)" }}>{row.label}</div>
+                  </div>
+                  <div style={{ flex: 1, background: "rgba(255,255,255,0.04)", borderRadius: 4, height: 22, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        width: `${pct * 100}%`,
+                        minWidth: row.count > 0 ? 2 : 0,
+                        background: row.color,
+                        height: "100%",
+                        borderRadius: 4,
+                        transition: "width 200ms ease",
+                      }}
+                    />
+                  </div>
+                  <div style={{ width: 100, textAlign: "right", flexShrink: 0 }}>
+                    <div className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                      {row.count}
+                    </div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                      {formatPercent(pct)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* CHALLENGE → REBORN */}
