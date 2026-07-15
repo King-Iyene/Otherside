@@ -300,7 +300,6 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             label: "Net Cash",
             value: formatMoney(netCash),
             source: { source: "Derived", field: "Gross Cash − Refunded Cash" },
-            onClick: () => openDrilldown("Net Cash — All Rows", `${filtered.length} rows`, filtered),
             hint: grossCash > 0 ? `${((netCash / grossCash) * 100).toFixed(0)}% retained` : undefined,
             hintColor: netCash >= grossCash * 0.9 ? "green" : "muted",
             onClick: () => openDrilldown("Net Cash — Payments + Deposits", `${payments.length + deposits.length} contributing rows`, [...payments, ...deposits]),
