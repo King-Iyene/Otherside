@@ -304,7 +304,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
             OUTCOME BREAKDOWN · WHERE DEPOSITORS ENDED UP
           </div>
           <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            <strong style={{ color: "var(--text)" }}>{dep.totalDepositors}</strong> depositors total
+            <strong style={{ color: "var(--text)" }}>{dep.totalDepositors}</strong> depositors total · click a row to see leads
           </div>
         </div>
         {dep.totalDepositors === 0 ? (
@@ -314,15 +314,24 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[
-              { label: "Paid in Full",     count: dep.paidInFull.length,  color: "#45d093" },
-              { label: "Still Refilling",  count: dep.continuing.length,  color: "#7ca0f4" },
-              { label: "Refunded",         count: dep.refunded.length,    color: "#f07070" },
-              { label: "Dropped Out",      count: dep.droppedOut.length,  color: "#a0a0a0" },
-              { label: "Deposit Only",     count: dep.depositOnly.length, color: "#c58af9" },
+              { label: "Paid in Full",     count: dep.paidInFull.length,  color: "#45d093", rows: dep.paidInFull },
+              { label: "Still Refilling",  count: dep.continuing.length,  color: "#7ca0f4", rows: dep.continuing },
+              { label: "Refunded",         count: dep.refunded.length,    color: "#f07070", rows: dep.refunded },
+              { label: "Dropped Out",      count: dep.droppedOut.length,  color: "#a0a0a0", rows: dep.droppedOut },
+              { label: "Deposit Only",     count: dep.depositOnly.length, color: "#c58af9", rows: dep.depositOnly },
             ].map((row) => {
               const pct = dep.totalDepositors ? row.count / dep.totalDepositors : 0;
               return (
-                <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  key={row.label}
+                  role={row.count > 0 ? "button" : undefined}
+                  tabIndex={row.count > 0 ? 0 : undefined}
+                  onClick={row.count > 0 ? () => openDepDrill(`Deposit → ${row.label}`, row.rows) : undefined}
+                  onKeyDown={row.count > 0 ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDepDrill(`Deposit → ${row.label}`, row.rows); } } : undefined}
+                  style={{ display: "flex", alignItems: "center", gap: 12, cursor: row.count > 0 ? "pointer" : "default", borderRadius: 6, padding: "4px 6px", transition: "background 0.15s ease" }}
+                  onMouseEnter={(e) => { if (row.count > 0) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
+                >
                   <div style={{ width: 140, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
                     <div style={{ fontSize: 13, color: "var(--text)" }}>{row.label}</div>
