@@ -323,24 +323,18 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         ]}
       />
 
-      {/* ── Revenue by Product — the big bar chart ── */}
+      {/* ── Revenue by Product ── */}
       {productBreakdown.length > 0 && (
-        <div className="panel" style={{ marginBottom: 20 }}>
-          <div className="panel-header">
-            <div className="panel-title">Revenue by Product</div>
-            <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a bar to see the enrollments</span>
-          </div>
-          <BreakdownChart
-            title=""
-            items={productBreakdown.map((p) => ({ key: p.product, value: p.revenue }))}
-            valueFormatter={(v) => formatMoney(v)}
-            maxBars={20}
-            onSelect={(key) => {
-              const match = productBreakdown.find((p) => p.product === key);
-              if (match) openDrilldown(`Product: ${match.product}`, `${match.enrollments} enrollments · ${formatMoney(match.cash)} collected`, match.rows);
-            }}
-          />
-        </div>
+        <CloserBars
+          title="Revenue by Product"
+          items={productBreakdown.map((p) => ({ name: p.product, value: p.revenue }))}
+          valueFormatter={(v) => formatMoney(v)}
+          maxBars={20}
+          onSelect={(name) => {
+            const match = productBreakdown.find((p) => p.product === name);
+            if (match) openDrilldown(`Product: ${match.product}`, `${match.enrollments} enrollments · ${formatMoney(match.cash)} collected`, match.rows);
+          }}
+        />
       )}
 
       <div className="chart-grid">

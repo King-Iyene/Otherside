@@ -23,6 +23,7 @@ interface Props {
   items: CloserDatum[];
   valueFormatter?: (v: number) => string;
   maxBars?: number;
+  onSelect?: (name: string) => void;
 }
 
 // Fixed palette — each coach hashes to a stable slot so the SAME coach is the
@@ -41,7 +42,7 @@ function shortName(name: string): string {
   return first.length > 12 ? `${first.slice(0, 11)}…` : first;
 }
 
-export default function CloserBars({ title, items, valueFormatter, maxBars = 12 }: Props) {
+export default function CloserBars({ title, items, valueFormatter, maxBars = 12, onSelect }: Props) {
   const data = useMemo(
     () =>
       items
@@ -56,6 +57,7 @@ export default function CloserBars({ title, items, valueFormatter, maxBars = 12 
     <div className="panel">
       <div className="panel-header">
         <div className="panel-title">{title}</div>
+        {onSelect && <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a bar to drill down</span>}
       </div>
       {data.length === 0 ? (
         <div className="empty-state">No data in range.</div>
@@ -92,7 +94,7 @@ export default function CloserBars({ title, items, valueFormatter, maxBars = 12 
               formatter={(v: number) => [valueFormatter ? valueFormatter(v) : v, ""]}
               labelFormatter={(_, payload) => (payload && payload[0] ? payload[0].payload.name : "")}
             />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={54}>
+            <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={54} cursor={onSelect ? "pointer" : undefined} onClick={onSelect ? (d: any) => d && onSelect(d.name) : undefined}>
               {data.map((d, i) => (
                 <Cell key={i} fill={d.fill} />
               ))}
