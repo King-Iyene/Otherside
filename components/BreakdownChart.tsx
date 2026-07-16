@@ -37,14 +37,14 @@ export default function BreakdownChart({ title, items, valueFormatter, maxBars =
       {data.length === 0 ? (
         <div className="empty-state">No data in range.</div>
       ) : (
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={Math.max(260, data.length * 36)}>
           <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }}>
             <CartesianGrid stroke="#253242" strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} />
+            <XAxis type="number" tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} tickFormatter={valueFormatter ? (v: number) => valueFormatter(v) : undefined} />
             <YAxis
               dataKey="name"
               type="category"
-              width={110}
+              width={200}
               tick={{ fill: "#8b98a8", fontSize: 11 }}
               axisLine={{ stroke: "#253242" }}
               tickLine={false}

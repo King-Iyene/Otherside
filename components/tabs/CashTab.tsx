@@ -334,29 +334,12 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             title=""
             items={productBreakdown.map((p) => ({ key: p.product, value: p.revenue }))}
             valueFormatter={(v) => formatMoney(v)}
+            maxBars={20}
             onSelect={(key) => {
               const match = productBreakdown.find((p) => p.product === key);
               if (match) openDrilldown(`Product: ${match.product}`, `${match.enrollments} enrollments · ${formatMoney(match.cash)} collected`, match.rows);
             }}
           />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "8px 16px 12px" }}>
-            {productBreakdown.map((p) => (
-              <button
-                key={p.product}
-                onClick={() => openDrilldown(`Product: ${p.product}`, `${p.enrollments} enrollments · ${formatMoney(p.cash)} collected`, p.rows)}
-                style={{
-                  background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 8,
-                  padding: "6px 12px", cursor: "pointer", color: "var(--text)", fontSize: 12,
-                  display: "flex", flexDirection: "column", gap: 2, minWidth: 120,
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>{p.product}</span>
-                <span style={{ color: "var(--muted)", fontSize: 11 }}>
-                  {formatNumber(p.enrollments)} people · {formatMoney(p.cash)}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
