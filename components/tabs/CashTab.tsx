@@ -368,6 +368,12 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             ...managers.map((m) => ({ name: m, value: countPeople(positiveTx.filter((r) => r.enrManager === m)) })),
             { name: "No EM", value: countPeople(positiveTx.filter((r) => !(r.enrManager && r.enrManager.trim()))) },
           ]}
+          onSelect={(name) => {
+            const rows = name === "No EM"
+              ? positiveTx.filter((r) => !(r.enrManager && r.enrManager.trim()))
+              : positiveTx.filter((r) => r.enrManager === name);
+            openDrilldown(`Enrolled Clients: ${name}`, `${countPeople(rows)} people · ${rows.length} rows`, rows);
+          }}
         />
         <CloserBars
           title="Cash Collected by Coach"
@@ -382,6 +388,12 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             })(),
           ]}
           valueFormatter={(v) => formatMoney(v)}
+          onSelect={(name) => {
+            const rows = name === "No EM"
+              ? filtered.filter((r) => !(r.enrManager && r.enrManager.trim()))
+              : filtered.filter((r) => r.enrManager === name);
+            openDrilldown(`Cash Collected: ${name}`, `${rows.length} rows (includes refunds)`, rows);
+          }}
         />
       </div>
 
@@ -399,6 +411,12 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             })(),
           ]}
           valueFormatter={(v) => formatMoney(v)}
+          onSelect={(name) => {
+            const rows = name === "No EM"
+              ? filtered.filter((r) => !(r.enrManager && r.enrManager.trim()))
+              : filtered.filter((r) => r.enrManager === name);
+            openDrilldown(`Revenue Booked: ${name}`, `${rows.length} rows (includes refunds)`, rows);
+          }}
         />
       </div>
 
