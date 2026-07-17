@@ -163,8 +163,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       .map((c) => {
         const curRows = filtered.filter((r) => r.cohort === c);
         const prevRows = prevFiltered ? prevFiltered.filter((r) => r.cohort === c) : [];
-        const revenue = sum(curRows.map((r) => r.revenue));
-        const cash = sum(curRows.map((r) => r.cashCollected));
+        const curPos = curRows.filter((r) => r.transactionType !== "Refund");
+        const curRef = curRows.filter((r) => r.transactionType === "Refund");
+        const revenue = sum(curPos.map((r) => r.revenue)) - sum(curRef.map((r) => r.revenue));
+        const cash = sum(curPos.map((r) => r.cashCollected)) - sum(curRef.map((r) => r.cashCollected));
         const people = aggregatePeople(curRows);
         const enrollments = people.length;
         const paidOff = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
@@ -374,8 +376,14 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         <CloserBars
           title="Revenue Booked by Coach"
           items={[
-            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.revenue)) })),
-            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.revenue)) },
+            ...managers.map((m) => {
+              const mRows = filtered.filter((r) => r.enrManager === m);
+              return { name: m, value: sum(mRows.filter((r) => r.transactionType !== "Refund").map((r) => r.revenue)) - sum(mRows.filter((r) => r.transactionType === "Refund").map((r) => r.revenue)) };
+            }),
+            (() => {
+              const noEM = filtered.filter((r) => !(r.enrManager && r.enrManager.trim()));
+              return { name: "No EM", value: sum(noEM.filter((r) => r.transactionType !== "Refund").map((r) => r.revenue)) - sum(noEM.filter((r) => r.transactionType === "Refund").map((r) => r.revenue)) };
+            })(),
           ]}
           valueFormatter={(v) => formatMoney(v)}
         />

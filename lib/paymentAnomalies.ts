@@ -102,16 +102,17 @@ export function detectPaymentAnomalies(
     const person = personLabel(group);
     const email = group.find((r) => r.email && r.email.trim())?.email ?? null;
     const sorted = [...group].sort((a, b) => (a.enrollmentDate || "").localeCompare(b.enrollmentDate || ""));
+    const positive = group.filter((r) => r.transactionType !== "Refund" && r.transactionType !== "Dropout");
 
     // ── Plan total vs. recorded revenue ──────────────────────────────
-    const planTotal = group.map((r) => parsePlanTotal(r.product)).find((t) => t !== null) ?? null;
-    const sumRevenue = group.reduce((s, r) => s + (r.revenue ?? 0), 0);
+    const planTotal = positive.map((r) => parsePlanTotal(r.product)).find((t) => t !== null) ?? null;
+    const sumRevenue = positive.reduce((s, r) => s + (r.revenue ?? 0), 0);
     if (planTotal !== null && sumRevenue > 0 && Math.abs(sumRevenue - planTotal) > 1) {
       out.push({
         person,
         email,
         kind: "plan_total_mismatch",
-        detail: `Plan says total ${fmt(planTotal)}, but the ${group.length} row${group.length === 1 ? "" : "s"} for this person add up to ${fmt(
+        detail: `Plan says total ${fmt(planTotal)}, but the ${positive.length} payment row${positive.length === 1 ? "" : "s"} for this person add up to ${fmt(
           sumRevenue
         )} in Revenue. Check whether an installment was double-entered or Revenue was recorded per payment instead of once.`,
         rows: sorted,
@@ -119,9 +120,9 @@ export function detectPaymentAnomalies(
     }
 
     // ── Recurring installments split across cohorts ──────────────────
-    const launches = Array.from(new Set(group.map((r) => extractLaunch(r.cohort)).filter(Boolean))) as string[];
+    const launches = Array.from(new Set(positive.map((r) => extractLaunch(r.cohort)).filter(Boolean))) as string[];
     if (launches.length > 1) {
-      const first = sorted.find((r) => r.enrollmentDate);
+      const first = sorted.filter((r) => r.transactionType !== "Refund" && r.transactionType !== "Dropout").find((r) => r.enrollmentDate);
       const trueCohort = first ? extractLaunch(first.cohort) : null;
       out.push({
         person,
@@ -138,7 +139,7 @@ export function detectPaymentAnomalies(
 
     // ── Duplicate rows (same enrollment date + same cash collected) ───
     const seen = new Map<string, CashRow[]>();
-    for (const r of group) {
+    for (const r of positive) {
       const k = `${r.enrollmentDate || ""}|${r.cashCollected ?? ""}|${norm(r.product)}`;
       const list = seen.get(k) ?? [];
       list.push(r);
