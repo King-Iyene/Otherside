@@ -115,6 +115,7 @@ export function cashRowHealthChecks(row: {
   enrollmentDate?: string | null;
   name?: string | null;
   email?: string | null;
+  transactionType?: string | null;
 }): HealthFlag[] {
   const flags: HealthFlag[] = [];
 
@@ -175,17 +176,21 @@ export function cashRowHealthChecks(row: {
     });
   }
 
+  // Refund/Dropout rows legitimately have unusual revenue/cash patterns —
+  // skip the money-sanity checks for those transaction types.
+  const isAdjustment = row.transactionType === "Refund" || row.transactionType === "Dropout";
+
   // Distinguish blank Revenue (forgot to enter) from an intentional $0 (comp).
   // We only flag when there's clearly a real transaction: someone was paid
   // (cashCollected > 0) but the deal size was left blank.
-  if (row.revenue === null && (row.cashCollected ?? 0) > 0) {
+  if (!isAdjustment && row.revenue === null && (row.cashCollected ?? 0) > 0) {
     flags.push({
       field: "Revenue",
       kind: "zero_revenue_enrollment",
       raw: "(blank)",
       hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record. Cash Collected shows $${row.cashCollected} but the Revenue (deal size) column is blank. Enter the full deal amount so cohort economics are accurate.`,
     });
-  } else if (row.revenue === 0 && (row.cashCollected ?? 0) > 0) {
+  } else if (!isAdjustment && row.revenue === 0 && (row.cashCollected ?? 0) > 0) {
     flags.push({
       field: "Revenue",
       kind: "zero_revenue_enrollment",
@@ -194,8 +199,8 @@ export function cashRowHealthChecks(row: {
     });
   }
 
-  // Cash collected greater than revenue is arithmetically impossible
-  if (row.revenue !== null && row.cashCollected !== null && row.cashCollected > row.revenue) {
+  // Cash collected greater than revenue is arithmetically impossible for payments
+  if (!isAdjustment && row.revenue !== null && row.cashCollected !== null && row.cashCollected > row.revenue) {
     flags.push({
       field: "Cash Collected",
       kind: "cash_gt_revenue",

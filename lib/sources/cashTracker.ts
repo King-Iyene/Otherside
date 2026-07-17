@@ -38,6 +38,8 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
     const enrManager = getRichText(props, "Enr Manager ");
     const nextPaymentDate = getDate(props, "Date of Next Payment");
 
+    const transactionType = (getSelect(props, "Transaction Type") as CashRow["transactionType"]) ?? null;
+
     // Extended per-row checks (cohort/closer/zero-revenue/cash>revenue/outstanding-no-date)
     health.push(
       ...cashRowHealthChecks({
@@ -50,10 +52,9 @@ export async function fetchCashTracker(token: string): Promise<SourceResult<Cash
         enrollmentDate,
         name,
         email,
+        transactionType,
       })
     );
-
-    const transactionType = (getSelect(props, "Transaction Type") as CashRow["transactionType"]) ?? null;
 
     return {
       id: page.id,
