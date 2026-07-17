@@ -52,6 +52,7 @@ export function indexCashByEmail(cashRows: CashRow[], includeTest = false) {
   const map = new Map<string, CashRow>();
   for (const r of cashRows) {
     if (!includeTest && r.isTest) continue;
+    if (r.transactionType === "Refund" || r.transactionType === "Dropout") continue;
     const email = normalizeEmail(r.email);
     if (!email) continue;
     if (!map.has(email)) map.set(email, r);

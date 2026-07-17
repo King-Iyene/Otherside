@@ -123,7 +123,7 @@ export default function Home() {
   const columnWarnings = useMemo(() => (data ? detectColumnHealth(data) : []), [data]);
 
   const nonTestCash = data ? data.cash.rows.filter((r) => !r.isTest) : [];
-  const isPositiveTx = (r: typeof nonTestCash[number]) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit";
+  const isPositiveTx = (r: typeof nonTestCash[number]) => r.transactionType !== "Refund";
   const isRefundTx = (r: typeof nonTestCash[number]) => r.transactionType === "Refund";
 
   const grossRebornCash = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.cashCollected)) : 0;

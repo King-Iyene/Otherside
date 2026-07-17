@@ -69,7 +69,7 @@ function computeStats(
   const showedCount = apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length;
   const purchasedApps = appRows.filter((r) => r.purchased).length;
 
-  const positiveCashRows = cashRows.filter((r) => !r.transactionType || r.transactionType === "Payment" || r.transactionType === "Deposit");
+  const positiveCashRows = cashRows.filter((r) => r.transactionType !== "Refund");
   const refundCashRows = cashRows.filter((r) => r.transactionType === "Refund");
 
   return {
@@ -208,8 +208,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
 
 
   // Sparklines
-  const sparkCash = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.cashCollected ?? 0);
-  const sparkRevenue = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.revenue ?? 0);
+  const sparkCash = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.transactionType === "Refund" ? -(r.cashCollected ?? 0) : (r.cashCollected ?? 0));
+  const sparkRevenue = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.transactionType === "Refund" ? -(r.revenue ?? 0) : (r.revenue ?? 0));
   const sparkAppts = dailySeries(stats.apptRows, (r) => r.appointmentTime, () => 1);
   const sparkApps = dailySeries(stats.appRows, (r) => r.dateCreated, () => 1);
 
@@ -385,7 +385,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash Collected"
-          points={stats.cashRows.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.cashCollected ?? 0 }))}
+          points={stats.cashRows.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.transactionType === "Refund" ? -(r.cashCollected ?? 0) : (r.cashCollected ?? 0) }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />

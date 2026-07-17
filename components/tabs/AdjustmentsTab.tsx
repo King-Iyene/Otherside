@@ -113,9 +113,9 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
   const deferrals = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Deferral"), [filteredCrm]);
   const planChanges = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Plan Change"), [filteredCrm]);
 
-  // Gross = all payments + deposits (positive transactions)
-  const grossRevenue = sum(payments.map((r) => r.revenue)) + sum(deposits.map((r) => r.revenue));
-  const grossCash = sum(payments.map((r) => r.cashCollected)) + sum(deposits.map((r) => r.cashCollected));
+  // Gross = all positive transactions (payments + deposits + dropouts — dropouts keep the money)
+  const grossRevenue = sum(payments.map((r) => r.revenue)) + sum(deposits.map((r) => r.revenue)) + sum(dropouts.map((r) => r.revenue));
+  const grossCash = sum(payments.map((r) => r.cashCollected)) + sum(deposits.map((r) => r.cashCollected)) + sum(dropouts.map((r) => r.cashCollected));
 
   // Refunded amounts (these rows capture what was reversed)
   const refundedRevenue = sum(refunds.map((r) => r.revenue));
@@ -137,7 +137,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
   const planChangePeopleCount = planChanges.length;
 
   const totalAdjustmentRows =
-    refunds.length + dropouts.length + deferrals.length + planChanges.length;
+    refunds.length + dropouts.length + deposits.length + deferrals.length + planChanges.length;
   const refundRate = grossRevenue > 0 ? refundedRevenue / grossRevenue : null;
 
   // Waterfall data for the flow visualization
@@ -916,11 +916,11 @@ function CohortAdjustmentTable({
         const cRefunds = refunds.filter((r) => r.cohort === c);
         const cDropouts = dropouts.filter((r) => r.cohort === c);
 
-        const grossRev = sum(cPayments.map((r) => r.revenue)) + sum(cDeposits.map((r) => r.revenue));
+        const grossRev = sum(cPayments.map((r) => r.revenue)) + sum(cDeposits.map((r) => r.revenue)) + sum(cDropouts.map((r) => r.revenue));
         const refundRev = sum(cRefunds.map((r) => r.revenue));
         const dropoutRev = sum(cDropouts.map((r) => r.revenue));
         const netRev = grossRev - refundRev;
-        const grossCash = sum(cPayments.map((r) => r.cashCollected)) + sum(cDeposits.map((r) => r.cashCollected));
+        const grossCash = sum(cPayments.map((r) => r.cashCollected)) + sum(cDeposits.map((r) => r.cashCollected)) + sum(cDropouts.map((r) => r.cashCollected));
         const refundCash = sum(cRefunds.map((r) => r.cashCollected));
         const netCash = grossCash - refundCash;
 
@@ -980,8 +980,8 @@ function CohortAdjustmentTable({
                   <td className="mono" style={{ color: d.refundRev > 0 ? "#f07070" : "var(--muted)" }}>
                     {d.refundRev > 0 ? `−${formatMoney(d.refundRev)}` : "—"}
                   </td>
-                  <td className="mono" style={{ color: d.dropoutRev > 0 ? "#a0a0a0" : "var(--muted)" }}>
-                    {d.dropoutRev > 0 ? `−${formatMoney(d.dropoutRev)}` : "—"}
+                  <td className="mono" style={{ color: d.dropoutRev > 0 ? "#a0a0a0" : "var(--muted)" }} title="Kept — not subtracted from net">
+                    {d.dropoutRev > 0 ? formatMoney(d.dropoutRev) : "—"}
                   </td>
                   <td className="mono" style={{ fontWeight: 600 }}>{formatMoney(d.netRev)}</td>
                   <td className="mono">{formatMoney(d.netCash)}</td>

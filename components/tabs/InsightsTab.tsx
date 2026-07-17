@@ -167,6 +167,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
   const cashByEmail = new Map<string, CashRow>();
   for (const r of cash) {
     if (r.isTest) continue;
+    if (r.transactionType === "Refund" || r.transactionType === "Dropout") continue;
     const e = (r.email || "").trim().toLowerCase();
     if (e) cashByEmail.set(e, r);
   }

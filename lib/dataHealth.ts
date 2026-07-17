@@ -136,15 +136,17 @@ export function cashRowHealthChecks(row: {
     });
   }
 
+  const isAdjustment = row.transactionType === "Refund" || row.transactionType === "Dropout";
+
   const cohortStatus = classifyCohort(row.cohort);
-  if (cohortStatus.status === "empty") {
+  if (!isAdjustment && cohortStatus.status === "empty") {
     flags.push({
       field: "Cohort",
       kind: "missing_cohort",
       raw: "",
       hint: `This person doesn't have a Cohort (launch) set in Notion. FIX: Open Notion → "Reborn Cash Tracker" → search the Name column for this person → set Cohort to whichever launch they enrolled in: Erupt 1, Erupt 2, Erupt 3, or Penetrate.`,
     });
-  } else if (cohortStatus.status === "inconsistent") {
+  } else if (!isAdjustment && cohortStatus.status === "inconsistent") {
     const suggested = cohortStatus.suggestion || "Erupt 1, Erupt 2, Erupt 3, or Penetrate";
     flags.push({
       field: "Cohort",
@@ -167,7 +169,7 @@ export function cashRowHealthChecks(row: {
     }
   }
 
-  if (!row.enrManager || !row.enrManager.trim()) {
+  if (!isAdjustment && (!row.enrManager || !row.enrManager.trim())) {
     flags.push({
       field: "Enr Manager",
       kind: "missing_closer",
@@ -175,10 +177,6 @@ export function cashRowHealthChecks(row: {
       hint: `Open Notion → "Reborn Cash Tracker" → search Name for this record → set the "Enr Manager" field to the closer who owned this deal. Without it, the deal doesn't roll up on their scorecard.`,
     });
   }
-
-  // Refund/Dropout rows legitimately have unusual revenue/cash patterns —
-  // skip the money-sanity checks for those transaction types.
-  const isAdjustment = row.transactionType === "Refund" || row.transactionType === "Dropout";
 
   // Distinguish blank Revenue (forgot to enter) from an intentional $0 (comp).
   // We only flag when there's clearly a real transaction: someone was paid

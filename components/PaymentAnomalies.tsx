@@ -181,6 +181,7 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                               <thead>
                                 <tr>
                                   <th>Payment Date</th>
+                                  <th>Type</th>
                                   <th>Cohort</th>
                                   <th>Product</th>
                                   <th>Revenue</th>
@@ -192,6 +193,13 @@ export default function PaymentAnomalies({ rows, includeTest }: { rows: CashRow[
                                 {a.rows.map((r) => (
                                   <tr key={r.id}>
                                     <td>{r.enrollmentDate || "—"}</td>
+                                    <td><span style={{
+                                      fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                                      ...(r.transactionType === "Refund" ? { background: "rgba(240,112,112,0.12)", color: "#f07070" } :
+                                        r.transactionType === "Dropout" ? { background: "rgba(160,160,160,0.12)", color: "#a0a0a0" } :
+                                        r.transactionType === "Deposit" ? { background: "rgba(245,166,35,0.12)", color: "#f5a623" } :
+                                        { background: "rgba(69,208,147,0.12)", color: "#45d093" })
+                                    }}>{r.transactionType || "Payment"}</span></td>
                                     <td>{r.cohort || "—"}</td>
                                     <td style={{ fontSize: 11, maxWidth: 260 }}>{r.product || "—"}</td>
                                     <td className="mono">{formatMoney(r.revenue)}</td>

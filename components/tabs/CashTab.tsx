@@ -171,7 +171,9 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         const enrollments = people.length;
         const paidOff = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
         const onPlan = people.filter((p) => p.balance > 0).length;
-        const prevCash = sum(prevRows.map((r) => r.cashCollected));
+        const prevPos = prevRows.filter((r) => r.transactionType !== "Refund");
+        const prevRef = prevRows.filter((r) => r.transactionType === "Refund");
+        const prevCash = sum(prevPos.map((r) => r.cashCollected)) - sum(prevRef.map((r) => r.cashCollected));
         return {
           cohort: c,
           enrollments,
@@ -300,7 +302,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
               openDrilldown(
                 "Paid-in-Full Enrollments",
                 undefined,
-                filtered.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0)
+                positiveTx.filter((r) => (r.balance ?? 0) <= 0 && (r.cashCollected ?? 0) > 0)
               ),
           },
           {
@@ -308,7 +310,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             value: formatNumber(onPlanCount),
             source: { source: "Derived", field: "People whose total Balance > 0" },
             hint: `${enrollmentsCount ? ((onPlanCount / enrollmentsCount) * 100).toFixed(0) : 0}% of enrollments`,
-            onClick: () => openDrilldown("On Payment Plan", undefined, filtered.filter((r) => (r.balance ?? 0) > 0)),
+            onClick: () => openDrilldown("On Payment Plan", undefined, positiveTx.filter((r) => (r.balance ?? 0) > 0)),
           },
           {
             label: "Unpaid",
@@ -319,7 +321,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
               openDrilldown(
                 "Unpaid Enrollments",
                 "No cash collected yet",
-                filtered.filter((r) => (r.balance ?? 0) > 0 && (r.cashCollected ?? 0) === 0)
+                positiveTx.filter((r) => (r.balance ?? 0) > 0 && (r.cashCollected ?? 0) === 0)
               ),
           },
         ]}
@@ -342,13 +344,18 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       <div className="chart-grid">
         <TimeSeriesChart
           title="Cash Collected Over Time"
-          points={filtered.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.cashCollected ?? 0 }))}
+          points={filtered.map((r) => ({ date: r.enrollmentDate || r.createdDate || null, value: r.transactionType === "Refund" ? -(r.cashCollected ?? 0) : (r.cashCollected ?? 0) }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
         />
         <BreakdownChart
           title="Cash Collected by Cohort"
-          items={cohorts.map((c) => ({ key: c, value: sum(filtered.filter((r) => r.cohort === c).map((r) => r.cashCollected)) }))}
+          items={cohorts.map((c) => {
+            const cRows = filtered.filter((r) => r.cohort === c);
+            const pos = sum(cRows.filter((r) => r.transactionType !== "Refund").map((r) => r.cashCollected));
+            const ref = sum(cRows.filter((r) => r.transactionType === "Refund").map((r) => r.cashCollected));
+            return { key: c, value: pos - ref };
+          })}
           valueFormatter={(v) => formatMoney(v)}
         />
       </div>
@@ -358,15 +365,21 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         <CloserBars
           title="Enrolled Clients by Coach"
           items={[
-            ...managers.map((m) => ({ name: m, value: countPeople(filtered.filter((r) => r.enrManager === m)) })),
-            { name: "No EM", value: countPeople(filtered.filter((r) => !(r.enrManager && r.enrManager.trim()))) },
+            ...managers.map((m) => ({ name: m, value: countPeople(positiveTx.filter((r) => r.enrManager === m)) })),
+            { name: "No EM", value: countPeople(positiveTx.filter((r) => !(r.enrManager && r.enrManager.trim()))) },
           ]}
         />
         <CloserBars
           title="Cash Collected by Coach"
           items={[
-            ...managers.map((m) => ({ name: m, value: sum(filtered.filter((r) => r.enrManager === m).map((r) => r.cashCollected)) })),
-            { name: "No EM", value: sum(filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).map((r) => r.cashCollected)) },
+            ...managers.map((m) => {
+              const mRows = filtered.filter((r) => r.enrManager === m);
+              return { name: m, value: sum(mRows.filter((r) => r.transactionType !== "Refund").map((r) => r.cashCollected)) - sum(mRows.filter((r) => r.transactionType === "Refund").map((r) => r.cashCollected)) };
+            }),
+            (() => {
+              const noEM = filtered.filter((r) => !(r.enrManager && r.enrManager.trim()));
+              return { name: "No EM", value: sum(noEM.filter((r) => r.transactionType !== "Refund").map((r) => r.cashCollected)) - sum(noEM.filter((r) => r.transactionType === "Refund").map((r) => r.cashCollected)) };
+            })(),
           ]}
           valueFormatter={(v) => formatMoney(v)}
         />
