@@ -222,6 +222,12 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
             ...managers.map((m) => ({ name: m, value: filtered.filter((r) => r.enrManager === m).length })),
             { name: "No EM", value: filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).length },
           ]}
+          onSelect={(name) => {
+            const rows = name === "No EM"
+              ? filtered.filter((r) => !(r.enrManager && r.enrManager.trim()))
+              : filtered.filter((r) => r.enrManager === name);
+            setDrilldown({ title: `Appointments: ${name}`, rows });
+          }}
         />
         <CloserBars
           title="Showed by Coach"
@@ -235,6 +241,12 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
               value: filtered.filter((r) => !(r.enrManager && r.enrManager.trim()) && r.status && SHOWED_STATUSES.has(r.status)).length,
             },
           ]}
+          onSelect={(name) => {
+            const rows = name === "No EM"
+              ? filtered.filter((r) => !(r.enrManager && r.enrManager.trim()) && r.status && SHOWED_STATUSES.has(r.status))
+              : filtered.filter((r) => r.enrManager === name && r.status && SHOWED_STATUSES.has(r.status));
+            setDrilldown({ title: `Showed: ${name}`, rows });
+          }}
         />
       </div>
 

@@ -281,23 +281,25 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       {perCloser.length > 0 && (
         <>
           <div className="chart-grid">
-            <CloserBars title="Calls by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} />
-            <CloserBars title="Showed by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} />
+            <CloserBars title="Calls by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} onSelect={(name) => setDrilldown({ title: `Calls: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
+            <CloserBars title="Showed by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} onSelect={(name) => setDrilldown({ title: `Showed: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
           </div>
           <div className="chart-grid">
-            <CloserBars title="Offers Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} />
-            <CloserBars title="Sales Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} />
+            <CloserBars title="Offers Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} onSelect={(name) => setDrilldown({ title: `Offers: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
+            <CloserBars title="Sales Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} onSelect={(name) => setDrilldown({ title: `Sales: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
           </div>
           <div className="chart-grid">
             <CloserBars
               title="Cash on Call by Coach"
               items={perCloser.map((c) => ({ name: c.manager, value: c.cashOnCall }))}
               valueFormatter={(v) => formatMoney(v)}
+              onSelect={(name) => setDrilldown({ title: `Cash on Call: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })}
             />
             <CloserBars
               title="Sales Revenue by Coach"
               items={perCloser.map((c) => ({ name: c.manager, value: c.salesRevenue }))}
               valueFormatter={(v) => formatMoney(v)}
+              onSelect={(name) => setDrilldown({ title: `Sales Revenue: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })}
             />
           </div>
         </>

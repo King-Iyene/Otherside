@@ -357,6 +357,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
             return { key: c, value: pos - ref };
           })}
           valueFormatter={(v) => formatMoney(v)}
+          onSelect={(key) => {
+            const rows = filtered.filter((r) => r.cohort === key);
+            openDrilldown(`Cash Collected: ${key}`, `${rows.length} rows`, rows);
+          }}
         />
       </div>
 
