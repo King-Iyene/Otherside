@@ -112,6 +112,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
   }, [masterCrm, from, to, cohort, search, includeTest]);
   const deferrals = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Deferral"), [filteredCrm]);
   const planChanges = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Plan Change"), [filteredCrm]);
+  const crmDropouts = useMemo(() => filteredCrm.filter((r) => r.adjustmentType === "Program Dropout"), [filteredCrm]);
 
   // Gross = all positive transactions (payments + deposits + dropouts — dropouts keep the money)
   const grossRevenue = sum(payments.map((r) => r.revenue)) + sum(deposits.map((r) => r.revenue)) + sum(dropouts.map((r) => r.revenue));
@@ -135,9 +136,10 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
   // Master CRM rows are already 1-per-person by design, so length = people.
   const deferralPeopleCount = deferrals.length;
   const planChangePeopleCount = planChanges.length;
+  const crmDropoutCount = crmDropouts.length;
 
   const totalAdjustmentRows =
-    refunds.length + dropouts.length + deposits.length + deferrals.length + planChanges.length;
+    refunds.length + dropouts.length + deposits.length + deferrals.length + planChanges.length + crmDropouts.length;
   const refundRate = grossRevenue > 0 ? refundedRevenue / grossRevenue : null;
 
   // Waterfall data for the flow visualization
@@ -319,6 +321,19 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             onClick: () => openDrilldown("Dropouts", `${dropouts.length} dropout rows`, dropouts),
           },
           {
+            label: "CRM Dropouts",
+            value: formatNumber(crmDropoutCount),
+            source: {
+              source: "Master REBORN CRM",
+              field: 'People with Adjustment Type = "Program Dropout"',
+              formula: "program exit recorded in CRM",
+            },
+            higherIsBetter: false,
+            hint: crmDropoutCount === 0 ? "None dropped out" : "program exit recorded in CRM",
+            hintColor: crmDropoutCount === 0 ? "green" : "red",
+            onClick: crmDropoutCount > 0 ? () => setCrmDrilldown({ title: "CRM Program Dropouts", rows: crmDropouts }) : undefined,
+          },
+          {
             label: "Deposits",
             value: formatNumber(depositPeopleCount),
             source: { source: "Reborn Cash Tracker", field: "Unique people with Transaction Type = Deposit" },
@@ -359,7 +374,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
               field: "COUNT(Refund) + COUNT(Dropout) + COUNT(Deferral) + COUNT(Plan Change)",
               formula: "All revenue-affecting or lifecycle events combined",
             },
-            hint: totalAdjustmentRows === 0 ? "Clean slate" : `${refunds.length + dropouts.length + deposits.length} Cash-Tracker · ${deferrals.length + planChanges.length} CRM`,
+            hint: totalAdjustmentRows === 0 ? "Clean slate" : `${refunds.length + dropouts.length + deposits.length} Cash-Tracker · ${deferrals.length + planChanges.length + crmDropouts.length} CRM`,
             hintColor: totalAdjustmentRows === 0 ? "green" : "muted",
             onClick: totalAdjustmentRows > 0 ? () => openDrilldown("All Cash-Tracker Adjustments", `Refunds + Dropouts + Deposits · ${refunds.length + dropouts.length + deposits.length} rows`, [...refunds, ...dropouts, ...deposits]) : undefined,
           },
@@ -409,6 +424,14 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
             onClick: planChanges.length > 0 ? () => setCrmDrilldown({ title: "All Plan Changes", rows: planChanges }) : undefined,
           },
           {
+            label: "Program Dropouts",
+            count: crmDropoutCount,
+            amount: sum(crmDropouts.map((r) => r.totalCashCollected)),
+            color: "#e05555",
+            source: "Master CRM",
+            onClick: crmDropouts.length > 0 ? () => setCrmDrilldown({ title: "CRM Program Dropouts", rows: crmDropouts }) : undefined,
+          },
+          {
             label: "Deposits",
             count: depositPeopleCount,
             amount: sum(deposits.map((r) => r.cashCollected)),
@@ -443,8 +466,18 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
         />
       </div>
 
-      {/* Operating lists — deferrals & plan changes (Master CRM lifecycle) */}
+      {/* Operating lists — deferrals, plan changes & CRM dropouts (Master CRM lifecycle) */}
       <div className="chart-grid">
+        <AdjustmentList
+          title="CRM Program Dropouts"
+          subtitle={`${crmDropoutCount} people · program exit recorded in CRM`}
+          rows={crmDropouts}
+          color="#e05555"
+          emptyMessage="No program dropouts in Master CRM — Adjustment Type is empty or nothing set to Program Dropout."
+          onViewAll={() => setCrmDrilldown({ title: "CRM Program Dropouts", rows: crmDropouts })}
+          amountOf={(r) => r.totalCashCollected}
+          secondaryOf={(r) => r.totalRevenue}
+        />
         <AdjustmentList
           title="Deferrals"
           subtitle={`${deferralPeopleCount} people · money kept, timeline shifted`}
@@ -455,6 +488,8 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
           amountOf={(r) => r.totalCashCollected}
           secondaryOf={(r) => r.totalRevenue}
         />
+      </div>
+      <div className="chart-grid">
         <AdjustmentList
           title="Plan Changes"
           subtitle={`${planChangePeopleCount} people · plan restructured, no refund`}
@@ -514,6 +549,8 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
           <strong style={{ color: "#f07070" }}>{refunds.length}</strong> refunds
           {" · "}
           <strong style={{ color: "#a0a0a0" }}>{dropouts.length}</strong> dropouts
+          {" · "}
+          <strong style={{ color: "#e05555" }}>{crmDropouts.length}</strong> CRM dropouts
           {" · "}
           <strong style={{ color: "#7ca0f4" }}>{deferrals.length}</strong> deferrals
           {" · "}

@@ -99,7 +99,7 @@ export interface SalesActivityRow extends BaseRow {
   salesRevenue: number | null;
 }
 
-export type AdjustmentType = "Deferral" | "Plan Change" | "Program Dopout t($0 Refund)" | null;
+export type AdjustmentType = "Deferral" | "Plan Change" | "Program Dropout" | null;
 
 export interface MasterCrmRow extends BaseRow {
   name: string;
