@@ -134,7 +134,7 @@ export default function Home() {
 
   const grossRevenue = data ? sum(nonTestCash.filter(isPositiveTx).map((r) => r.revenue)) : 0;
   const refundedRevenue = data ? sum(nonTestCash.filter(isRefundTx).map((r) => r.revenue)) : 0;
-  const revenueBooked = grossRevenue - refundedRevenue;
+  const revenueBooked = grossRevenue - refundedRevenue + challengeCash;
 
   const sourceErrors = data
     ? (["cash", "masterCrm", "appointments", "applications", "salesActivity", "challenge"] as const)
