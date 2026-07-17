@@ -167,7 +167,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         const curRef = curRows.filter((r) => r.transactionType === "Refund");
         const revenue = sum(curPos.map((r) => r.revenue)) - sum(curRef.map((r) => r.revenue));
         const cash = sum(curPos.map((r) => r.cashCollected)) - sum(curRef.map((r) => r.cashCollected));
-        const people = aggregatePeople(curRows);
+        const people = aggregatePeople(curPos);
         const enrollments = people.length;
         const paidOff = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
         const onPlan = people.filter((p) => p.balance > 0).length;
@@ -192,7 +192,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
   // Payment status distribution — per person (a buyer is "paid in full" when
   // their TOTAL balance across all their rows is cleared), so these match the
   // unique Enrollments count rather than counting invoice rows.
-  const people = useMemo(() => aggregatePeople(filtered), [filtered]);
+  const people = useMemo(() => aggregatePeople(positiveTx), [positiveTx]);
   const paidInFullCount = people.filter((p) => p.balance <= 0 && p.cash > 0).length;
   const onPlanCount = people.filter((p) => p.balance > 0).length;
   const unpaidCount = people.filter((p) => p.balance > 0 && p.cash === 0).length;
