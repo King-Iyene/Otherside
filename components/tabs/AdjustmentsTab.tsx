@@ -144,15 +144,15 @@ export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: C
 
   // Waterfall data for the flow visualization
   const waterfallSegments = [
-    { label: "Gross Revenue", value: grossRevenue, color: "#45d093", type: "positive" as const },
-    { label: "Refunds", value: -refundedRevenue, color: "#f07070", type: "negative" as const },
-    { label: "Net Revenue", value: netRevenue, color: "#7ca0f4", type: "total" as const },
+    { label: "Gross Revenue", value: grossRevenue, color: "#45d093", type: "positive" as const, onClick: () => openDrilldown("Gross Revenue — Payments & Deposits", `${payments.length + deposits.length + dropouts.length} rows`, [...payments, ...deposits, ...dropouts]) },
+    { label: "Refunds", value: -refundedRevenue, color: "#f07070", type: "negative" as const, onClick: refunds.length > 0 ? () => openDrilldown("Refunded Revenue", `${refundedPeopleCount} people · ${refunds.length} rows`, refunds) : undefined },
+    { label: "Net Revenue", value: netRevenue, color: "#7ca0f4", type: "total" as const, onClick: () => openDrilldown("Net Revenue — All Rows", `${filtered.length} rows`, filtered) },
   ];
 
   const waterfallCashSegments = [
-    { label: "Gross Cash", value: grossCash, color: "#45d093", type: "positive" as const },
-    { label: "Refunded Cash", value: -refundedCash, color: "#f07070", type: "negative" as const },
-    { label: "Net Cash", value: netCash, color: "#7ca0f4", type: "total" as const },
+    { label: "Gross Cash", value: grossCash, color: "#45d093", type: "positive" as const, onClick: () => openDrilldown("Gross Cash — Payments & Deposits", `${payments.length + deposits.length + dropouts.length} rows`, [...payments, ...deposits, ...dropouts]) },
+    { label: "Refunded Cash", value: -refundedCash, color: "#f07070", type: "negative" as const, onClick: refunds.length > 0 ? () => openDrilldown("Refunded Cash", `${refundedPeopleCount} people · ${refunds.length} rows`, refunds) : undefined },
+    { label: "Net Cash", value: netCash, color: "#7ca0f4", type: "total" as const, onClick: () => openDrilldown("Net Cash — All Rows", `${filtered.length} rows`, filtered) },
   ];
 
   const columns: Column<CashRow>[] = [
@@ -614,6 +614,7 @@ interface WaterfallSegment {
   value: number;
   color: string;
   type: "positive" | "negative" | "total";
+  onClick?: () => void;
 }
 
 function WaterfallChart({ title, segments }: { title: string; segments: WaterfallSegment[] }) {
@@ -642,7 +643,13 @@ function WaterfallChart({ title, segments }: { title: string; segments: Waterfal
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0" }}>
         {bars.map((bar) => (
-          <div key={bar.label}>
+          <div
+            key={bar.label}
+            onClick={bar.onClick}
+            style={{ cursor: bar.onClick ? "pointer" : "default", borderRadius: 8, padding: "4px 6px", margin: "-4px -6px", transition: "background 120ms ease" }}
+            onMouseEnter={(e) => { if (bar.onClick) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
               <span style={{ color: "var(--text)", fontWeight: bar.type === "total" ? 600 : 400 }}>{bar.label}</span>
               <span className="mono" style={{ color: bar.color, fontWeight: 600 }}>
