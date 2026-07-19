@@ -45,6 +45,7 @@ export async function fetchAppointments(token: string): Promise<SourceResult<App
       calendar: getRichText(props, "Calendar"),
       enrManager,
       ghlAppointmentId: getRichText(props, "GHL Appointment ID"),
+      ghlUrl: getRichText(props, "GHL URL") || null,
       notes: getRichText(props, "Notes"),
     };
   });

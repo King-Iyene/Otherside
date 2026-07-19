@@ -15,6 +15,7 @@ import FunnelBars from "../FunnelBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
+import GhlLink from "../GhlLink";
 
 export default function ApplicationsTab({ rows, hideOpsUI }: { rows: ApplicationRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
@@ -100,6 +101,7 @@ export default function ApplicationsTab({ rows, hideOpsUI }: { rows: Application
       render: (r) => (r.purchased ? <span className="badge" style={{ color: "var(--green)", border: "1px solid var(--green)" }}>YES</span> : "—"),
       sortValue: (r) => (r.purchased ? 1 : 0),
     },
+    { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
   ];
 
   return (

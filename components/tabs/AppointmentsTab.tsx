@@ -16,6 +16,7 @@ import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
+import GhlLink from "../GhlLink";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
 
@@ -92,6 +93,7 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
     { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "calendar", label: "Calendar", render: (r) => r.calendar || "—" },
     { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
+    { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
   ];
 
   return (

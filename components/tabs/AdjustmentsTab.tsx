@@ -10,6 +10,7 @@ import KpiGrid from "../Kpi";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
+import GhlLink from "../GhlLink";
 
 const TX_COLORS: Record<string, string> = {
   Refund: "#f07070",
@@ -226,6 +227,7 @@ export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: C
       sortValue: (r) => r.paymentCount ?? 0,
     },
     { key: "note", label: "Reason / Note", render: (r) => r.note || "—" },
+    { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
   ];
 
   const openDrilldown = (title: string, subtitle: string | undefined, subset: CashRow[]) =>

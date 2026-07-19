@@ -65,6 +65,7 @@ export interface AppointmentRow extends BaseRow {
   calendar: string | null;
   enrManager: string | null;
   ghlAppointmentId: string | null;
+  ghlUrl: string | null;
   notes: string | null;
 }
 
@@ -77,6 +78,7 @@ export interface ApplicationRow extends BaseRow {
   annualEarnings: string | null;
   dateCreated: string | null;
   purchased: boolean;
+  ghlUrl: string | null;
 }
 
 export interface SalesActivityRow extends BaseRow {
@@ -113,6 +115,7 @@ export interface MasterCrmRow extends BaseRow {
   cohort: string | null;
   product: string | null;
   adjustmentType: AdjustmentType;
+  ghlUrl: string | null;
   referredByEmail: string | null;
   note: string | null;
   agreementSigned: boolean;

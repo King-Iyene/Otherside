@@ -217,6 +217,7 @@ function app(email: string): ApplicationRow {
     annualEarnings: null,
     dateCreated: "2025-11-01",
     purchased: false,
+    ghlUrl: null,
   };
 }
 
@@ -257,6 +258,7 @@ function appt(email: string | null, cohort: string | null, status: string | null
     calendar: null,
     enrManager: "Oliver",
     ghlAppointmentId: null,
+    ghlUrl: null,
     notes: null,
   };
 }

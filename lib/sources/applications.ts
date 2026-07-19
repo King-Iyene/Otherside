@@ -35,6 +35,7 @@ export async function fetchApplications(token: string): Promise<SourceResult<App
       annualEarnings,
       dateCreated,
       purchased: getRelationCount(props, "REBORN Payments Tracker") > 0,
+      ghlUrl: getRichText(props, "GHL LInk") || null,
     };
   });
 

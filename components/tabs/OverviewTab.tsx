@@ -17,6 +17,7 @@ import BulletChart from "../BulletChart";
 import Sparkline from "../Sparkline";
 import DrillDownModal from "../DrillDownModal";
 import DataTable, { type Column } from "../DataTable";
+import GhlLink from "../GhlLink";
 
 interface Props {
   cash: CashRow[];
@@ -534,6 +535,7 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+  { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
 ];
 
 const CASH_COLUMNS: Column<CashRow>[] = [
@@ -557,6 +559,7 @@ const APP_COLUMNS: Column<ApplicationRow>[] = [
   { key: "dateCreated", label: "Date", render: (r) => r.dateCreated?.slice(0, 10) || "—", sortValue: (r) => r.dateCreated },
   { key: "purchased", label: "Purchased", render: (r) => r.purchased ? "Yes" : "No", sortValue: (r) => (r.purchased ? 1 : 0) },
   { key: "annualEarnings", label: "Earnings", render: (r) => r.annualEarnings || "—", sortValue: (r) => r.annualEarnings },
+  { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
 ];
 
 const SALES_COLUMNS: Column<SalesActivityRow>[] = [
