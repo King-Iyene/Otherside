@@ -16,7 +16,7 @@ import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
 
-export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
+export default function ApplicationsTab({ rows, hideOpsUI }: { rows: ApplicationRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -120,6 +120,7 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
         searchPlaceholder="Search name, email, phone…"
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
+        hideOpsUI={hideOpsUI}
       />
 
       <KpiGrid
@@ -242,6 +243,7 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
         </div>
       )}
 
+      {!hideOpsUI && (
       <div
         style={{
           background: "var(--surface)",
@@ -262,6 +264,7 @@ export default function ApplicationsTab({ rows }: { rows: ApplicationRow[] }) {
           View records →
         </button>
       </div>
+      )}
 
       <DrillDownModal
         open={!!drilldown}

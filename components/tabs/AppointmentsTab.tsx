@@ -19,7 +19,7 @@ import DrillDownModal from "../DrillDownModal";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
 
-export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
+export default function AppointmentsTab({ rows, hideOpsUI }: { rows: AppointmentRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -89,7 +89,7 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
     { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
     { key: "appointmentType", label: "Type", render: (r) => r.appointmentType || "—", sortValue: (r) => r.appointmentType },
     { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
-    { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+    { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "calendar", label: "Calendar", render: (r) => r.calendar || "—" },
     { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
   ];
@@ -107,13 +107,14 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
           { key: "status", label: "Status", options: statuses, value: status, onChange: setStatus },
           { key: "type", label: "Type", options: types, value: type, onChange: setType },
           { key: "cohort", label: "Cohort", options: cohorts, value: cohort, onChange: setCohort },
-          { key: "enrManager", label: "Enr Manager", options: managers, value: enrManager, onChange: setEnrManager },
+          { key: "enrManager", label: "Closer", options: managers, value: enrManager, onChange: setEnrManager },
         ]}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search name, email, phone…"
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
+        hideOpsUI={hideOpsUI}
       />
 
       <KpiGrid
@@ -214,10 +215,10 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         />
       </div>
 
-      {/* Per-coach breakdown — includes a "No EM" bar for calls with no coach */}
+      {/* Per-closer breakdown — includes a "No EM" bar for calls with no closer */}
       <div className="chart-grid">
         <CloserBars
-          title="Appointments by Coach"
+          title="Appointments by Closer"
           items={[
             ...managers.map((m) => ({ name: m, value: filtered.filter((r) => r.enrManager === m).length })),
             { name: "No EM", value: filtered.filter((r) => !(r.enrManager && r.enrManager.trim())).length },
@@ -230,7 +231,7 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
           }}
         />
         <CloserBars
-          title="Showed by Coach"
+          title="Showed by Closer"
           items={[
             ...managers.map((m) => ({
               name: m,
@@ -285,26 +286,28 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
         </div>
       )}
 
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--line)",
-          borderRadius: 12,
-          padding: "14px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
-        <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> appointments match current filters
+      {!hideOpsUI && (
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            borderRadius: 12,
+            padding: "14px 18px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>
+            <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> appointments match current filters
+          </div>
+          <button className="link-btn" onClick={() => setDrilldown({ title: "All Filtered Appointments", rows: filtered })}>
+            View records →
+          </button>
         </div>
-        <button className="link-btn" onClick={() => setDrilldown({ title: "All Filtered Appointments", rows: filtered })}>
-          View records →
-        </button>
-      </div>
+      )}
 
       <DrillDownModal
         open={!!drilldown}

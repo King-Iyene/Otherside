@@ -10,6 +10,7 @@ import { DEFAULT_ROLE, roleDef, tabsForRole, type Role } from "@/lib/roles";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
 import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
+import MultiSelect from "@/components/MultiSelect";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import CohortFunnels from "@/components/tabs/CohortFunnels";
 import InsightsTab from "@/components/tabs/InsightsTab";
@@ -37,16 +38,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  // Role comes from the server session (set by the role password at login).
   const [role, setRole] = useState<Role>(DEFAULT_ROLE);
   const [viewerName, setViewerName] = useState<string>("");
-  // Challenge-sheet duplicate registrations and repeat applications are noisy and
-  // often expected (a lead can apply/register more than once), so both are ignored
-  // by default. Toggles in the Data Health panel bring them back.
+  const [globalCloser, setGlobalCloser] = useState<string[]>([]);
   const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
   const [includeAppDupes, setIncludeAppDupes] = useState(false);
 
-  // Resolve the viewer's role server-side; name is display-only from login.
+  const isCloser = role === "closer";
+
   useEffect(() => {
     let alive = true;
     fetch("/api/session")
@@ -67,7 +66,6 @@ export default function Home() {
   }, []);
 
   const allowedTabs = useMemo(() => tabsForRole(role, TAB_KEYS), [role]);
-  // If the active tab isn't in the current role's set, fall back to its first tab.
   useEffect(() => {
     if (!allowedTabs.includes(activeTab)) setActiveTab(allowedTabs[0] ?? "overview");
   }, [allowedTabs, activeTab]);
@@ -91,12 +89,26 @@ export default function Home() {
     load(false);
   }, [load]);
 
+  // All unique closer names across data sources for the global filter.
+  const allClosers = useMemo(() => {
+    if (!data) return [];
+    const set = new Set<string>();
+    for (const r of data.cash.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
+    for (const r of data.appointments.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
+    for (const r of data.salesActivity.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
+    return [...set].sort();
+  }, [data]);
+
+  // Pre-filter rows by global closer selection (applications have no enrManager).
+  const closerMatch = <T extends { enrManager?: string | null }>(r: T) =>
+    globalCloser.length === 0 || globalCloser.includes(r.enrManager ?? "");
+  const filteredCash = useMemo(() => (data ? data.cash.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filteredAppts = useMemo(() => (data ? data.appointments.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filteredSales = useMemo(() => (data ? data.salesActivity.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const healthEntries: HealthEntry[] = useMemo(() => {
     if (!data) return [];
     const entries: HealthEntry[] = [];
-    // Source labels spell out the actual system + database name so a non-technical
-    // reader can go straight to the right place. "Cash" alone doesn't tell you it
-    // lives in Notion under "Reborn Cash Tracker".
     for (const r of data.cash.rows) {
       if (r.health.length) entries.push({ source: "Notion · Reborn Cash Tracker", id: r.id, label: r.name || r.id, flags: r.health });
     }
@@ -119,7 +131,6 @@ export default function Home() {
     return entries;
   }, [data, includeChallengeDupes, includeAppDupes]);
 
-  // Schema safety net: catch a whole column reading empty (renamed/removed source column).
   const columnWarnings = useMemo(() => (data ? detectColumnHealth(data) : []), [data]);
 
   const nonTestCash = data ? data.cash.rows.filter((r) => !r.isTest) : [];
@@ -142,10 +153,6 @@ export default function Home() {
         .filter((x) => x.error)
     : [];
 
-  const hasNotionError = data
-    ? !!(data.cash.error || data.masterCrm.error || data.appointments.error || data.applications.error || data.salesActivity.error)
-    : false;
-
   return (
     <div className="app-shell">
       <PulseBar
@@ -154,7 +161,7 @@ export default function Home() {
         updatedAt={data?.generatedAt ?? null}
         loading={loading}
         onRefresh={() => load(true)}
-        dataQualityIssues={healthEntries.reduce((s, e) => s + e.flags.length, 0)}
+        dataQualityIssues={isCloser ? 0 : healthEntries.reduce((s, e) => s + e.flags.length, 0)}
         scopeNote="All-time · Cash Collected includes Challenge"
       />
       <div className="app-body">
@@ -164,6 +171,11 @@ export default function Home() {
             {roleDef(role).label}
           </span>
           <span style={{ fontSize: 11.5, color: "var(--text-dim)" }}>{roleDef(role).blurb}</span>
+          {allClosers.length > 0 && (
+            <div style={{ marginLeft: 8 }}>
+              <MultiSelect label="Closer" options={allClosers} value={globalCloser} onChange={setGlobalCloser} />
+            </div>
+          )}
           <a
             href="/api/logout"
             style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)", textDecoration: "none" }}
@@ -176,9 +188,7 @@ export default function Home() {
 
         {loadError && <div className="error-banner">Failed to load dashboard: {loadError}</div>}
 
-        {data && <NotionDiagnosticsPanel alwaysShow />}
-        {/* eslint-disable-next-line @typescript-eslint/no-unused-expressions */}
-        {hasNotionError && null}
+        {!isCloser && data && <NotionDiagnosticsPanel alwaysShow />}
 
         {sourceErrors.map(({ key, error }) => (
           <div className="error-banner" key={key}>
@@ -192,43 +202,39 @@ export default function Home() {
           <>
             {activeTab === "overview" && (
               <OverviewTab
-                cash={data.cash.rows}
-                appointments={data.appointments.rows}
+                cash={filteredCash}
+                appointments={filteredAppts}
                 applications={data.applications.rows}
-                salesActivity={data.salesActivity.rows}
+                salesActivity={filteredSales}
                 challenge={data.challenge.rows}
+                hideOpsUI={isCloser}
               />
             )}
             {activeTab === "insights" && (
               <>
-                {/* Cross-source insights (Deposit Lifecycle, Challenge→Reborn,
-                    Coupon, Application→Purchase, Calls/day) — renders above
-                    the cohort funnels since the deposit-lifecycle question
-                    ("what actually happened after they deposited?") is the
-                    top-of-mind operator question. */}
                 <InsightsTab
-                  cash={data.cash.rows}
+                  cash={filteredCash}
                   applications={data.applications.rows}
-                  appointments={data.appointments.rows}
-                  salesActivity={data.salesActivity.rows}
+                  appointments={filteredAppts}
+                  salesActivity={filteredSales}
                   challenge={data.challenge.rows}
                 />
                 <CohortFunnels
-                  cash={data.cash.rows}
-                  appointments={data.appointments.rows}
+                  cash={filteredCash}
+                  appointments={filteredAppts}
                   applications={data.applications.rows}
                   challenge={data.challenge.rows}
                 />
               </>
             )}
-            {activeTab === "cash" && <CashTab rows={data.cash.rows} />}
+            {activeTab === "cash" && <CashTab rows={filteredCash} hideOpsUI={isCloser} />}
             {activeTab === "adjustments" && (
-              <AdjustmentsTab rows={data.cash.rows} masterCrm={data.masterCrm.rows} />
+              <AdjustmentsTab rows={filteredCash} masterCrm={data.masterCrm.rows} hideOpsUI={isCloser} />
             )}
-            {activeTab === "payments" && <PaymentsTab rows={data.cash.rows} />}
-            {activeTab === "appointments" && <AppointmentsTab rows={data.appointments.rows} />}
-            {activeTab === "applications" && <ApplicationsTab rows={data.applications.rows} />}
-            {activeTab === "sales" && <SalesActivityTab rows={data.salesActivity.rows} />}
+            {activeTab === "payments" && <PaymentsTab rows={filteredCash} />}
+            {activeTab === "appointments" && <AppointmentsTab rows={filteredAppts} hideOpsUI={isCloser} />}
+            {activeTab === "applications" && <ApplicationsTab rows={data.applications.rows} hideOpsUI={isCloser} />}
+            {activeTab === "sales" && <SalesActivityTab rows={filteredSales} hideOpsUI={isCloser} />}
             {activeTab === "challenge" && (
               <ChallengeTab
                 rows={data.challenge.rows}
@@ -240,7 +246,7 @@ export default function Home() {
             {activeTab === "reconciliation" && <ReconciliationTab />}
             {activeTab === "guide" && <GuideTab />}
 
-            {activeTab !== "guide" && (
+            {activeTab !== "guide" && !isCloser && (
               <HealthPanel
                 entries={healthEntries}
                 includeChallengeDupes={includeChallengeDupes}

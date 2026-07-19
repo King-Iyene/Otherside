@@ -299,14 +299,14 @@ export default function ScorecardView({
       <KpiGrid
         items={[
           {
-            label: "Cash on Call",
+            label: "Cash Collected",
             value: formatMoney(totals.cashOnCall),
             sparkline: sparkCash,
             sparklineColor: "var(--green)",
             source: {
               source: "Sales Activity Tracker (Notion)",
               field: "Cash Collected on Call ($)",
-              formula: "SUM over date range, filtered by Enr Manager",
+              formula: "SUM over date range, filtered by Closer",
             },
             ...((compareAgainst
               ? comparePip(totals.cashOnCall, compareAgainst.totals.cashOnCall, (v) => formatMoney(v), compareAgainst.name)

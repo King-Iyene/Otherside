@@ -59,7 +59,7 @@ function aggregatePeople(rows: CashRow[]): PersonAgg[] {
   return Array.from(map.values());
 }
 
-export default function CashTab({ rows }: { rows: CashRow[] }) {
+export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -231,7 +231,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       render: (r) => <DateCell value={r.nextPaymentDate} field="Date of Next Payment" health={r.health} />,
       sortValue: (r) => r.nextPaymentDate,
     },
-    { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+    { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
   ];
 
   const openDrilldown = (title: string, subtitle: string | undefined, subset: CashRow[]) =>
@@ -246,10 +246,11 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         customTo={customTo}
         onCustomFromChange={setCustomFrom}
         onCustomToChange={setCustomTo}
+        hideOpsUI={hideOpsUI}
         dimensions={[
           { key: "product", label: "Product", options: products, value: product, onChange: setProduct },
           { key: "cohort", label: "Cohort", options: cohorts, value: cohort, onChange: setCohort },
-          { key: "enrManager", label: "Enr Manager", options: managers, value: enrManager, onChange: setEnrManager },
+          { key: "enrManager", label: "Closer", options: managers, value: enrManager, onChange: setEnrManager },
           { key: "paymentMethod", label: "Payment Method", options: paymentMethods, value: paymentMethod, onChange: setPaymentMethod },
           { key: "txType", label: "Transaction Type", options: txTypes, value: txType, onChange: setTxType },
         ]}
@@ -364,10 +365,10 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
         />
       </div>
 
-      {/* Per-coach breakdown — includes a "No EM" bar for rows with no coach */}
+      {/* Per-closer breakdown — includes a "No EM" bar for rows with no closer */}
       <div className="chart-grid">
         <CloserBars
-          title="Enrolled Clients by Coach"
+          title="Enrolled Clients by Closer"
           items={[
             ...managers.map((m) => ({ name: m, value: countPeople(positiveTx.filter((r) => r.enrManager === m)) })),
             { name: "No EM", value: countPeople(positiveTx.filter((r) => !(r.enrManager && r.enrManager.trim()))) },
@@ -380,7 +381,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
           }}
         />
         <CloserBars
-          title="Cash Collected by Coach"
+          title="Cash Collected by Closer"
           items={[
             ...managers.map((m) => {
               const mRows = filtered.filter((r) => r.enrManager === m);
@@ -403,7 +404,7 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
 
       <div style={{ marginBottom: 20 }}>
         <CloserBars
-          title="Revenue Booked by Coach"
+          title="Revenue Booked by Closer"
           items={[
             ...managers.map((m) => {
               const mRows = filtered.filter((r) => r.enrManager === m);
@@ -479,28 +480,30 @@ export default function CashTab({ rows }: { rows: CashRow[] }) {
       )}
 
       {/* "View all records" footer strip instead of always-visible row table */}
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--line)",
-          borderRadius: 12,
-          padding: "14px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
-        <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          <strong style={{ color: "var(--text)" }}>{formatNumber(enrollmentsCount)}</strong> unique buyers
-          {" · "}
-          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> rows match current filters
+      {!hideOpsUI && (
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            borderRadius: 12,
+            padding: "14px 18px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>
+            <strong style={{ color: "var(--text)" }}>{formatNumber(enrollmentsCount)}</strong> unique buyers
+            {" · "}
+            <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> rows match current filters
+          </div>
+          <button className="link-btn" onClick={() => openDrilldown("All Filtered Enrollments", undefined, filtered)}>
+            View records →
+          </button>
         </div>
-        <button className="link-btn" onClick={() => openDrilldown("All Filtered Enrollments", undefined, filtered)}>
-          View records →
-        </button>
-      </div>
+      )}
 
       <DrillDownModal
         open={!!drilldown}

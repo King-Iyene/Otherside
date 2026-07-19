@@ -26,12 +26,12 @@ function totalsOf(rows: SalesActivityRow[]) {
     showed: sum(rows.map((r) => r.showed)),
     offersMade: sum(rows.map((r) => r.offersMade)),
     salesMade: sum(rows.map((r) => r.salesMade)),
-    cashOnCall: sum(rows.map((r) => r.cashCollectedOnCall)),
+    cashCollected: sum(rows.map((r) => r.cashCollectedOnCall)),
     salesRevenue: sum(rows.map((r) => r.salesRevenue)),
   };
 }
 
-export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] }) {
+export default function SalesActivityTab({ rows, hideOpsUI }: { rows: SalesActivityRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -79,7 +79,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         showed: number;
         offersMade: number;
         salesMade: number;
-        cashOnCall: number;
+        cashCollected: number;
         salesRevenue: number;
         rows: SalesActivityRow[];
       }
@@ -91,7 +91,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         showed: 0,
         offersMade: 0,
         salesMade: 0,
-        cashOnCall: 0,
+        cashCollected: 0,
         salesRevenue: 0,
         rows: [],
       };
@@ -99,7 +99,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       existing.showed += r.showed ?? 0;
       existing.offersMade += r.offersMade ?? 0;
       existing.salesMade += r.salesMade ?? 0;
-      existing.cashOnCall += r.cashCollectedOnCall ?? 0;
+      existing.cashCollected += r.cashCollectedOnCall ?? 0;
       existing.salesRevenue += r.salesRevenue ?? 0;
       existing.rows.push(r);
       byManager.set(key, existing);
@@ -110,13 +110,13 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         ...t,
         rates: computeRates(t),
       }))
-      .sort((a, b) => b.cashOnCall - a.cashOnCall);
+      .sort((a, b) => b.cashCollected - a.cashCollected);
   }, [filtered]);
 
   const columns: Column<SalesActivityRow>[] = [
     { key: "entry", label: "Entry", render: (r) => r.entry, sortValue: (r) => r.entry },
     { key: "date", label: "Date", render: (r) => <DateCell value={r.date} field="Date" health={r.health} />, sortValue: (r) => r.date },
-    { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+    { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "launch", label: "Launch", render: (r) => r.launch || "—", sortValue: (r) => r.launch },
     { key: "newCalls", label: "New Calls", render: (r) => formatNumber(r.newCalls), sortValue: (r) => r.newCalls },
     { key: "showed", label: "Showed", render: (r) => formatNumber(r.showed), sortValue: (r) => r.showed },
@@ -124,7 +124,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
     { key: "salesMade", label: "Sales", render: (r) => formatNumber(r.salesMade), sortValue: (r) => r.salesMade },
     {
       key: "cashCollectedOnCall",
-      label: "Cash on Call",
+      label: "Cash Collected",
       render: (r) => <MoneyCell value={r.cashCollectedOnCall} field="Cash Collected on Call" health={r.health} />,
       sortValue: (r) => r.cashCollectedOnCall,
     },
@@ -147,13 +147,14 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         onCustomToChange={setCustomTo}
         dimensions={[
           { key: "launch", label: "Launch", options: launches, value: launch, onChange: setLaunch },
-          { key: "enrManager", label: "Enr Manager", options: managers, value: enrManager, onChange: setEnrManager },
+          { key: "enrManager", label: "Closer", options: managers, value: enrManager, onChange: setEnrManager },
         ]}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search entry, manager…"
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
+        hideOpsUI={hideOpsUI}
       />
 
       <KpiGrid
@@ -180,11 +181,11 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
             onClick: () => setDrilldown({ title: "Entries with Sales", rows: filtered.filter((r) => (r.salesMade ?? 0) > 0) }),
           },
           {
-            label: "Cash on Call",
-            value: formatMoney(totals.cashOnCall),
-            delta: prevTotals && computeDelta(totals.cashOnCall, prevTotals.cashOnCall),
+            label: "Cash Collected",
+            value: formatMoney(totals.cashCollected),
+            delta: prevTotals && computeDelta(totals.cashCollected, prevTotals.cashCollected),
             source: { source: "Sales Activity Tracker (Notion)", field: "Cash Collected on Call ($)", formula: "SUM" },
-            onClick: () => setDrilldown({ title: "Entries with Cash on Call", rows: filtered.filter((r) => (r.cashCollectedOnCall ?? 0) > 0) }),
+            onClick: () => setDrilldown({ title: "Entries with Cash Collected", rows: filtered.filter((r) => (r.cashCollectedOnCall ?? 0) > 0) }),
           },
           {
             label: "Sales Revenue",
@@ -194,25 +195,28 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
             onClick: () => setDrilldown({ title: "Entries with Revenue", rows: filtered.filter((r) => (r.salesRevenue ?? 0) > 0) }),
           },
           {
-            label: "Show %",
+            label: "Show % (Calls → Showed)",
             value: formatPercent(rates.showPct),
             delta: prevRates?.showPct != null && rates.showPct != null ? computeDelta(rates.showPct, prevRates.showPct) : null,
             source: { source: "Derived", field: "Showed ÷ New Calls" },
+            onClick: () => setDrilldown({ title: "Show Rate Entries", subtitle: `${totals.showed} showed from ${totals.newCalls} calls`, rows: filtered }),
           },
           {
-            label: "Offer %",
+            label: "Offer % (Showed → Offers)",
             value: formatPercent(rates.offerPct),
             delta: prevRates?.offerPct != null && rates.offerPct != null ? computeDelta(rates.offerPct, prevRates.offerPct) : null,
             source: { source: "Derived", field: "Offers Made ÷ Showed" },
+            onClick: () => setDrilldown({ title: "Offer Rate Entries", subtitle: `${totals.offersMade} offers from ${totals.showed} shows`, rows: filtered }),
           },
           {
-            label: "Close % (Shows)",
+            label: "Close % (Showed → Sales)",
             value: formatPercent(rates.closePctShows),
             delta:
               prevRates?.closePctShows != null && rates.closePctShows != null
                 ? computeDelta(rates.closePctShows, prevRates.closePctShows)
                 : null,
             source: { source: "Derived", field: "Sales Made ÷ Showed" },
+            onClick: () => setDrilldown({ title: "Close Rate Entries", subtitle: `${totals.salesMade} sales from ${totals.showed} shows`, rows: filtered }),
           },
         ]}
       />
@@ -237,7 +241,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       {/* Team charts */}
       <div className="chart-grid">
         <TimeSeriesChart
-          title="Cash on Call — Over Time"
+          title="Cash Collected — Over Time"
           points={filtered.map((r) => ({ date: r.date, value: r.cashCollectedOnCall ?? 0 }))}
           color="#45d093"
           valueFormatter={(v) => formatMoney(v)}
@@ -249,7 +253,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       </div>
 
       {/* ── Launch Distribution — donut chart ── */}
-      {launches.length > 1 && (
+      {!hideOpsUI && launches.length > 1 && (
         <div className="chart-grid">
           <DonutChart
             title="Activity by Launch"
@@ -263,7 +267,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
             }}
           />
           <DonutChart
-            title="Cash on Call by Launch"
+            title="Cash Collected by Launch"
             items={launches.map((l) => ({
               key: l || "(none)",
               value: sum(filtered.filter((r) => r.launch === l).map((r) => r.cashCollectedOnCall)),
@@ -281,22 +285,20 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       {perCloser.length > 0 && (
         <>
           <div className="chart-grid">
-            <CloserBars title="Calls by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} onSelect={(name) => setDrilldown({ title: `Calls: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
-            <CloserBars title="Showed by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} onSelect={(name) => setDrilldown({ title: `Showed: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
+            <CloserBars title="Calls by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} onSelect={(name) => setDrilldown({ title: `Calls: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
+            <CloserBars title="Showed by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} onSelect={(name) => setDrilldown({ title: `Showed: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
+            <CloserBars title="Offers Made by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} onSelect={(name) => setDrilldown({ title: `Offers: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
           </div>
           <div className="chart-grid">
-            <CloserBars title="Offers Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} onSelect={(name) => setDrilldown({ title: `Offers: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
-            <CloserBars title="Sales Made by Coach" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} onSelect={(name) => setDrilldown({ title: `Sales: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
-          </div>
-          <div className="chart-grid">
+            <CloserBars title="Sales Made by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} onSelect={(name) => setDrilldown({ title: `Sales: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
             <CloserBars
-              title="Cash on Call by Coach"
-              items={perCloser.map((c) => ({ name: c.manager, value: c.cashOnCall }))}
+              title="Cash Collected by Closer"
+              items={perCloser.map((c) => ({ name: c.manager, value: c.cashCollected }))}
               valueFormatter={(v) => formatMoney(v)}
-              onSelect={(name) => setDrilldown({ title: `Cash on Call: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })}
+              onSelect={(name) => setDrilldown({ title: `Cash Collected: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })}
             />
             <CloserBars
-              title="Sales Revenue by Coach"
+              title="Sales Revenue by Closer"
               items={perCloser.map((c) => ({ name: c.manager, value: c.salesRevenue }))}
               valueFormatter={(v) => formatMoney(v)}
               onSelect={(name) => setDrilldown({ title: `Sales Revenue: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })}
@@ -310,7 +312,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
         <div className="panel" style={{ marginBottom: 20 }}>
           <div className="panel-header">
             <div className="panel-title">Per-Closer Funnel</div>
-            <span style={{ color: "var(--muted)", fontSize: 11 }}>Sorted by Cash on Call · Click a name for full scorecard</span>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>Sorted by Cash Collected · Click a name for full scorecard</span>
           </div>
           <table className="leaderboard">
             <thead>
@@ -324,7 +326,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
                 <th style={{ color: "var(--muted)" }}>Offer %</th>
                 <th>Sales</th>
                 <th style={{ color: "var(--muted)" }}>Close %</th>
-                <th>Cash on Call</th>
+                <th>Cash Collected</th>
                 <th>Sales Revenue</th>
               </tr>
             </thead>
@@ -358,7 +360,7 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
                   <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.offerPct)}</td>
                   <td className="mono">{formatNumber(row.salesMade)}</td>
                   <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.closePctShows)}</td>
-                  <td className="mono">{formatMoney(row.cashOnCall)}</td>
+                  <td className="mono">{formatMoney(row.cashCollected)}</td>
                   <td className="mono">{formatMoney(row.salesRevenue)}</td>
                 </tr>
               ))}
@@ -368,26 +370,28 @@ export default function SalesActivityTab({ rows }: { rows: SalesActivityRow[] })
       )}
 
       {/* View records footer strip — replaces the always-visible row table */}
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--line)",
-          borderRadius: 12,
-          padding: "14px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
-        <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> daily entries match current filters
+      {!hideOpsUI && (
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            borderRadius: 12,
+            padding: "14px 18px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>
+            <strong style={{ color: "var(--text)" }}>{formatNumber(filtered.length)}</strong> daily entries match current filters
+          </div>
+          <button className="link-btn" onClick={() => setDrilldown({ title: "All Daily Entries", rows: filtered })}>
+            View records →
+          </button>
         </div>
-        <button className="link-btn" onClick={() => setDrilldown({ title: "All Daily Entries", rows: filtered })}>
-          View records →
-        </button>
-      </div>
+      )}
 
       <DrillDownModal
         open={!!drilldown}

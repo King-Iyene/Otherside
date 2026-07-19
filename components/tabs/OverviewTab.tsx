@@ -24,19 +24,15 @@ interface Props {
   applications: ApplicationRow[];
   salesActivity: SalesActivityRow[];
   challenge?: ChallengeRow[];
+  hideOpsUI?: boolean;
 }
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
 
-/** A cash row is a real enrollment only if it names a person (email or name).
- *  Mirrors the funnel's isRealPerson so Overview's Enrollments count matches
- *  Cohort Funnels — blank stub rows never inflate it. */
 function isRealPerson(r: CashRow): boolean {
   return !!((r.email && r.email.trim()) || (r.name && r.name.trim()));
 }
 
-/** Unique enrolled buyers: real people, deduped by email (blank-email rows with
- *  a name each count once). */
 function uniqueEnrollments(rows: CashRow[]): number {
   const seen = new Set<string>();
   let count = 0;
@@ -72,6 +68,10 @@ function computeStats(
   const positiveCashRows = cashRows.filter((r) => r.transactionType !== "Refund");
   const refundCashRows = cashRows.filter((r) => r.transactionType === "Refund");
 
+  const salesMade = sum(salesRows.map((r) => r.salesMade));
+  const offersMade = sum(salesRows.map((r) => r.offersMade));
+  const cashOnCall = sum(salesRows.map((r) => r.cashCollectedOnCall));
+
   return {
     cashRows,
     apptRows,
@@ -91,13 +91,14 @@ function computeStats(
     applications: appRows.length,
     purchasedApps,
     conversionRate: appRows.length ? purchasedApps / appRows.length : null,
-    offersMade: sum(salesRows.map((r) => r.offersMade)),
-    salesMade: sum(salesRows.map((r) => r.salesMade)),
-    cashOnCall: sum(salesRows.map((r) => r.cashCollectedOnCall)),
+    offersMade,
+    salesMade,
+    cashOnCall,
+    closeRateOnShows: showedCount > 0 ? salesMade / showedCount : null,
+    cashValuePerBooking: apptRows.length > 0 ? sum(positiveCashRows.map((r) => r.cashCollected)) / apptRows.length : null,
   };
 }
 
-/** Buckets a metric by day over the given rows using a date accessor + value accessor. */
 function dailySeries<T>(rows: T[], date: (r: T) => string | null, value: (r: T) => number): number[] {
   const buckets = new Map<string, number>();
   for (const r of rows) {
@@ -123,7 +124,6 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
   const signals: DiagnosticSignal[] = [];
   if (!prev) return signals;
 
-  // Cash collected drop
   if (prev.cashCollected > 0) {
     const delta = (stats.cashCollected - prev.cashCollected) / prev.cashCollected;
     if (delta <= -0.2) {
@@ -143,7 +143,6 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
     }
   }
 
-  // Show rate change
   if (prev.showRate !== null && stats.showRate !== null) {
     const showDelta = stats.showRate - prev.showRate;
     if (showDelta <= -0.1) {
@@ -155,7 +154,6 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
     }
   }
 
-  // Application conversion drop
   if (prev.conversionRate !== null && stats.conversionRate !== null) {
     const convDelta = stats.conversionRate - prev.conversionRate;
     if (convDelta <= -0.05) {
@@ -167,7 +165,6 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
     }
   }
 
-  // Sales pipeline drop
   if (prev.applications > 0 && stats.applications < prev.applications * 0.8) {
     signals.push({
       severity: "warning",
@@ -179,7 +176,7 @@ function generateDiagnostics(stats: ReturnType<typeof computeStats>, prev: Retur
   return signals;
 }
 
-export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [] }: Props) {
+export default function OverviewTab({ cash, appointments, applications, salesActivity, challenge = [], hideOpsUI }: Props) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -206,14 +203,11 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
 
   const statuses = Array.from(new Set(stats.apptRows.map((r) => r.status).filter(Boolean))) as string[];
 
-
-  // Sparklines
   const sparkCash = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.transactionType === "Refund" ? -(r.cashCollected ?? 0) : (r.cashCollected ?? 0));
   const sparkRevenue = dailySeries(stats.cashRows, (r) => r.enrollmentDate, (r) => r.transactionType === "Refund" ? -(r.revenue ?? 0) : (r.revenue ?? 0));
   const sparkAppts = dailySeries(stats.apptRows, (r) => r.appointmentTime, () => 1);
   const sparkApps = dailySeries(stats.appRows, (r) => r.dateCreated, () => 1);
 
-  // Pace calc — how far through the "target period" (month, for the MTD preset)
   const daysElapsed = from && to ? Math.max(1, Math.ceil((Math.min(Date.now(), to.getTime()) - from.getTime()) / (24 * 60 * 60 * 1000))) : 30;
   const daysInMonth = 30;
   const paceRatio = Math.min(1, daysElapsed / daysInMonth);
@@ -240,9 +234,10 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         onIncludeTestChange={setIncludeTest}
         compareMode={compareMode}
         onCompareModeChange={setCompareMode}
+        hideOpsUI={hideOpsUI}
       />
 
-      {/* HERO ROW — 4 big cards with pace bars and sparklines */}
+      {/* HERO ROW */}
       <div
         style={{
           display: "grid",
@@ -295,7 +290,6 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
       </div>
 
-
       {/* DIAGNOSTIC BAND */}
       {diagnostics.length > 0 && (
         <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -332,9 +326,18 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         </div>
       )}
 
-      {/* Secondary KPIs — smaller cards */}
+      {/* Secondary KPIs — reordered to funnel flow: Applications → Appointments → Show Rate → App→Purchase → Close Rate → Cash Collected → Cash Value per Booking */}
       <KpiGrid
         items={[
+          {
+            label: "Applications",
+            value: formatNumber(stats.applications),
+            sparkline: sparkApps,
+            sparklineColor: "var(--accent)",
+            delta: prevStats && computeDelta(stats.applications, prevStats.applications),
+            source: { source: "REBORN Application Tracker (Notion)", field: "COUNT" },
+            onClick: () => setAppDrill({ title: "All Applications", subtitle: `${stats.appRows.length} applications`, rows: stats.appRows }),
+          },
           {
             label: "Appointments",
             value: formatNumber(stats.appointments),
@@ -354,15 +357,6 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             onClick: () => setApptDrill({ title: "Showed Appointments", rows: stats.apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) }),
           },
           {
-            label: "Applications",
-            value: formatNumber(stats.applications),
-            sparkline: sparkApps,
-            sparklineColor: "var(--accent)",
-            delta: prevStats && computeDelta(stats.applications, prevStats.applications),
-            source: { source: "REBORN Application Tracker (Notion)", field: "COUNT" },
-            onClick: () => setAppDrill({ title: "All Applications", subtitle: `${stats.appRows.length} applications`, rows: stats.appRows }),
-          },
-          {
             label: "App → Purchase",
             value: formatPercent(stats.conversionRate),
             delta:
@@ -373,11 +367,33 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             onClick: () => setAppDrill({ title: "Purchased Applications", subtitle: `${stats.purchasedApps} purchased`, rows: stats.appRows.filter((r) => r.purchased) }),
           },
           {
-            label: "Cash on Call",
+            label: "Close Rate (Show-ups)",
+            value: formatPercent(stats.closeRateOnShows),
+            delta:
+              stats.closeRateOnShows != null && prevStats?.closeRateOnShows != null
+                ? computeDelta(stats.closeRateOnShows, prevStats.closeRateOnShows)
+                : null,
+            source: { source: "Derived", field: "Sales Made ÷ Showed", formula: "Close rate on people who actually showed up to their call" },
+            hint: stats.closeRateOnShows !== null ? `${stats.salesMade} sales from ${stats.showedCount} shows` : undefined,
+            hintColor: stats.closeRateOnShows !== null && stats.closeRateOnShows >= 0.3 ? "green" : "muted",
+          },
+          {
+            label: "Cash Collected",
             value: formatMoney(stats.cashOnCall),
             delta: prevStats && computeDelta(stats.cashOnCall, prevStats.cashOnCall),
             source: { source: "Sales Activity Tracker (Notion)", field: "SUM Cash Collected on Call" },
             onClick: () => setSalesDrill({ title: "Sales Activity", subtitle: `${stats.salesRows.length} entries`, rows: stats.salesRows }),
+          },
+          {
+            label: "Cash Value per Booking",
+            value: stats.cashValuePerBooking !== null ? formatMoney(stats.cashValuePerBooking) : "—",
+            delta:
+              stats.cashValuePerBooking != null && prevStats?.cashValuePerBooking != null
+                ? computeDelta(stats.cashValuePerBooking, prevStats.cashValuePerBooking)
+                : null,
+            source: { source: "Derived", field: "Total Cash Collected ÷ Total Booked Appointments", formula: "Average cash value each booked call generates — includes no-shows" },
+            hint: stats.cashValuePerBooking !== null ? `${formatMoney(stats.grossCashCollected)} ÷ ${stats.appointments} bookings` : undefined,
+            hintColor: "muted",
           },
         ]}
       />
@@ -491,7 +507,7 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
   { key: "appointmentTime", label: "Appointment Time", render: (r) => r.appointmentTime || "—", sortValue: (r) => r.appointmentTime },
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
-  { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+  { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
 ];
 
 const CASH_COLUMNS: Column<CashRow>[] = [
@@ -503,7 +519,7 @@ const CASH_COLUMNS: Column<CashRow>[] = [
   { key: "revenue", label: "Revenue", render: (r) => formatMoney(r.revenue), sortValue: (r) => r.revenue },
   { key: "cashCollected", label: "Cash", render: (r) => formatMoney(r.cashCollected), sortValue: (r) => r.cashCollected },
   { key: "transactionType", label: "Type", render: (r) => r.transactionType || "Payment", sortValue: (r) => r.transactionType },
-  { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+  { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
 ];
 
 const APP_COLUMNS: Column<ApplicationRow>[] = [
@@ -526,7 +542,7 @@ const SALES_COLUMNS: Column<SalesActivityRow>[] = [
   { key: "showed", label: "Showed", render: (r) => formatNumber(r.showed), sortValue: (r) => r.showed },
   { key: "offersMade", label: "Offers", render: (r) => formatNumber(r.offersMade), sortValue: (r) => r.offersMade },
   { key: "salesMade", label: "Sales", render: (r) => formatNumber(r.salesMade), sortValue: (r) => r.salesMade },
-  { key: "cashCollectedOnCall", label: "Cash on Call", render: (r) => formatMoney(r.cashCollectedOnCall), sortValue: (r) => r.cashCollectedOnCall },
+  { key: "cashCollectedOnCall", label: "Cash Collected", render: (r) => formatMoney(r.cashCollectedOnCall), sortValue: (r) => r.cashCollectedOnCall },
 ];
 
 function ChallengeToRebornPanel({ challenge, cash }: { challenge: ChallengeRow[]; cash: CashRow[] }) {

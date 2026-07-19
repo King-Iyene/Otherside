@@ -139,7 +139,7 @@ const SALES: DatasetDef = {
     { key: "showed", label: "Showed (that day)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.showed },
     { key: "offersMade", label: "Offers Made (that day)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.offersMade },
     { key: "salesMade", label: "Sales Made (that day)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.salesMade },
-    { key: "cashCollectedOnCall", label: "Cash on Call ($)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.cashCollectedOnCall },
+    { key: "cashCollectedOnCall", label: "Cash Collected ($)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.cashCollectedOnCall },
     { key: "salesRevenue", label: "Deal Size on Call ($)", type: "number", filterable: true, get: (r: SalesActivityRow) => r.salesRevenue },
     { key: "date", label: "Date", type: "date", filterable: true, get: (r: SalesActivityRow) => r.date },
   ],

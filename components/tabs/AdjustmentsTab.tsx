@@ -61,7 +61,7 @@ function countUniquePeople(rows: CashRow[]): number {
   return seen.size;
 }
 
-export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; masterCrm: MasterCrmRow[] }) {
+export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: CashRow[]; masterCrm: MasterCrmRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -184,7 +184,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
       sortValue: (r) => r.cashCollected,
     },
     { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
-    { key: "enrManager", label: "Enr Manager", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+    { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "note", label: "Note", render: (r) => r.note || "—" },
   ];
 
@@ -247,8 +247,8 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
           Refunds, Deferrals & Adjustments
         </div>
         <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4, maxWidth: 720, lineHeight: 1.5 }}>
-          Non-destructive adjustment tracking. Original revenue and cash stay intact — refunds, dropouts, and deferrals
-          are separate records so you always see gross vs net. Ops records adjustments; closers flag them.
+          All adjustments in one place. Original revenue and cash stay intact — refunds, dropouts, and deferrals
+          are tracked as separate records so you can always compare gross vs net.
         </div>
       </div>
 
@@ -261,13 +261,14 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
         onCustomToChange={setCustomTo}
         dimensions={[
           { key: "cohort", label: "Cohort", options: cohorts, value: cohort, onChange: setCohort },
-          { key: "enrManager", label: "Enr Manager", options: managers, value: enrManager, onChange: setEnrManager },
+          { key: "enrManager", label: "Closer", options: managers, value: enrManager, onChange: setEnrManager },
         ]}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search name, email, note…"
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
+        hideOpsUI={hideOpsUI}
       />
 
       {/* Gross → Net KPIs */}
@@ -530,6 +531,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
       )}
 
       {/* Footer: view all adjustments */}
+      {!hideOpsUI && (
       <div
         style={{
           background: "var(--surface)",
@@ -565,6 +567,7 @@ export default function AdjustmentsTab({ rows, masterCrm }: { rows: CashRow[]; m
           View all Cash-Tracker rows →
         </button>
       </div>
+      )}
 
       <DrillDownModal
         open={!!drilldown}

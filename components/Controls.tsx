@@ -39,6 +39,8 @@ interface Props {
   onIncludeTestChange: (v: boolean) => void;
   compareMode?: CompareMode;
   onCompareModeChange?: (m: CompareMode) => void;
+  /** Hide ops-only controls (test toggle) for non-ops roles. */
+  hideOpsUI?: boolean;
 }
 
 export default function Controls({
@@ -56,6 +58,7 @@ export default function Controls({
   onIncludeTestChange,
   compareMode,
   onCompareModeChange,
+  hideOpsUI,
 }: Props) {
   return (
     <div className="controls-bar">
@@ -121,10 +124,12 @@ export default function Controls({
         </div>
       )}
 
-      <label className="toggle-chip">
-        <input type="checkbox" checked={includeTest} onChange={(e) => onIncludeTestChange(e.target.checked)} />
-        Include test records
-      </label>
+      {!hideOpsUI && (
+        <label className="toggle-chip">
+          <input type="checkbox" checked={includeTest} onChange={(e) => onIncludeTestChange(e.target.checked)} />
+          Include test records
+        </label>
+      )}
     </div>
   );
 }
