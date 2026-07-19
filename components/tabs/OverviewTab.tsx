@@ -182,24 +182,40 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
   const [customTo, setCustomTo] = useState("");
   const [includeTest, setIncludeTest] = useState(false);
   const [compareMode, setCompareMode] = useState<CompareMode>("prev");
+  const [closerFilter, setCloserFilter] = useState<string[]>([]);
   const [apptDrill, setApptDrill] = useState<{ title: string; rows: AppointmentRow[] } | null>(null);
   const [cashDrill, setCashDrill] = useState<{ title: string; subtitle?: string; rows: CashRow[] } | null>(null);
   const [appDrill, setAppDrill] = useState<{ title: string; subtitle?: string; rows: ApplicationRow[] } | null>(null);
   const [salesDrill, setSalesDrill] = useState<{ title: string; subtitle?: string; rows: SalesActivityRow[] } | null>(null);
 
+  const closers = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of cash) if (r.enrManager?.trim()) set.add(r.enrManager);
+    for (const r of appointments) if (r.enrManager?.trim()) set.add(r.enrManager);
+    for (const r of salesActivity) if (r.enrManager?.trim()) set.add(r.enrManager);
+    return [...set].sort();
+  }, [cash, appointments, salesActivity]);
+
+  const closerMatch = <T extends { enrManager?: string | null }>(r: T) =>
+    closerFilter.length === 0 || closerFilter.includes(r.enrManager ?? "");
+
+  const fCash = useMemo(() => cash.filter(closerMatch), [cash, closerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fAppts = useMemo(() => appointments.filter(closerMatch), [appointments, closerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fSales = useMemo(() => salesActivity.filter(closerMatch), [salesActivity, closerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const bench = useMemo(() => getBenchmarks(), []);
   const { from, to } = resolveRange(preset, customFrom, customTo);
 
   const stats = useMemo(
-    () => computeStats(cash, appointments, applications, salesActivity, from, to, includeTest),
-    [cash, appointments, applications, salesActivity, from, to, includeTest]
+    () => computeStats(fCash, fAppts, applications, fSales, from, to, includeTest),
+    [fCash, fAppts, applications, fSales, from, to, includeTest]
   );
 
   const prevRange = comparisonRange(compareMode, from, to);
   const prevStats = useMemo(() => {
     if (!prevRange) return null;
-    return computeStats(cash, appointments, applications, salesActivity, prevRange.from, prevRange.to, includeTest);
-  }, [cash, appointments, applications, salesActivity, prevRange, includeTest]);
+    return computeStats(fCash, fAppts, applications, fSales, prevRange.from, prevRange.to, includeTest);
+  }, [fCash, fAppts, applications, fSales, prevRange, includeTest]);
 
   const statuses = Array.from(new Set(stats.apptRows.map((r) => r.status).filter(Boolean))) as string[];
 
@@ -229,7 +245,9 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         onCustomToChange={setCustomTo}
         search=""
         onSearchChange={() => {}}
-        dimensions={[]}
+        dimensions={[
+          { key: "closer", label: "Closer", options: closers, value: closerFilter, onChange: setCloserFilter },
+        ]}
         includeTest={includeTest}
         onIncludeTestChange={setIncludeTest}
         compareMode={compareMode}
