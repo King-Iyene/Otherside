@@ -5,7 +5,7 @@ import type { TabKey } from "@/lib/tabs";
  * Tracker: one dataset, many per-team views — "too much info is no info"). Each
  * team logs in with its own password (see ROLE_ACCESS env) and sees only its tabs.
  */
-export type Role = "leadership" | "closer" | "content" | "transformation";
+export type Role = "operations" | "closer" | "content" | "transformation";
 
 export interface RoleDef {
   key: Role;
@@ -33,8 +33,8 @@ const FULL: TabKey[] = [
 
 export const ROLES: RoleDef[] = [
   {
-    key: "leadership",
-    label: "Leadership",
+    key: "operations",
+    label: "Operations",
     blurb: "Full operational view — revenue, performance, adoption and finance.",
     tabs: FULL,
   },
@@ -59,7 +59,7 @@ export const ROLES: RoleDef[] = [
 ];
 
 // When no gate is configured the app is open — default to the broadest team.
-export const DEFAULT_ROLE: Role = "leadership";
+export const DEFAULT_ROLE: Role = "operations";
 
 export function roleDef(role: Role): RoleDef {
   return ROLES.find((r) => r.key === role) ?? ROLES[0];

@@ -191,7 +191,7 @@ function LoginForm() {
 
 function labelFor(role: string): string {
   const map: Record<string, string> = {
-    leadership: "Leadership",
+    operations: "Operations",
     closer: "Closer",
     content: "Content Team",
     transformation: "Transformation Team",

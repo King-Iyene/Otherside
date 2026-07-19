@@ -46,7 +46,7 @@ export function getRoleAccess(): RoleAccessEntry[] {
     }
   }
   const single = process.env.DASHBOARD_PASSWORD;
-  if (single) return [{ role: "leadership" as Role, password: single, names: ["Oliver"] }];
+  if (single) return [{ role: "operations" as Role, password: single, names: ["Oliver"] }];
   return [];
 }
 

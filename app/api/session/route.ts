@@ -8,7 +8,7 @@ import { AUTH_COOKIE, authConfigured, roleForToken } from "@/lib/auth";
  */
 export async function GET(request: NextRequest) {
   if (!authConfigured()) {
-    return NextResponse.json({ role: "leadership", names: ["Oliver"] });
+    return NextResponse.json({ role: "operations", names: ["Oliver"] });
   }
   const token = request.cookies.get(AUTH_COOKIE)?.value;
   const entry = await roleForToken(token);

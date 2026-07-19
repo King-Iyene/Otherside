@@ -11,9 +11,9 @@ describe("roles", () => {
     }
   });
 
-  it("leadership (default, full) sees every tab", () => {
-    expect(DEFAULT_ROLE).toBe("leadership");
-    expect(tabsForRole("leadership", TAB_KEYS).sort()).toEqual([...TAB_KEYS].sort());
+  it("operations (default, full) sees every tab", () => {
+    expect(DEFAULT_ROLE).toBe("operations");
+    expect(tabsForRole("operations", TAB_KEYS).sort()).toEqual([...TAB_KEYS].sort());
   });
 
   it("a narrow role sees a subset and never the whole set", () => {
@@ -24,7 +24,7 @@ describe("roles", () => {
   });
 
   it("tabsForRole filters out tab keys that don't exist", () => {
-    const filtered = tabsForRole("leadership", ["overview", "cash"] as any);
+    const filtered = tabsForRole("operations", ["overview", "cash"] as any);
     expect(filtered).toEqual(["overview", "cash"]);
   });
 
