@@ -19,11 +19,12 @@ function LoginForm() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Step 2 — after the password is accepted, pick who you are (auto-populated).
   const [names, setNames] = useState<string[] | null>(null);
   const [roleLabel, setRoleLabel] = useState<string>("");
   const [role, setRole] = useState<string>("");
   const [name, setName] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
 
   async function handlePassword(e: FormEvent) {
     e.preventDefault();
@@ -41,10 +42,16 @@ function LoginForm() {
         return;
       }
       const ns: string[] = Array.isArray(json.names) ? json.names : [];
+      // Check if user previously saved a custom name for this role
+      let savedCustom: string | null = null;
+      try {
+        savedCustom = window.localStorage.getItem(`otherside_custom_name_${json.role}`);
+      } catch { /* ignore */ }
+      const allNames = savedCustom && !ns.includes(savedCustom) ? [...ns, savedCustom] : ns;
       setRole(json.role || "");
       setRoleLabel(json.label || labelFor(json.role));
-      setNames(ns);
-      setName(ns[0] || "");
+      setNames(allNames);
+      setName(allNames[0] || "");
     } catch {
       setError("Network error. Try again.");
     } finally {
@@ -56,6 +63,10 @@ function LoginForm() {
     try {
       if (who) window.localStorage.setItem("otherside_name", who);
       if (role) window.localStorage.setItem("otherside_role", role);
+      // If they typed a custom name, save it so it shows up next time
+      if (showCustom && customName.trim()) {
+        window.localStorage.setItem(`otherside_custom_name_${role}`, customName.trim());
+      }
     } catch {
       /* ignore */
     }
@@ -63,9 +74,10 @@ function LoginForm() {
     router.refresh();
   }
 
+  const finalName = showCustom ? customName.trim() : name;
+
   return (
     <div className="login-screen">
-      {/* drifting brand marks */}
       <div className="login-orbit login-orbit-1" aria-hidden="true"><Logo size={120} withWordmark={false} /></div>
       <div className="login-orbit login-orbit-2" aria-hidden="true"><Logo size={200} withWordmark={false} /></div>
       <div className="login-orbit login-orbit-3" aria-hidden="true"><Logo size={80} withWordmark={false} /></div>
@@ -105,20 +117,57 @@ function LoginForm() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              finish(name);
+              if (!finalName) return;
+              finish(finalName);
             }}
             style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}
           >
             <div className="login-role-chip">{roleLabel}</div>
             <div className="login-who">Who are you?</div>
-            <select value={name} onChange={(e) => setName(e.target.value)} className="login-input" autoFocus>
-              {names.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="login-btn">
+
+            {!showCustom ? (
+              <>
+                <select
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="login-input login-select"
+                  autoFocus
+                >
+                  {names.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="login-back"
+                  style={{ marginTop: -4 }}
+                  onClick={() => setShowCustom(true)}
+                >
+                  I'm not listed — add my name
+                </button>
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Type your name"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="login-input"
+                />
+                <button
+                  type="button"
+                  className="login-back"
+                  style={{ marginTop: -4 }}
+                  onClick={() => setShowCustom(false)}
+                >
+                  ← back to list
+                </button>
+              </>
+            )}
+
+            <button type="submit" className="login-btn" disabled={!finalName}>
               Continue →
             </button>
             <button
@@ -127,6 +176,8 @@ function LoginForm() {
               onClick={() => {
                 setNames(null);
                 setPassword("");
+                setShowCustom(false);
+                setCustomName("");
               }}
             >
               ← different password
@@ -140,7 +191,6 @@ function LoginForm() {
 
 function labelFor(role: string): string {
   const map: Record<string, string> = {
-    ops: "Ops Team",
     leadership: "Leadership",
     closer: "Closer",
     content: "Content Team",
