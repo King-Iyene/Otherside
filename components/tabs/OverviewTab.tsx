@@ -424,6 +424,13 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             { label: "Offers Made", value: stats.offersMade, color: "#a48bf2" },
             { label: "Sales Closed", value: stats.salesMade, color: "#f07070" },
           ]}
+          onStageClick={(label) => {
+            if (label === "Applications") setAppDrill({ title: "All Applications", subtitle: `${stats.appRows.length} applications`, rows: stats.appRows });
+            else if (label === "Appointments Booked") setApptDrill({ title: "All Appointments", rows: stats.apptRows });
+            else if (label === "Showed") setApptDrill({ title: "Showed Appointments", rows: stats.apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) });
+            else if (label === "Offers Made") setSalesDrill({ title: "Entries with Offers", subtitle: `${stats.offersMade} offers`, rows: stats.salesRows.filter((r) => (r.offersMade ?? 0) > 0) });
+            else if (label === "Sales Closed") setSalesDrill({ title: "Entries with Sales", subtitle: `${stats.salesMade} sales`, rows: stats.salesRows.filter((r) => (r.salesMade ?? 0) > 0) });
+          }}
         />
         <p style={{ color: "var(--muted)", fontSize: 11, marginTop: 8 }}>
           Stages pull from separate systems (Applications, Appointments, Sales Activity), so this is a directional view of

@@ -99,6 +99,14 @@ export default function Home() {
     return [...set].sort();
   }, [data]);
 
+  // Auto-select the closer's own name when they log in as a closer role.
+  useEffect(() => {
+    if (isCloser && viewerName && allClosers.length > 0 && globalCloser.length === 0) {
+      const match = allClosers.find((c) => c.toLowerCase().startsWith(viewerName.toLowerCase()) || viewerName.toLowerCase().startsWith(c.toLowerCase()));
+      if (match) setGlobalCloser([match]);
+    }
+  }, [isCloser, viewerName, allClosers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pre-filter rows by global closer selection (applications have no enrManager).
   const closerMatch = <T extends { enrManager?: string | null }>(r: T) =>
     globalCloser.length === 0 || globalCloser.includes(r.enrManager ?? "");

@@ -284,12 +284,10 @@ export default function SalesActivityTab({ rows, hideOpsUI }: { rows: SalesActiv
       {/* Per-coach bar charts — the closer leaderboard, visualized */}
       {perCloser.length > 0 && (
         <>
-          <div className="chart-grid">
+          <div className="closer-chart-grid">
             <CloserBars title="Calls by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.newCalls }))} onSelect={(name) => setDrilldown({ title: `Calls: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
             <CloserBars title="Showed by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.showed }))} onSelect={(name) => setDrilldown({ title: `Showed: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
             <CloserBars title="Offers Made by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.offersMade }))} onSelect={(name) => setDrilldown({ title: `Offers: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
-          </div>
-          <div className="chart-grid">
             <CloserBars title="Sales Made by Closer" items={perCloser.map((c) => ({ name: c.manager, value: c.salesMade }))} onSelect={(name) => setDrilldown({ title: `Sales: ${name}`, rows: filtered.filter((r) => r.enrManager === name) })} />
             <CloserBars
               title="Cash Collected by Closer"
