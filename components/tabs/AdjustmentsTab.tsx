@@ -8,7 +8,7 @@ import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import Controls from "../Controls";
 import KpiGrid from "../Kpi";
 import DataTable, { type Column } from "../DataTable";
-import MoneyCell, { DateCell } from "../MoneyCell";
+import MoneyCell, { DateCell, formatDateShort } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
 import GhlName from "../GhlLink";
 
@@ -205,7 +205,7 @@ export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: C
     {
       key: "enrollmentDate",
       label: "Enrolled",
-      render: (r) => (r.enrollmentDate ? r.enrollmentDate.slice(0, 10) : "—"),
+      render: (r) => formatDateShort(r.enrollmentDate),
       sortValue: (r) => r.enrollmentDate,
     },
     {
@@ -902,7 +902,7 @@ function AdjustmentList<T extends AdjustmentListRow>({
                     {r.name || "—"}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                    {r.cohort || "No cohort"} · {r.enrollmentDate?.slice(0, 10) || "No date"}
+                    {r.cohort || "No cohort"} · {formatDateShort(r.enrollmentDate) === "—" ? "No date" : formatDateShort(r.enrollmentDate)}
                   </div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>

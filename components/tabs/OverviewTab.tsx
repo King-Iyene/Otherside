@@ -17,6 +17,7 @@ import BulletChart from "../BulletChart";
 import Sparkline from "../Sparkline";
 import DrillDownModal from "../DrillDownModal";
 import DataTable, { type Column } from "../DataTable";
+import { formatDateShort } from "../MoneyCell";
 import GhlName from "../GhlLink";
 
 interface Props {
@@ -531,7 +532,7 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
   { key: "name", label: "Name", render: (r) => <GhlName name={r.name} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.name },
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
-  { key: "appointmentTime", label: "Appointment Time", render: (r) => r.appointmentTime || "—", sortValue: (r) => r.appointmentTime },
+  { key: "appointmentTime", label: "Appointment Time", render: (r) => formatDateShort(r.appointmentTime), sortValue: (r) => r.appointmentTime },
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
@@ -542,7 +543,7 @@ const CASH_COLUMNS: Column<CashRow>[] = [
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
-  { key: "enrollmentDate", label: "Date", render: (r) => r.enrollmentDate?.slice(0, 10) || "—", sortValue: (r) => r.enrollmentDate },
+  { key: "enrollmentDate", label: "Date", render: (r) => formatDateShort(r.enrollmentDate), sortValue: (r) => r.enrollmentDate },
   { key: "revenue", label: "Revenue", render: (r) => formatMoney(r.revenue), sortValue: (r) => r.revenue },
   { key: "cashCollected", label: "Cash", render: (r) => formatMoney(r.cashCollected), sortValue: (r) => r.cashCollected },
   { key: "transactionType", label: "Type", render: (r) => r.transactionType || "Payment", sortValue: (r) => r.transactionType },
@@ -555,14 +556,14 @@ const APP_COLUMNS: Column<ApplicationRow>[] = [
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
   { key: "applicationStatus", label: "Status", render: (r) => r.applicationStatus || "—", sortValue: (r) => r.applicationStatus },
-  { key: "dateCreated", label: "Date", render: (r) => r.dateCreated?.slice(0, 10) || "—", sortValue: (r) => r.dateCreated },
+  { key: "dateCreated", label: "Date", render: (r) => formatDateShort(r.dateCreated), sortValue: (r) => r.dateCreated },
   { key: "purchased", label: "Purchased", render: (r) => r.purchased ? "Yes" : "No", sortValue: (r) => (r.purchased ? 1 : 0) },
   { key: "annualEarnings", label: "Earnings", render: (r) => r.annualEarnings || "—", sortValue: (r) => r.annualEarnings },
 ];
 
 const SALES_COLUMNS: Column<SalesActivityRow>[] = [
   { key: "entry", label: "Entry", render: (r) => r.entry, sortValue: (r) => r.entry },
-  { key: "date", label: "Date", render: (r) => r.date?.slice(0, 10) || "—", sortValue: (r) => r.date },
+  { key: "date", label: "Date", render: (r) => formatDateShort(r.date), sortValue: (r) => r.date },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
   { key: "launch", label: "Launch", render: (r) => r.launch || "—", sortValue: (r) => r.launch },
   { key: "newCalls", label: "Calls", render: (r) => formatNumber(r.newCalls), sortValue: (r) => r.newCalls },
