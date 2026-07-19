@@ -60,6 +60,23 @@ export function resolveRange(
   }
 }
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function formatBucketLabel(bucket: string, grain: BucketGrain): string {
+  if (grain === "month") {
+    const [y, m] = bucket.split("-");
+    return `${MONTH_ABBR[parseInt(m, 10) - 1]} ${y}`;
+  }
+  if (grain === "week") {
+    const d = parseDateOnly(bucket);
+    if (!d) return bucket;
+    return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  }
+  const d = parseDateOnly(bucket);
+  if (!d) return bucket;
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
 export function inRange(dateStr: string | null, from: Date | null, to: Date | null): boolean {
   if (!from && !to) return true;
   if (!dateStr) return false;

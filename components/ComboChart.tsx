@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { bucketKey, parseDateOnly, type BucketGrain } from "@/lib/dates";
+import { bucketKey, parseDateOnly, formatBucketLabel, type BucketGrain } from "@/lib/dates";
 
 export interface ComboPoint {
   date: string | null;
@@ -65,7 +65,7 @@ export default function ComboChart({ title, points }: { title: string; points: C
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={data}>
             <CartesianGrid stroke="#253242" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="bucket" tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} />
+            <XAxis dataKey="bucket" tickFormatter={(v) => formatBucketLabel(v, grain)} tick={{ fill: "#8b98a8", fontSize: 11 }} axisLine={{ stroke: "#253242" }} tickLine={false} />
             <YAxis
               yAxisId="count"
               tick={{ fill: "#8b98a8", fontSize: 11 }}
@@ -93,6 +93,7 @@ export default function ComboChart({ title, points }: { title: string; points: C
                 boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)",
               }}
               labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+              labelFormatter={(v) => formatBucketLabel(String(v), grain)}
               itemStyle={{ color: "var(--text)" }}
               formatter={(v: number, name: string) => (name === "Close Rate" ? `${(v * 100).toFixed(1)}%` : v)}
             />

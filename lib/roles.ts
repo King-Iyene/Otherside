@@ -41,7 +41,7 @@ export const ROLES: RoleDef[] = [
   {
     key: "closer",
     label: "Closer",
-    blurb: "Your funnel and close rate. (Commissions unlock with sign-in later.)",
+    blurb: "Your funnel and close rate.",
     tabs: ["overview", "sales", "appointments", "guide"],
   },
   {

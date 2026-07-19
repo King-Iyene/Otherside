@@ -10,7 +10,6 @@ import { DEFAULT_ROLE, roleDef, tabsForRole, type Role } from "@/lib/roles";
 import HealthPanel, { type HealthEntry } from "@/components/HealthPanel";
 import { detectColumnHealth } from "@/lib/schemaHealth";
 import NotionDiagnosticsPanel from "@/components/NotionDiagnosticsPanel";
-import MultiSelect from "@/components/MultiSelect";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import CohortFunnels from "@/components/tabs/CohortFunnels";
 import InsightsTab from "@/components/tabs/InsightsTab";
@@ -40,7 +39,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [role, setRole] = useState<Role>(DEFAULT_ROLE);
   const [viewerName, setViewerName] = useState<string>("");
-  const [globalCloser, setGlobalCloser] = useState<string[]>([]);
   const [includeChallengeDupes, setIncludeChallengeDupes] = useState(false);
   const [includeAppDupes, setIncludeAppDupes] = useState(false);
 
@@ -88,31 +86,6 @@ export default function Home() {
   useEffect(() => {
     load(false);
   }, [load]);
-
-  // All unique closer names across data sources for the global filter.
-  const allClosers = useMemo(() => {
-    if (!data) return [];
-    const set = new Set<string>();
-    for (const r of data.cash.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
-    for (const r of data.appointments.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
-    for (const r of data.salesActivity.rows) if (r.enrManager?.trim()) set.add(r.enrManager);
-    return [...set].sort();
-  }, [data]);
-
-  // Auto-select the closer's own name when they log in as a closer role.
-  useEffect(() => {
-    if (isCloser && viewerName && allClosers.length > 0 && globalCloser.length === 0) {
-      const match = allClosers.find((c) => c.toLowerCase().startsWith(viewerName.toLowerCase()) || viewerName.toLowerCase().startsWith(c.toLowerCase()));
-      if (match) setGlobalCloser([match]);
-    }
-  }, [isCloser, viewerName, allClosers]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Pre-filter rows by global closer selection (applications have no enrManager).
-  const closerMatch = <T extends { enrManager?: string | null }>(r: T) =>
-    globalCloser.length === 0 || globalCloser.includes(r.enrManager ?? "");
-  const filteredCash = useMemo(() => (data ? data.cash.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
-  const filteredAppts = useMemo(() => (data ? data.appointments.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
-  const filteredSales = useMemo(() => (data ? data.salesActivity.rows.filter(closerMatch) : []), [data, globalCloser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const healthEntries: HealthEntry[] = useMemo(() => {
     if (!data) return [];
@@ -179,11 +152,6 @@ export default function Home() {
             {roleDef(role).label}
           </span>
           <span style={{ fontSize: 11.5, color: "var(--text-dim)" }}>{roleDef(role).blurb}</span>
-          {allClosers.length > 0 && (
-            <div style={{ marginLeft: 8 }}>
-              <MultiSelect label="Closer" options={allClosers} value={globalCloser} onChange={setGlobalCloser} />
-            </div>
-          )}
           <a
             href="/api/logout"
             style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)", textDecoration: "none" }}
@@ -210,10 +178,10 @@ export default function Home() {
           <>
             {activeTab === "overview" && (
               <OverviewTab
-                cash={filteredCash}
-                appointments={filteredAppts}
+                cash={data.cash.rows}
+                appointments={data.appointments.rows}
                 applications={data.applications.rows}
-                salesActivity={filteredSales}
+                salesActivity={data.salesActivity.rows}
                 challenge={data.challenge.rows}
                 hideOpsUI={isCloser}
               />
@@ -221,28 +189,28 @@ export default function Home() {
             {activeTab === "insights" && (
               <>
                 <InsightsTab
-                  cash={filteredCash}
+                  cash={data.cash.rows}
                   applications={data.applications.rows}
-                  appointments={filteredAppts}
-                  salesActivity={filteredSales}
+                  appointments={data.appointments.rows}
+                  salesActivity={data.salesActivity.rows}
                   challenge={data.challenge.rows}
                 />
                 <CohortFunnels
-                  cash={filteredCash}
-                  appointments={filteredAppts}
+                  cash={data.cash.rows}
+                  appointments={data.appointments.rows}
                   applications={data.applications.rows}
                   challenge={data.challenge.rows}
                 />
               </>
             )}
-            {activeTab === "cash" && <CashTab rows={filteredCash} hideOpsUI={isCloser} />}
+            {activeTab === "cash" && <CashTab rows={data.cash.rows} hideOpsUI={isCloser} />}
             {activeTab === "adjustments" && (
-              <AdjustmentsTab rows={filteredCash} masterCrm={data.masterCrm.rows} hideOpsUI={isCloser} />
+              <AdjustmentsTab rows={data.cash.rows} masterCrm={data.masterCrm.rows} hideOpsUI={isCloser} />
             )}
-            {activeTab === "payments" && <PaymentsTab rows={filteredCash} />}
-            {activeTab === "appointments" && <AppointmentsTab rows={filteredAppts} hideOpsUI={isCloser} />}
+            {activeTab === "payments" && <PaymentsTab rows={data.cash.rows} />}
+            {activeTab === "appointments" && <AppointmentsTab rows={data.appointments.rows} hideOpsUI={isCloser} />}
             {activeTab === "applications" && <ApplicationsTab rows={data.applications.rows} hideOpsUI={isCloser} />}
-            {activeTab === "sales" && <SalesActivityTab rows={filteredSales} hideOpsUI={isCloser} />}
+            {activeTab === "sales" && <SalesActivityTab rows={data.salesActivity.rows} hideOpsUI={isCloser} />}
             {activeTab === "challenge" && (
               <ChallengeTab
                 rows={data.challenge.rows}
