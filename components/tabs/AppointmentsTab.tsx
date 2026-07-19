@@ -14,7 +14,7 @@ import DonutChart from "../DonutChart";
 import FunnelBars from "../FunnelBars";
 import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
-import { DateCell } from "../MoneyCell";
+import { DateCell, DateTimeCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
@@ -83,7 +83,7 @@ export default function AppointmentsTab({ rows }: { rows: AppointmentRow[] }) {
     {
       key: "appointmentTime",
       label: "Appointment Time",
-      render: (r) => <DateCell value={r.appointmentTime} field="Appointment Time" health={r.health} />,
+      render: (r) => <DateTimeCell value={r.appointmentTime} field="Appointment Time" health={r.health} />,
       sortValue: (r) => r.appointmentTime,
     },
     { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
