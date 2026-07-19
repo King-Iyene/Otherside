@@ -157,6 +157,59 @@ export default function SalesActivityTab({ rows, hideOpsUI }: { rows: SalesActiv
         hideOpsUI={hideOpsUI}
       />
 
+      {/* ── Daily Sale Entry Form Link ── */}
+      <a
+        href="https://app.notion.com/p/8782257899f64fa0b0f0632eb089c4f6?pvs=106"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          background: "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(97,170,242,0.10))",
+          border: "1px solid rgba(16,185,129,0.25)",
+          borderRadius: 12,
+          padding: "12px 18px",
+          marginBottom: 16,
+          textDecoration: "none",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,0.5)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px -6px rgba(16,185,129,0.25)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,0.25)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "none";
+        }}
+      >
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: "rgba(16,185,129,0.15)",
+            fontSize: 18,
+            flexShrink: 0,
+          }}
+        >
+          +
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.3 }}>
+            Log Daily Sales Entry
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4, marginTop: 1 }}>
+            Open the Notion form to record today&apos;s calls, shows, offers &amp; sales
+          </div>
+        </div>
+        <span style={{ color: "var(--accent)", fontSize: 18, fontWeight: 300, flexShrink: 0 }}>&#8599;</span>
+      </a>
+
       <KpiGrid
         items={[
           {

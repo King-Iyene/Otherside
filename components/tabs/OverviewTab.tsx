@@ -425,6 +425,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
         />
         <BreakdownChart
           title="Appointments by Status"
+          subtitle={<>Live from GHL via Make &mdash; pipeline stage changes trigger Make workflows that update leads in Notion</>}
           items={statuses.map((s) => ({ key: s, value: stats.apptRows.filter((r) => r.status === s).length }))}
           onSelect={(s) =>
             setApptDrill({ title: `Appointments — ${s}`, rows: stats.apptRows.filter((r) => r.status === s) })

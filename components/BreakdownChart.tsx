@@ -10,6 +10,7 @@ export interface BreakdownItem {
 
 interface Props {
   title: string;
+  subtitle?: React.ReactNode;
   items: BreakdownItem[];
   color?: string;
   valueFormatter?: (v: number) => string;
@@ -20,7 +21,7 @@ interface Props {
 
 const PALETTE = ["#FF9C26", "#10b981", "#FF4400", "#61aaf2", "#a48bf2", "#f07070"];
 
-export default function BreakdownChart({ title, items, valueFormatter, maxBars = 10, onSelect }: Props) {
+export default function BreakdownChart({ title, subtitle, items, valueFormatter, maxBars = 10, onSelect }: Props) {
   const data = useMemo(() => {
     return items
       .map((i) => ({ name: i.key || "(none)", value: i.value }))
@@ -31,7 +32,10 @@ export default function BreakdownChart({ title, items, valueFormatter, maxBars =
   return (
     <div className="panel">
       <div className="panel-header">
-        <div className="panel-title">{title}</div>
+        <div>
+          <div className="panel-title">{title}</div>
+          {subtitle && <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 2 }}>{subtitle}</div>}
+        </div>
         {onSelect && <span style={{ color: "var(--muted)", fontSize: 11 }}>Click a bar to see the leads</span>}
       </div>
       {data.length === 0 ? (

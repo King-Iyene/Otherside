@@ -53,6 +53,10 @@ const SECTIONS: Section[] = [
       <>
         <P>
           This dashboard reads live from your four Notion databases and one Google Sheet, plus Stripe for the money check.
+          Appointment data flows in live from <B>GoHighLevel (GHL)</B> via <B>Make</B> automation workflows &mdash; when a
+          pipeline stage changes in GHL, Make triggers and updates the lead in Notion automatically.
+        </P>
+        <P>
           Nothing here is typed in by hand — every number is pulled straight from those sources each time you refresh.
         </P>
         <P>
@@ -152,6 +156,30 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "pipeline",
+    icon: "🔗",
+    title: "How data flows in — GHL → Make → Notion",
+    body: (
+      <>
+        <P>
+          Appointment statuses (the <B>"Appointments by Status"</B> chart on Overview) are <B>live from GoHighLevel (GHL)</B>.
+          Here’s the flow:
+        </P>
+        <List>
+          <li>A lead moves to a new pipeline stage in <B>GHL</B> (e.g. "Confirmed," "Showed," "No Show").</li>
+          <li>That stage change triggers a <B>Make (formerly Integromat) workflow</B>.</li>
+          <li>Make updates (or creates) the corresponding lead record in the <B>Notion Appointments Tracker</B>.</li>
+          <li>The dashboard reads from Notion on every refresh — so the chart reflects the latest pipeline state.</li>
+        </List>
+        <P>
+          This means <B>you never need to manually update appointment statuses</B>. As long as the closer moves the deal to the
+          correct GHL stage, everything flows through automatically. If a status looks wrong on the dashboard, check the GHL
+          pipeline first — the Notion record mirrors it.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "detailtabs",
     icon: "🗂️",
     title: "The detail tabs — Cash, Appointments, Applications, Sales Activity",
@@ -165,13 +193,18 @@ const SECTIONS: Section[] = [
           </li>
           <li>
             <B>Appointments</B> — booked calls and what happened on them. <B>Show Rate</B> = of the calls that were booked, how
-            many actually showed up.
+            many actually showed up. Statuses update automatically from GHL via Make.
           </li>
           <li>
             <B>Applications</B> — people who applied. <B>App → Purchase</B> = of those who applied, how many went on to buy.
           </li>
           <li>
             <B>Sales Activity</B> — the closers’ daily numbers: calls, offers, sales, cash on call, and a per-closer funnel.
+            At the top of this tab you’ll find the <B>"Log Daily Sales Entry"</B> button &mdash; it opens the{" "}
+            <a href="https://app.notion.com/p/8782257899f64fa0b0f0632eb089c4f6?pvs=106" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+              Notion entry form
+            </a>{" "}
+            where closers record their daily numbers (new calls, shows, offers, sales, cash collected).
           </li>
         </List>
         <P>
@@ -260,6 +293,48 @@ const SECTIONS: Section[] = [
           dashboard figures out which column holds the money, the date, the source, etc. by looking at the actual values. If it
           ever says “not found” or points at the wrong column, that line makes it obvious — tell me the real column name and I’ll
           lock it in.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "salesactivity",
+    icon: "📝",
+    title: "Sales Activity tab — daily entries & how to log them",
+    body: (
+      <>
+        <P>
+          The <B>Sales Activity</B> tab tracks every closer's daily performance: new calls booked, who showed up, offers made,
+          deals closed, cash collected on call, and total sales revenue.
+        </P>
+        <P>
+          <B>How to log a daily entry:</B>
+        </P>
+        <List>
+          <li>
+            Open the <B>"Log Daily Sales Entry"</B> link at the top of the Sales Activity tab (or go directly to the{" "}
+            <a href="https://app.notion.com/p/8782257899f64fa0b0f0632eb089c4f6?pvs=106" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+              Notion form
+            </a>
+            ).
+          </li>
+          <li>Fill in your name, today's date, and the numbers for each field — new calls, showed, offers made, sales made, cash collected, and revenue.</li>
+          <li>Submit. The dashboard picks up your entry on the next refresh.</li>
+        </List>
+        <P>
+          <B>What the tab shows:</B>
+        </P>
+        <List>
+          <li><B>KPI cards</B> at the top — team totals for the selected date range, with comparison deltas.</li>
+          <li><B>Sales Funnel</B> — Calls → Showed → Offers → Sales, clickable to drill into each stage.</li>
+          <li><B>Cash Collected over time</B> — trend line of daily cash collected on calls.</li>
+          <li><B>Offers vs Sales</B> — combo chart showing how many offers convert to closed deals.</li>
+          <li><B>Per-closer bar charts</B> — calls, shows, offers, sales, cash, and revenue broken down by closer.</li>
+          <li><B>Per-Closer Funnel table</B> — a leaderboard sorted by cash collected with show %, offer %, and close % for each closer.</li>
+        </List>
+        <P>
+          The <B>Closer</B> and <B>Launch</B> filters let you slice by team member or campaign. Click any closer's name to visit
+          their personal scorecard page.
         </P>
       </>
     ),
@@ -364,7 +439,7 @@ const SECTIONS: Section[] = [
 ];
 
 export default function GuideTab() {
-  const [open, setOpen] = useState<Record<string, boolean>>(() => ({ start: true, dates: true }));
+  const [open, setOpen] = useState<Record<string, boolean>>(() => ({ start: true, pipeline: true, dates: true }));
   const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
 
   return (
