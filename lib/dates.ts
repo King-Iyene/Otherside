@@ -70,7 +70,7 @@ export function formatBucketLabel(bucket: string, grain: BucketGrain): string {
   if (grain === "week") {
     const d = parseDateOnly(bucket);
     if (!d) return bucket;
-    return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+    return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
   }
   const d = parseDateOnly(bucket);
   if (!d) return bucket;
