@@ -16,7 +16,7 @@ import CloserBars from "../CloserBars";
 import DataTable, { type Column } from "../DataTable";
 import { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
-import GhlLink from "../GhlLink";
+import GhlName from "../GhlLink";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
 
@@ -78,7 +78,7 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
   const prevShowRate = prevKpis && prevKpis.total ? prevKpis.showed / prevKpis.total : null;
 
   const columns: Column<AppointmentRow>[] = [
-    { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+    { key: "name", label: "Name", render: (r) => <GhlName name={r.name} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.name },
     { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
     { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
     {
@@ -93,7 +93,6 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
     { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
     { key: "calendar", label: "Calendar", render: (r) => r.calendar || "—" },
     { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
-    { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
   ];
 
   return (

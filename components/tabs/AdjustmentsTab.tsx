@@ -10,7 +10,7 @@ import KpiGrid from "../Kpi";
 import DataTable, { type Column } from "../DataTable";
 import MoneyCell, { DateCell } from "../MoneyCell";
 import DrillDownModal from "../DrillDownModal";
-import GhlLink from "../GhlLink";
+import GhlName from "../GhlLink";
 
 const TX_COLORS: Record<string, string> = {
   Refund: "#f07070",
@@ -192,7 +192,7 @@ export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: C
   // Master CRM has one row per person (lifecycle tracker), not per transaction,
   // so its drilldown shows totals + the reason note instead of per-payment fields.
   const crmColumns: Column<MasterCrmRow>[] = [
-    { key: "name", label: "Name", render: (r) => r.name || "—", sortValue: (r) => r.name },
+    { key: "name", label: "Name", render: (r) => <GhlName name={r.name || "—"} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.name },
     { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
     {
       key: "adjustmentType",
@@ -227,7 +227,6 @@ export default function AdjustmentsTab({ rows, masterCrm, hideOpsUI }: { rows: C
       sortValue: (r) => r.paymentCount ?? 0,
     },
     { key: "note", label: "Reason / Note", render: (r) => r.note || "—" },
-    { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
   ];
 
   const openDrilldown = (title: string, subtitle: string | undefined, subset: CashRow[]) =>

@@ -17,7 +17,7 @@ import BulletChart from "../BulletChart";
 import Sparkline from "../Sparkline";
 import DrillDownModal from "../DrillDownModal";
 import DataTable, { type Column } from "../DataTable";
-import GhlLink from "../GhlLink";
+import GhlName from "../GhlLink";
 
 interface Props {
   cash: CashRow[];
@@ -528,14 +528,13 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
 }
 
 const APPT_COLUMNS: Column<AppointmentRow>[] = [
-  { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+  { key: "name", label: "Name", render: (r) => <GhlName name={r.name} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.name },
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
   { key: "appointmentTime", label: "Appointment Time", render: (r) => r.appointmentTime || "—", sortValue: (r) => r.appointmentTime },
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
-  { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
 ];
 
 const CASH_COLUMNS: Column<CashRow>[] = [
@@ -551,7 +550,7 @@ const CASH_COLUMNS: Column<CashRow>[] = [
 ];
 
 const APP_COLUMNS: Column<ApplicationRow>[] = [
-  { key: "firstName", label: "First Name", render: (r) => r.firstName, sortValue: (r) => r.firstName },
+  { key: "firstName", label: "First Name", render: (r) => <GhlName name={r.firstName} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.firstName },
   { key: "lastName", label: "Last Name", render: (r) => r.lastName || "—", sortValue: (r) => r.lastName },
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
@@ -559,7 +558,6 @@ const APP_COLUMNS: Column<ApplicationRow>[] = [
   { key: "dateCreated", label: "Date", render: (r) => r.dateCreated?.slice(0, 10) || "—", sortValue: (r) => r.dateCreated },
   { key: "purchased", label: "Purchased", render: (r) => r.purchased ? "Yes" : "No", sortValue: (r) => (r.purchased ? 1 : 0) },
   { key: "annualEarnings", label: "Earnings", render: (r) => r.annualEarnings || "—", sortValue: (r) => r.annualEarnings },
-  { key: "ghlUrl", label: "GHL", render: (r) => <GhlLink url={r.ghlUrl} /> },
 ];
 
 const SALES_COLUMNS: Column<SalesActivityRow>[] = [
