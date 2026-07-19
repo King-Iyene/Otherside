@@ -371,12 +371,12 @@ export default function SalesActivityTab({ rows, hideOpsUI }: { rows: SalesActiv
                 <th>#</th>
                 <th>Closer</th>
                 <th>Booked</th>
-                <th>Showed</th>
                 <th style={{ color: "var(--muted)" }}>Show %</th>
-                <th>Offers</th>
+                <th>Showed</th>
                 <th style={{ color: "var(--muted)" }}>Offer %</th>
-                <th>Sales</th>
+                <th>Offers</th>
                 <th style={{ color: "var(--muted)" }}>Close %</th>
+                <th>Sales</th>
                 <th>Cash Collected</th>
                 <th>Sales Revenue</th>
               </tr>
@@ -405,12 +405,12 @@ export default function SalesActivityTab({ rows, hideOpsUI }: { rows: SalesActiv
                     )}
                   </td>
                   <td className="mono">{formatNumber(row.newCalls)}</td>
-                  <td className="mono">{formatNumber(row.showed)}</td>
                   <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.showPct)}</td>
-                  <td className="mono">{formatNumber(row.offersMade)}</td>
+                  <td className="mono">{formatNumber(row.showed)}</td>
                   <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.offerPct)}</td>
-                  <td className="mono">{formatNumber(row.salesMade)}</td>
+                  <td className="mono">{formatNumber(row.offersMade)}</td>
                   <td className="mono" style={{ color: "var(--muted)" }}>{formatPercent(row.rates.closePctShows)}</td>
+                  <td className="mono">{formatNumber(row.salesMade)}</td>
                   <td className="mono">{formatMoney(row.cashCollected)}</td>
                   <td className="mono">{formatMoney(row.salesRevenue)}</td>
                 </tr>
