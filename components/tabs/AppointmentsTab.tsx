@@ -83,7 +83,7 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
     { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
     {
       key: "appointmentTime",
-      label: "Appointment Time",
+      label: "Appointment Date",
       render: (r) => <DateTimeCell value={r.appointmentTime} field="Appointment Time" health={r.health} />,
       sortValue: (r) => r.appointmentTime,
     },

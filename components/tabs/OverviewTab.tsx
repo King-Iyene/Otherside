@@ -532,7 +532,7 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
   { key: "name", label: "Name", render: (r) => <GhlName name={r.name} ghlUrl={r.ghlUrl} />, sortValue: (r) => r.name },
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
   { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
-  { key: "appointmentTime", label: "Appointment Time", render: (r) => formatDateShort(r.appointmentTime), sortValue: (r) => r.appointmentTime },
+  { key: "appointmentTime", label: "Appointment Date", render: (r) => formatDateShort(r.appointmentTime), sortValue: (r) => r.appointmentTime },
   { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
   { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
