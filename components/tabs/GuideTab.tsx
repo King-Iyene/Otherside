@@ -15,8 +15,8 @@ interface Section {
   body: React.ReactNode;
 }
 
-function P({ children }: { children: React.ReactNode }) {
-  return <p style={{ margin: "0 0 10px", lineHeight: 1.65, color: "var(--text-dim)", fontSize: 13.5 }}>{children}</p>;
+function P({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <p style={{ margin: "0 0 10px", lineHeight: 1.65, color: "var(--text-dim)", fontSize: 13.5, ...style }}>{children}</p>;
 }
 function B({ children }: { children: React.ReactNode }) {
   return <strong style={{ color: "var(--text)", fontWeight: 600 }}>{children}</strong>;
