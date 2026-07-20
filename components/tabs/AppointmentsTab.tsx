@@ -67,12 +67,17 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
   const cancelledCount = filtered.filter((r) => r.status === "Cancelled").length;
   const showRate = filtered.length ? showedCount / filtered.length : null;
 
+  const newCount = filtered.filter((r) => r.appointmentType === "New").length;
+  const rebookedCount = filtered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled").length;
+
   const prevKpis = prevFiltered
     ? {
         total: prevFiltered.length,
         showed: prevFiltered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length,
         noShow: prevFiltered.filter((r) => r.status === "No show").length,
         cancelled: prevFiltered.filter((r) => r.status === "Cancelled").length,
+        newCalls: prevFiltered.filter((r) => r.appointmentType === "New").length,
+        rebooked: prevFiltered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled").length,
       }
     : null;
   const prevShowRate = prevKpis && prevKpis.total ? prevKpis.showed / prevKpis.total : null;
@@ -126,6 +131,20 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
             delta: prevKpis && computeDelta(filtered.length, prevKpis.total),
             source: { source: "Appointments Tracker (Notion)", field: "COUNT", formula: "Rows where Appointment Time in period" },
             onClick: () => setDrilldown({ title: "All Appointments", rows: filtered }),
+          },
+          {
+            label: "New Calls",
+            value: formatNumber(newCount),
+            delta: prevKpis && computeDelta(newCount, prevKpis.newCalls),
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Type = New" },
+            onClick: () => setDrilldown({ title: "New Appointments", rows: filtered.filter((r) => r.appointmentType === "New") }),
+          },
+          {
+            label: "Rebooked",
+            value: formatNumber(rebookedCount),
+            delta: prevKpis && computeDelta(rebookedCount, prevKpis.rebooked),
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Type = Rebooked / Rescheduled" },
+            onClick: () => setDrilldown({ title: "Rebooked Appointments", rows: filtered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled") }),
           },
           {
             label: "Showed",
