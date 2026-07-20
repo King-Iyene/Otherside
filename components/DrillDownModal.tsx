@@ -52,7 +52,7 @@ export default function DrillDownModal({ open, onClose, title, subtitle, childre
           WebkitBackdropFilter: "var(--glass-blur)",
           border: "1px solid var(--chrome-hi)",
           borderRadius: 12,
-          maxWidth: "min(1100px, 100%)",
+          maxWidth: "min(1400px, 100%)",
           width: "100%",
           maxHeight: "90vh",
           display: "flex",

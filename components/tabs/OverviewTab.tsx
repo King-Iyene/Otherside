@@ -541,12 +541,16 @@ const APPT_COLUMNS: Column<AppointmentRow>[] = [
 const CASH_COLUMNS: Column<CashRow>[] = [
   { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
   { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
-  { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
-  { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+  { key: "transactionType", label: "Type", render: (r) => {
+    const t = r.transactionType || "Payment";
+    const color = t === "Refund" ? "var(--red)" : t === "Dropout" ? "var(--accent)" : t === "Deposit" ? "var(--blue)" : "var(--green)";
+    return <span style={{ color, fontWeight: 500 }}>{t}</span>;
+  }, sortValue: (r) => r.transactionType },
+  { key: "cashCollected", label: "Cash", render: (r) => <span className="mono">{formatMoney(r.cashCollected)}</span>, sortValue: (r) => r.cashCollected },
+  { key: "revenue", label: "Revenue", render: (r) => <span className="mono">{formatMoney(r.revenue)}</span>, sortValue: (r) => r.revenue },
   { key: "enrollmentDate", label: "Date", render: (r) => formatDateShort(r.enrollmentDate), sortValue: (r) => r.enrollmentDate },
-  { key: "revenue", label: "Revenue", render: (r) => formatMoney(r.revenue), sortValue: (r) => r.revenue },
-  { key: "cashCollected", label: "Cash", render: (r) => formatMoney(r.cashCollected), sortValue: (r) => r.cashCollected },
-  { key: "transactionType", label: "Type", render: (r) => r.transactionType || "Payment", sortValue: (r) => r.transactionType },
+  { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+  { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
   { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
 ];
 
