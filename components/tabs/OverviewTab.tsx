@@ -86,7 +86,7 @@ function computeStats(
     cashCollected: sum(positiveCashRows.map((r) => r.cashCollected)) - sum(refundCashRows.map((r) => r.cashCollected)),
     revenue: sum(positiveCashRows.map((r) => r.revenue)) - sum(refundCashRows.map((r) => r.revenue)),
     refundCount: refundCashRows.length,
-    enrollments: uniqueEnrollments(positiveCashRows),
+    enrollments: uniqueEnrollments(positiveCashRows.filter((r) => r.transactionType !== "Dropout")),
     appointments: apptRows.length,
     showedCount,
     showRate: apptRows.length ? showedCount / apptRows.length : null,
@@ -97,7 +97,7 @@ function computeStats(
     salesMade,
     cashOnCall,
     closeRateOnShows: showedCount > 0 ? salesMade / showedCount : null,
-    cashValuePerBooking: apptRows.length > 0 ? sum(positiveCashRows.map((r) => r.cashCollected)) / apptRows.length : null,
+    cashValuePerBooking: apptRows.length > 0 ? (sum(positiveCashRows.map((r) => r.cashCollected)) - sum(refundCashRows.map((r) => r.cashCollected))) / apptRows.length : null,
   };
 }
 
@@ -278,7 +278,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="var(--green)"
           delta={prevStats && computeDelta(stats.cashCollected, prevStats.cashCollected)}
           compareLabel={compareLabel}
-          onClick={() => setCashDrill({ title: "Cash Collected", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
+          onClick={() => setCashDrill({ title: stats.refundCount > 0 ? "Net Cash Collected" : "Cash Collected", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
         />
         <HeroCard
           label={stats.refundCount > 0 ? "Net Revenue" : "Revenue Booked"}
@@ -292,7 +292,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
           color="var(--blue)"
           delta={prevStats && computeDelta(stats.revenue, prevStats.revenue)}
           compareLabel={compareLabel}
-          onClick={() => setCashDrill({ title: "Revenue Booked", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
+          onClick={() => setCashDrill({ title: stats.refundCount > 0 ? "Net Revenue" : "Revenue Booked", subtitle: `${stats.cashRows.length} rows`, rows: stats.cashRows })}
         />
         <HeroCard
           label="Enrollments"
@@ -412,7 +412,7 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
                 ? computeDelta(stats.cashValuePerBooking, prevStats.cashValuePerBooking)
                 : null,
             source: { source: "Derived", field: "Total Cash Collected ÷ Total Booked Appointments", formula: "Average cash value each booked call generates — includes no-shows" },
-            hint: stats.cashValuePerBooking !== null ? `${formatMoney(stats.grossCashCollected)} ÷ ${stats.appointments} bookings` : undefined,
+            hint: stats.cashValuePerBooking !== null ? `${formatMoney(stats.cashCollected)} ÷ ${stats.appointments} bookings` : undefined,
             hintColor: "muted",
           },
         ]}
