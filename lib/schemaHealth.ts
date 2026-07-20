@@ -70,7 +70,7 @@ export function detectColumnHealth(data: DashboardPayload): ColumnWarning[] {
 
   warnings.push(
     ...check<AppointmentRow>("Notion · Appointments Tracker", data.appointments.rows, [
-      { column: "Appointment Time", get: (r) => r.appointmentTime },
+      { column: "Appointment Date", get: (r) => r.appointmentTime },
       { column: "Appointment Status", get: (r) => r.status },
     ])
   );

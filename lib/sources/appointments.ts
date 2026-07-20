@@ -18,9 +18,9 @@ export async function fetchAppointments(token: string): Promise<SourceResult<App
 
     const name = getTitle(props, "Name");
     const email = getEmail(props, "Email");
-    const appointmentTime = getDate(props, "Appointment Time");
+    const appointmentTime = getDate(props, "Appointment Date") ?? getDate(props, "Appointment Time");
 
-    if (!appointmentTime) health.push({ field: "Appointment Time", kind: "missing_date", raw: "" });
+    if (!appointmentTime) health.push({ field: "Appointment Date", kind: "missing_date", raw: "" });
 
     const status = getStatusProp(props, "Appointment Status");
     const cohort = getSelect(props, "Cohort");
