@@ -180,6 +180,79 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "kpi-sources",
+    icon: "📐",
+    title: "How each Overview KPI is calculated — and where the data comes from",
+    body: (
+      <>
+        <P>
+          Every KPI card on the Overview tab has a small <B>ⓘ</B> icon — tap it to see the exact source and formula. Here's the
+          full breakdown:
+        </P>
+        <P><B>Hero cards (top row)</B></P>
+        <List>
+          <li>
+            <B>Cash Collected / Net Cash Collected</B> — <code>SUM(Cash Collected)</code> from <B>Reborn Cash Tracker (Notion)</B>.
+            When refunds exist, it shows "Net" = gross cash minus refunded cash.
+          </li>
+          <li>
+            <B>Revenue Booked / Net Revenue</B> — <code>SUM(Revenue)</code> from <B>Reborn Cash Tracker (Notion)</B>.
+            Same net logic as cash when refunds exist.
+          </li>
+          <li>
+            <B>Enrollments</B> — unique people (deduped by email) from <B>Reborn Cash Tracker (Notion)</B>.
+            Excludes Refund and Dropout transaction types — only counts Payment and Deposit rows.
+          </li>
+        </List>
+        <P><B>Secondary KPI cards</B></P>
+        <List>
+          <li>
+            <B>Applications</B> — row count from <B>Application Tracker (Notion)</B>. One row = one application.
+          </li>
+          <li>
+            <B>Appointments</B> — row count from <B>Appointments Tracker (Notion)</B>. Automated from GHL via Make.
+          </li>
+          <li>
+            <B>Show Rate</B> — from <B>Appointments Tracker (Notion)</B> (automated/GHL data).
+          </li>
+          <Formula>Showed ÷ Total Appointments</Formula>
+          <P style={{ marginTop: -4 }}>
+            "Showed" = appointments with status <B>Showed</B>, <B>Client Won</B>, or <B>Finisher</B>. These statuses are set
+            automatically when a closer moves the deal in GHL.
+          </P>
+          <li>
+            <B>App → Purchase</B> — from <B>Application Tracker (Notion)</B>.
+          </li>
+          <Formula>Purchased ÷ Total Applications</Formula>
+          <li>
+            <B>Close Rate (Show-ups)</B> — from <B>Sales Activity Tracker (Notion)</B> (manually logged by closers daily).
+          </li>
+          <Formula>Sales Made ÷ Showed to Call</Formula>
+          <P style={{ marginTop: -4 }}>
+            Both numbers come from the closer's daily sales entry form — this is the same formula Notion uses for{" "}
+            <B>Close % (Shows)</B> in the leaderboard. It answers: "of the people who showed up to a call, what % bought?"
+          </P>
+          <li>
+            <B>Cash Collected (on call)</B> — <code>SUM(Cash Collected on Call)</code> from <B>Sales Activity Tracker (Notion)</B>.
+            Money collected on the first payment during the call itself.
+          </li>
+          <li>
+            <B>Cash Value per Booking</B> — cross-source.
+          </li>
+          <Formula>Net Cash Collected (Cash Tracker) ÷ Total Appointments (Appointments Tracker)</Formula>
+          <P style={{ marginTop: -4 }}>
+            Average cash each booked appointment generates — includes no-shows, so it captures the true value of a booking.
+          </P>
+        </List>
+        <P>
+          <B>Key distinction:</B> Show Rate uses the <B>automated</B> GHL appointment data (did the lead's pipeline stage change
+          to "Showed"?), while Close Rate uses the <B>manually logged</B> Sales Activity data (what did the closer report on
+          their daily form?). They measure the same concept from two different angles — one automated, one self-reported.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "detailtabs",
     icon: "🗂️",
     title: "The detail tabs — Cash, Appointments, Applications, Sales Activity",
@@ -439,7 +512,7 @@ const SECTIONS: Section[] = [
 ];
 
 export default function GuideTab() {
-  const [open, setOpen] = useState<Record<string, boolean>>(() => ({ start: true, pipeline: true, dates: true }));
+  const [open, setOpen] = useState<Record<string, boolean>>(() => ({ start: true, pipeline: true, "kpi-sources": true, dates: true }));
   const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
 
   return (
