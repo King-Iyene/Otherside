@@ -19,6 +19,9 @@ import DrillDownModal from "../DrillDownModal";
 import GhlName from "../GhlLink";
 
 const SHOWED_STATUSES = new Set(["Showed", "Client Won", "Finisher"]);
+const NO_SHOW_STATUSES = new Set(["No show", "No Show", "Call No Show"]);
+const CANCELLED_STATUSES = new Set(["Cancelled", "Call Cancelled"]);
+const RESCHEDULED_TYPES = new Set(["Rebooked", "Rescheduled"]);
 
 export default function AppointmentsTab({ rows, hideOpsUI }: { rows: AppointmentRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
@@ -63,21 +66,21 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
   }, [rows, prevRange, status, type, cohort, enrManager, search, includeTest]);
 
   const showedCount = filtered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length;
-  const noShowCount = filtered.filter((r) => r.status === "No show").length;
-  const cancelledCount = filtered.filter((r) => r.status === "Cancelled").length;
+  const noShowCount = filtered.filter((r) => r.status && NO_SHOW_STATUSES.has(r.status)).length;
+  const cancelledCount = filtered.filter((r) => r.status && CANCELLED_STATUSES.has(r.status)).length;
   const showRate = filtered.length ? showedCount / filtered.length : null;
 
   const newCount = filtered.filter((r) => r.appointmentType === "New").length;
-  const rebookedCount = filtered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled").length;
+  const rescheduledCount = filtered.filter((r) => r.appointmentType && RESCHEDULED_TYPES.has(r.appointmentType)).length;
 
   const prevKpis = prevFiltered
     ? {
         total: prevFiltered.length,
         showed: prevFiltered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)).length,
-        noShow: prevFiltered.filter((r) => r.status === "No show").length,
-        cancelled: prevFiltered.filter((r) => r.status === "Cancelled").length,
+        noShow: prevFiltered.filter((r) => r.status && NO_SHOW_STATUSES.has(r.status)).length,
+        cancelled: prevFiltered.filter((r) => r.status && CANCELLED_STATUSES.has(r.status)).length,
         newCalls: prevFiltered.filter((r) => r.appointmentType === "New").length,
-        rebooked: prevFiltered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled").length,
+        rescheduled: prevFiltered.filter((r) => r.appointmentType && RESCHEDULED_TYPES.has(r.appointmentType)).length,
       }
     : null;
   const prevShowRate = prevKpis && prevKpis.total ? prevKpis.showed / prevKpis.total : null;
@@ -140,11 +143,11 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
             onClick: () => setDrilldown({ title: "New Appointments", rows: filtered.filter((r) => r.appointmentType === "New") }),
           },
           {
-            label: "Rebooked",
-            value: formatNumber(rebookedCount),
-            delta: prevKpis && computeDelta(rebookedCount, prevKpis.rebooked),
-            source: { source: "Appointments Tracker (Notion)", field: "Appointment Type = Rebooked / Rescheduled" },
-            onClick: () => setDrilldown({ title: "Rebooked Appointments", rows: filtered.filter((r) => r.appointmentType === "Rebooked" || r.appointmentType === "Rescheduled") }),
+            label: "Rescheduled",
+            value: formatNumber(rescheduledCount),
+            delta: prevKpis && computeDelta(rescheduledCount, prevKpis.rescheduled),
+            source: { source: "Appointments Tracker (Notion)", field: "Appointment Type = Rescheduled / Rebooked" },
+            onClick: () => setDrilldown({ title: "Rescheduled Appointments", rows: filtered.filter((r) => r.appointmentType && RESCHEDULED_TYPES.has(r.appointmentType)) }),
           },
           {
             label: "Showed",
@@ -170,7 +173,7 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
             delta: prevKpis && computeDelta(noShowCount, prevKpis.noShow),
             higherIsBetter: false,
             source: { source: "Appointments Tracker (Notion)", field: "Appointment Status = No show" },
-            onClick: () => setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status === "No show") }),
+            onClick: () => setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status && NO_SHOW_STATUSES.has(r.status)) }),
           },
           {
             label: "Cancelled",
@@ -178,7 +181,7 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
             delta: prevKpis && computeDelta(cancelledCount, prevKpis.cancelled),
             higherIsBetter: false,
             source: { source: "Appointments Tracker (Notion)", field: "Appointment Status = Cancelled" },
-            onClick: () => setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status === "Cancelled") }),
+            onClick: () => setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status && CANCELLED_STATUSES.has(r.status)) }),
           },
         ]}
       />
@@ -195,8 +198,8 @@ export default function AppointmentsTab({ rows, hideOpsUI }: { rows: Appointment
         onStageClick={(label) => {
           if (label === "Booked") setDrilldown({ title: "All Booked Appointments", rows: filtered });
           else if (label === "Showed") setDrilldown({ title: "Showed Appointments", rows: filtered.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) });
-          else if (label === "No Show") setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status === "No show") });
-          else if (label === "Cancelled") setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status === "Cancelled") });
+          else if (label === "No Show") setDrilldown({ title: "No-Show Appointments", rows: filtered.filter((r) => r.status && NO_SHOW_STATUSES.has(r.status)) });
+          else if (label === "Cancelled") setDrilldown({ title: "Cancelled Appointments", rows: filtered.filter((r) => r.status && CANCELLED_STATUSES.has(r.status)) });
         }}
       />
 
