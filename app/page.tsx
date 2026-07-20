@@ -142,7 +142,7 @@ export default function Home() {
         updatedAt={data?.generatedAt ?? null}
         loading={loading}
         onRefresh={() => load(true)}
-        dataQualityIssues={isCloser ? 0 : healthEntries.reduce((s, e) => s + e.flags.length, 0)}
+        dataQualityIssues={isCloser ? undefined : healthEntries.reduce((s, e) => s + e.flags.length, 0)}
         scopeNote="All-time · Cash Collected includes Challenge"
       />
       <div className="app-body">
