@@ -376,7 +376,6 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
             source: { source: "Appointments Tracker (Notion)", field: "Showed ÷ Total Appointments", formula: "Automated from GHL — status ∈ {Showed, Client Won, Finisher} ÷ all booked appointments" },
             hint: stats.showRate !== null ? `${stats.showedCount} showed / ${stats.appointments} booked · benchmark ${(bench.showPct * 100).toFixed(0)}%` : `benchmark ${(bench.showPct * 100).toFixed(0)}%`,
             hintColor: stats.showRate === null ? "muted" : stats.showRate >= bench.showPct ? "green" : stats.showRate < bench.showPct * 0.8 ? "red" : "muted",
-            onClick: () => setApptDrill({ title: "Showed Appointments", rows: stats.apptRows.filter((r) => r.status && SHOWED_STATUSES.has(r.status)) }),
           },
           {
             label: "App → Purchase",
