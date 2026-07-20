@@ -203,14 +203,16 @@ export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsU
   const columns: Column<CashRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
     { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
-    { key: "transactionType", label: "Type", render: (r) => r.transactionType || "—", sortValue: (r) => r.transactionType },
-    { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
-    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "transactionType", label: "Type", render: (r) => {
+      const t = r.transactionType || "Payment";
+      const color = t === "Refund" ? "var(--red)" : t === "Dropout" ? "var(--accent)" : t === "Deposit" ? "var(--blue)" : "var(--green)";
+      return <span style={{ color, fontWeight: 500 }}>{t}</span>;
+    }, sortValue: (r) => r.transactionType },
     {
-      key: "enrollmentDate",
-      label: "Payment Date",
-      render: (r) => <DateCell value={r.enrollmentDate} field="Payment Date" health={r.health} />,
-      sortValue: (r) => r.enrollmentDate,
+      key: "cashCollected",
+      label: "Cash",
+      render: (r) => <MoneyCell value={r.cashCollected} field="Cash Collected" health={r.health} />,
+      sortValue: (r) => r.cashCollected,
     },
     {
       key: "revenue",
@@ -219,15 +221,17 @@ export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsU
       sortValue: (r) => r.revenue,
     },
     {
-      key: "cashCollected",
-      label: "Cash Collected",
-      render: (r) => <MoneyCell value={r.cashCollected} field="Cash Collected" health={r.health} />,
-      sortValue: (r) => r.cashCollected,
+      key: "enrollmentDate",
+      label: "Date",
+      render: (r) => <DateCell value={r.enrollmentDate} field="Payment Date" health={r.health} />,
+      sortValue: (r) => r.enrollmentDate,
     },
-    { key: "paymentMethod", label: "Payment Method", render: (r) => r.paymentMethod || "—" },
+    { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "paymentMethod", label: "Method", render: (r) => r.paymentMethod || "—" },
     {
       key: "nextPaymentDate",
-      label: "Next Payment",
+      label: "Next Pay",
       render: (r) => <DateCell value={r.nextPaymentDate} field="Date of Next Payment" health={r.health} />,
       sortValue: (r) => r.nextPaymentDate,
     },

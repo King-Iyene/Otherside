@@ -723,22 +723,44 @@ select {
 /* ---------- Table ---------- */
 
 .table-wrap {
+  position: relative;
   overflow-x: auto;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,156,38,0.25) transparent;
 }
+.table-wrap::-webkit-scrollbar { height: 6px; }
+.table-wrap::-webkit-scrollbar-track { background: transparent; }
+.table-wrap::-webkit-scrollbar-thumb { background: rgba(255,156,38,0.25); border-radius: 3px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: rgba(255,156,38,0.4); }
+
+.table-scroll-hint {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 6px;
+  width: 40px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--surface) 85%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+  border-radius: 0 4px 4px 0;
+}
+.table-wrap.can-scroll-right .table-scroll-hint { opacity: 1; }
 
 table {
   border-collapse: collapse;
   width: 100%;
   font-size: var(--fs-sm);
-  min-width: 600px;
+  min-width: 500px;
   font-variant-numeric: tabular-nums;
 }
 thead th {
   text-align: left;
-  padding: 8px 12px;
+  padding: 6px 8px;
   color: var(--muted);
   font-size: var(--fs-xs);
   border-bottom: 1px solid var(--line);
@@ -751,9 +773,12 @@ thead th {
 thead th:hover { color: var(--text); }
 
 tbody td {
-  padding: 8px 12px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 0.12s ease, box-shadow 0.15s ease; }

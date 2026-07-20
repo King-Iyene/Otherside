@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, ReactNode } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, ReactNode } from "react";
 
 export interface Column<T> {
   key: string;
@@ -38,6 +38,24 @@ export default function DataTable<T>({
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    setCanScrollRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 2);
+  }, []);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    const ro = new ResizeObserver(checkScroll);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
+  }, [checkScroll, rows]);
 
   // Build a lowercased searchable string for each row. If the caller gave us
   // an accessor use that; otherwise concatenate every column's sortValue.
@@ -105,7 +123,8 @@ export default function DataTable<T>({
           autoFocus
         />
       )}
-      <div className="table-wrap">
+      <div ref={wrapRef} className={`table-wrap${canScrollRight ? " can-scroll-right" : ""}`}>
+        <div className="table-scroll-hint" />
         <table>
           <thead>
             <tr>
