@@ -73,6 +73,7 @@ function computeStats(
   const salesMade = sum(salesRows.map((r) => r.salesMade));
   const offersMade = sum(salesRows.map((r) => r.offersMade));
   const cashOnCall = sum(salesRows.map((r) => r.cashCollectedOnCall));
+  const showedToCall = sum(salesRows.map((r) => r.showed));
 
   return {
     cashRows,
@@ -96,7 +97,8 @@ function computeStats(
     offersMade,
     salesMade,
     cashOnCall,
-    closeRateOnShows: showedCount > 0 ? salesMade / showedCount : null,
+    showedToCall,
+    closeRateOnShows: showedToCall > 0 ? salesMade / showedToCall : null,
     cashValuePerBooking: apptRows.length > 0 ? (sum(positiveCashRows.map((r) => r.cashCollected)) - sum(refundCashRows.map((r) => r.cashCollected))) / apptRows.length : null,
   };
 }
@@ -393,8 +395,8 @@ export default function OverviewTab({ cash, appointments, applications, salesAct
               stats.closeRateOnShows != null && prevStats?.closeRateOnShows != null
                 ? computeDelta(stats.closeRateOnShows, prevStats.closeRateOnShows)
                 : null,
-            source: { source: "Derived", field: "Sales Made ÷ Showed", formula: "Close rate on people who actually showed up to their call" },
-            hint: stats.closeRateOnShows !== null ? `${stats.salesMade} sales from ${stats.showedCount} shows` : undefined,
+            source: { source: "Sales Activity Tracker (Notion)", field: "Sales Made ÷ Showed to Call", formula: "Close rate on people who actually showed up — both fields from closer's daily log" },
+            hint: stats.closeRateOnShows !== null ? `${stats.salesMade} sales from ${stats.showedToCall} shows` : undefined,
             hintColor: stats.closeRateOnShows !== null && stats.closeRateOnShows >= 0.3 ? "green" : "muted",
           },
           {
