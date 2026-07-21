@@ -203,7 +203,7 @@ export default function Home() {
                 />
               </>
             )}
-            {activeTab === "cash" && <CashTab rows={data.cash.rows} hideOpsUI={isCloser} />}
+            {activeTab === "cash" && <CashTab rows={data.cash.rows} masterCrmRows={data.masterCrm.rows} hideOpsUI={isCloser} />}
             {activeTab === "adjustments" && (
               <AdjustmentsTab rows={data.cash.rows} masterCrm={data.masterCrm.rows} hideOpsUI={isCloser} />
             )}

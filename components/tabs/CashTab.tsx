@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CashRow, TransactionType } from "@/lib/types";
+import type { CashRow, MasterCrmRow, TransactionType } from "@/lib/types";
 import { resolveRange, inRange, type RangePreset } from "@/lib/dates";
 import { uniqueSorted, matchesSearch, sum, selected } from "@/lib/filtering";
 import { previousPeriod, computeDelta } from "@/lib/comparison";
@@ -59,7 +59,7 @@ function aggregatePeople(rows: CashRow[]): PersonAgg[] {
   return Array.from(map.values());
 }
 
-export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsUI?: boolean }) {
+export default function CashTab({ rows, masterCrmRows = [], hideOpsUI }: { rows: CashRow[]; masterCrmRows?: MasterCrmRow[]; hideOpsUI?: boolean }) {
   const [preset, setPreset] = useState<RangePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -199,6 +199,10 @@ export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsU
   const onPlanCount = people.filter((p) => p.balance > 0).length;
   const unpaidCount = people.filter((p) => p.balance > 0 && p.cash === 0).length;
 
+  const agreementSignedCount = useMemo(() => {
+    return masterCrmRows.filter((r) => !r.isTest && r.agreementSigned).length;
+  }, [masterCrmRows]);
+
   // Drill-down columns
   const columns: Column<CashRow>[] = [
     { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
@@ -297,6 +301,12 @@ export default function CashTab({ rows, hideOpsUI }: { rows: CashRow[]; hideOpsU
             delta: prevTotals && computeDelta(enrollmentsCount, prevTotals.count),
             source: { source: "Reborn Cash Tracker (Notion)", field: "Unique buyers (deduped by email; blank rows excluded)" },
             onClick: () => openDrilldown("All Enrollments", `${enrollmentsCount} unique buyers · ${formatNumber(positiveTx.length)} rows`, positiveTx),
+          },
+          {
+            label: "Agreements Signed",
+            value: formatNumber(agreementSignedCount),
+            source: { source: "Master CRM (Notion)", field: "Agreement Signed? (checkbox)", formula: "Count of CRM records where Agreement Signed = checked" },
+            hint: enrollmentsCount ? `${enrollmentsCount ? ((agreementSignedCount / enrollmentsCount) * 100).toFixed(0) : 0}% of enrollments` : undefined,
           },
           {
             label: "Paid In Full",

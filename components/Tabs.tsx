@@ -8,7 +8,7 @@ export type { TabKey };
 const LABELS: Record<TabKey, string> = {
   overview: "Overview",
   insights: "Insights ✦",
-  cash: "Reborn Cash",
+  cash: "Revenue",
   adjustments: "Adjustments",
   payments: "Payments 🚩",
   appointments: "Appointments",
