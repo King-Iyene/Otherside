@@ -199,9 +199,21 @@ export default function CashTab({ rows, masterCrmRows = [], hideOpsUI }: { rows:
   const onPlanCount = people.filter((p) => p.balance > 0).length;
   const unpaidCount = people.filter((p) => p.balance > 0 && p.cash === 0).length;
 
-  const agreementSignedCount = useMemo(() => {
-    return masterCrmRows.filter((r) => !r.isTest && r.agreementSigned).length;
-  }, [masterCrmRows]);
+  const agreementSignedRows = useMemo(() => {
+    return masterCrmRows.filter((r) => (includeTest || !r.isTest) && r.agreementSigned);
+  }, [masterCrmRows, includeTest]);
+  const agreementSignedCount = agreementSignedRows.length;
+
+  const [crmDrilldown, setCrmDrilldown] = useState<{ title: string; subtitle?: string; rows: MasterCrmRow[] } | null>(null);
+
+  const crmColumns: Column<MasterCrmRow>[] = [
+    { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+    { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+    { key: "product", label: "Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "agreementSigned", label: "Agreement", render: (r) => r.agreementSigned ? "✓" : "—", sortValue: (r) => r.agreementSigned ? 1 : 0 },
+    { key: "enrollmentDate", label: "Enrollment", render: (r) => <DateCell value={r.enrollmentDate} field="Enrollment Date" health={r.health} />, sortValue: (r) => r.enrollmentDate },
+  ];
 
   // Drill-down columns
   const columns: Column<CashRow>[] = [
@@ -306,7 +318,8 @@ export default function CashTab({ rows, masterCrmRows = [], hideOpsUI }: { rows:
             label: "Agreements Signed",
             value: formatNumber(agreementSignedCount),
             source: { source: "Master CRM (Notion)", field: "Agreement Signed? (checkbox)", formula: "Count of CRM records where Agreement Signed = checked" },
-            hint: enrollmentsCount ? `${enrollmentsCount ? ((agreementSignedCount / enrollmentsCount) * 100).toFixed(0) : 0}% of enrollments` : undefined,
+            hint: enrollmentsCount ? `${((agreementSignedCount / enrollmentsCount) * 100).toFixed(0)}% of enrollments` : undefined,
+            onClick: () => setCrmDrilldown({ title: "Agreements Signed", subtitle: `${agreementSignedCount} leads`, rows: agreementSignedRows }),
           },
           {
             label: "Paid In Full",
@@ -532,6 +545,22 @@ export default function CashTab({ rows, masterCrmRows = [], hideOpsUI }: { rows:
           isTestRow={(r) => r.isTest}
           searchable
           searchPlaceholder="Search name, email, cohort, closer, coupon…"
+        />
+      </DrillDownModal>
+
+      <DrillDownModal
+        open={!!crmDrilldown}
+        onClose={() => setCrmDrilldown(null)}
+        title={crmDrilldown?.title || ""}
+        subtitle={crmDrilldown ? crmDrilldown.subtitle || `${crmDrilldown.rows.length} leads` : ""}
+      >
+        <DataTable
+          columns={crmColumns}
+          rows={crmDrilldown?.rows || []}
+          rowKey={(r) => r.id}
+          isTestRow={(r) => r.isTest}
+          searchable
+          searchPlaceholder="Search name, email, product, cohort…"
         />
       </DrillDownModal>
     </div>
