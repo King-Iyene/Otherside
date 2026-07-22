@@ -8,6 +8,7 @@ import {
   analyzeCouponPurchase,
   analyzeDepositLifecycle,
   type DepositLead,
+  type ChallengeLead,
 } from "@/lib/crossSource";
 import { allLaunchesForData, computeSubOfferBreakdown } from "@/lib/cohortFunnel";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
@@ -152,6 +153,20 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
   const openDepDrill = (title: string, rows: DepositLead[]) =>
     setDrilldown({ title, subtitle: `${rows.length} depositors`, rows, columns: depColumns });
 
+  const challengeLeadColumns: Column<ChallengeLead>[] = [
+    { key: "email", label: "Email", render: (r) => r.email, sortValue: (r) => r.email },
+    { key: "product", label: "Challenge Product", render: (r) => r.product || "—", sortValue: (r) => r.product },
+    { key: "amount", label: "Amount", render: (r) => r.amount != null ? formatMoney(r.amount) : "—", sortValue: (r) => r.amount },
+    { key: "coupon", label: "Coupon", render: (r) => r.coupon || "—", sortValue: (r) => r.coupon },
+    { key: "type", label: "Type", render: (r) => r.isFree ? "Free / Coupon" : "Paid", sortValue: (r) => r.isFree ? 0 : 1 },
+    { key: "bought", label: "Bought Reborn", render: (r) => {
+      const color = r.boughtReborn ? "var(--green)" : "var(--muted)";
+      return <span style={{ color, fontWeight: 500 }}>{r.boughtReborn ? "Yes" : "No"}</span>;
+    }, sortValue: (r) => r.boughtReborn ? 1 : 0 },
+  ];
+  const openChallengeDrill = (title: string, rows: ChallengeLead[]) =>
+    setDrilldown({ title, subtitle: `${rows.length} leads`, rows, columns: challengeLeadColumns });
+
   // Adeyemi approval → purchase rate
   const adeyemiAppRows = applications.filter((r) => !r.isTest && r.applicationStatus?.startsWith("Adeyemi"));
   const adeyemiApproved = adeyemiAppRows.filter((r) => r.applicationStatus === "Adeyemi Approved DQ App");
@@ -208,6 +223,15 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
     { key: "rebornCashCollected", label: "Cash Collected", render: (r) => formatMoney(r.rebornCashCollected), sortValue: (r) => r.rebornCashCollected },
   ];
 
+  const showedBoughtColumns: Column<AppointmentRow>[] = [
+    { key: "name", label: "Name", render: (r) => r.name, sortValue: (r) => r.name },
+    { key: "email", label: "Email", render: (r) => r.email || "—", sortValue: (r) => r.email },
+    { key: "status", label: "Status", render: (r) => r.status || "—", sortValue: (r) => r.status },
+    { key: "cohort", label: "Cohort", render: (r) => r.cohort || "—", sortValue: (r) => r.cohort },
+    { key: "enrManager", label: "Closer", render: (r) => r.enrManager || "—", sortValue: (r) => r.enrManager },
+    { key: "appointmentTime", label: "Appointment", render: (r) => r.appointmentTime || "—", sortValue: (r) => r.appointmentTime },
+  ];
+
   const appMatchColumns: Column<any>[] = [
     { key: "email", label: "Email", render: (r) => r.email, sortValue: (r) => r.email },
     { key: "annualEarnings", label: "Earnings Bracket", render: (r) => r.annualEarnings || "—" },
@@ -247,6 +271,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           hint="People with ≥1 Deposit row"
           color="#f5a623"
           source="Cash Tracker · rows WHERE Transaction Type = Deposit, grouped by Email"
+          onClick={dep.totalDepositors ? () => openDepDrill("All Depositors", [...dep.paidInFull, ...dep.continuing, ...dep.refunded, ...dep.droppedOut, ...dep.depositOnly]) : undefined}
         />
         <InsightCard
           label="Paid in Full"
@@ -372,6 +397,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           value={formatNumber(c2r.challengeUniqueEmails)}
           source="Challenge Sheet · Email"
           color="var(--blue)"
+          onClick={() => openChallengeDrill("All Challenge Leads", c2r.allLeads)}
         />
         <InsightCard
           label="Bought Reborn"
@@ -399,6 +425,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           hint={formatPercent(c2r.freeToBought.total ? c2r.freeToBought.converted / c2r.freeToBought.total : null)}
           source="Coupon or $0 amount → Reborn"
           color="var(--purple)"
+          onClick={() => openChallengeDrill("Free / Coupon Challenge Leads", c2r.allLeads.filter((l) => l.isFree))}
         />
         <InsightCard
           label="Paid Users Who Bought"
@@ -406,6 +433,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           hint={formatPercent(c2r.paidToBought.total ? c2r.paidToBought.converted / c2r.paidToBought.total : null)}
           source="Paid Challenge → Reborn"
           color="var(--accent)"
+          onClick={() => openChallengeDrill("Paid Challenge Leads", c2r.allLeads.filter((l) => !l.isFree))}
         />
       </div>
 
@@ -526,6 +554,7 @@ export default function InsightsTab({ cash, applications, appointments, salesAct
           hint={formatPercent(showToCloseAcrossSystems)}
           source="Appointments ∩ Cash Tracker on email"
           color="var(--blue)"
+          onClick={showedBought.length ? () => setDrilldown({ title: "Showed → Bought", subtitle: `${showedBought.length} leads who showed and purchased`, rows: showedBought, columns: showedBoughtColumns }) : undefined}
         />
       </div>
 

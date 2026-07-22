@@ -119,12 +119,22 @@ export interface ChallengeMatch {
   rebornCashCollected: number | null;
 }
 
+export interface ChallengeLead {
+  email: string;
+  product: string | null;
+  coupon: string | null;
+  amount: number | null;
+  isFree: boolean;
+  boughtReborn: boolean;
+}
+
 export interface ChallengeToRebornAnalysis {
   challengeUniqueEmails: number;
   challengeBoughtReborn: number;
   conversionRate: number | null;
   revenueFromConverters: number;
   matches: ChallengeMatch[];
+  allLeads: ChallengeLead[];
   /** Split by coupon usage. */
   freeToBought: { total: number; converted: number };
   paidToBought: { total: number; converted: number };
@@ -145,6 +155,7 @@ export function analyzeChallengeToReborn(
   const cashByEmail = indexCashByEmail(cashRows);
 
   const matches: ChallengeMatch[] = [];
+  const allLeads: ChallengeLead[] = [];
   let freeTotal = 0;
   let freeBought = 0;
   let paidTotal = 0;
@@ -155,6 +166,9 @@ export function analyzeChallengeToReborn(
     const amount = amountFromChallenge(cRow);
     const coupon = couponFromChallenge(cRow);
     const isFree = (amount ?? 0) === 0 || !!coupon;
+    const bought = !!rebornRow;
+
+    allLeads.push({ email, product: productFromChallenge(cRow), coupon, amount, isFree, boughtReborn: bought });
 
     if (isFree) freeTotal += 1;
     else paidTotal += 1;
@@ -185,6 +199,7 @@ export function analyzeChallengeToReborn(
     conversionRate: totalChallenge > 0 ? bought / totalChallenge : null,
     revenueFromConverters,
     matches: matches.sort((a, b) => (b.rebornCashCollected ?? 0) - (a.rebornCashCollected ?? 0)),
+    allLeads,
     freeToBought: { total: freeTotal, converted: freeBought },
     paidToBought: { total: paidTotal, converted: paidBought },
   };
